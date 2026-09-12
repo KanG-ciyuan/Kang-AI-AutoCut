@@ -1,0 +1,100 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+.secrets/
+secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+*credentials*.json
+*service-account*.json
+*service_account*.json
+
+# Python environments and caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# JavaScript dependencies and build caches
+node_modules/
+.npm/
+.pnpm-store/
+.yarn/
+.next/
+.nuxt/
+.vite/
+dist/
+build/
+coverage/
+
+# Runtime data, generated output, and temporary work
+data/
+media/
+inputs/
+outputs/
+output/
+renders/
+previews/
+generated/
+cache/
+.cache/
+tmp/
+temp/
+logs/
+scratch/
+work/
+
+# Large video and audio assets
+*.mp4
+*.mov
+*.mkv
+*.avi
+*.webm
+*.mxf
+*.wav
+*.mp3
+*.aac
+*.flac
+*.m4a
+
+# Model weights and downloaded runtimes
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.onnx
+*.onnx.json
+models/
+.runtime/
+
+# DaVinci Resolve caches and temporary exports
+CacheClip/
+ProxyMedia/
+OptimizedMedia/
+FusionCache/
+DaVinciCache/
+*.dra/
+
+# Archives and local packages
+*.zip
+*.tar
+*.tar.gz
+*.7z
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
