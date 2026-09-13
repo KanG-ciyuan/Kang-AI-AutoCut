@@ -1,0 +1,27 @@
+{
+  "schema_version": "boundary_preflight.v1",
+  "segments": [
+    {
+      "segment_id": "SEG-01",
+      "candidate_id": "CAND-A1",
+      "source_id": "SRC-A",
+      "source_range": {
+        "start_frame": 100,
+        "end_frame_exclusive": 130
+      },
+      "verified_safe_end_frame_exclusive": 130,
+      "planned_record_frame_relative": 0
+    },
+    {
+      "segment_id": "SEG-02",
+      "candidate_id": "CAND-B1",
+      "source_id": "SRC-B",
+      "source_range": {
+        "start_frame": 500,
+        "end_frame_exclusive": 520
+      },
+      "verified_safe_end_frame_exclusive": 540,
+      "planned_record_frame_relative": 30
+    }
+  ]
+}

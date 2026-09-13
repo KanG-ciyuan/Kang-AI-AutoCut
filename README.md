@@ -40,22 +40,9 @@ The historical sources and migration boundary are recorded in `docs/provenance/h
 PYTHONDONTWRITEBYTECODE=1 python3 -m src.ai_autocut.preflight INPUT.json
 ```
 
-The input document uses `schema_version: "boundary_preflight.v1"` and carries canonical integer frames only — second-based fields such as `source_in_seconds` are rejected rather than rounded.
+The field contract, semantics, and compatibility rule live in [docs/contracts/boundary-preflight-v1.md](docs/contracts/boundary-preflight-v1.md). A minimal runnable document is [tests/fixtures/boundary_preflight_v1_valid.json](tests/fixtures/boundary_preflight_v1_valid.json), which the test suite executes.
 
-```json
-{
-  "schema_version": "boundary_preflight.v1",
-  "segments": [
-    {
-      "segment_id": "S06",
-      "candidate_id": "C16",
-      "source_id": "SRC-B",
-      "source_range": { "start_frame": 530, "end_frame_exclusive": 605 },
-      "verified_safe_end_frame_exclusive": 605
-    }
-  ]
-}
-```
+Preflight accepts canonical integer frames only — second-based fields such as `source_in_seconds` are rejected rather than rounded.
 
 The process writes a deterministic JSON report to stdout and exits with:
 

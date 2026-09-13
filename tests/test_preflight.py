@@ -25,7 +25,42 @@ from src.ai_autocut.preflight import (
 
 REPO_ROOT = Path(__file__).parents[1]
 FIXTURE = Path(__file__).parent / "fixtures" / "s06_boundary_regression.json"
+CANONICAL_FIXTURE = Path(__file__).parent / "fixtures" / "boundary_preflight_v1_valid.json"
+CONTRACT_DOC = REPO_ROOT / "docs" / "contracts" / "boundary-preflight-v1.md"
 CLI = (sys.executable, "-m", "src.ai_autocut.preflight")
+
+_SECONDS_KEYS = ("seconds",)
+_SECONDS_SUFFIXES = ("_seconds", "_sec", "_secs")
+_PATH_CHARACTERS = ("/", "\\", "~")
+
+
+def collect_json_keys(node: object) -> set[str]:
+    """Return every object key appearing anywhere in a decoded JSON document."""
+
+    keys: set[str] = set()
+    if isinstance(node, dict):
+        for key, value in node.items():
+            keys.add(key)
+            keys |= collect_json_keys(value)
+    elif isinstance(node, list):
+        for item in node:
+            keys |= collect_json_keys(item)
+    return keys
+
+
+def collect_json_strings(node: object) -> list[str]:
+    """Return every string value appearing anywhere in a decoded JSON document."""
+
+    found: list[str] = []
+    if isinstance(node, str):
+        found.append(node)
+    elif isinstance(node, dict):
+        for value in node.values():
+            found.extend(collect_json_strings(value))
+    elif isinstance(node, list):
+        for item in node:
+            found.extend(collect_json_strings(item))
+    return found
 
 
 def segment_payload(**overrides: object) -> dict[str, object]:
@@ -51,12 +86,7 @@ class PreflightCliTestCase(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         self.tmp = Path(tmp.name)
 
-    def run_cli(self, payload: object) -> subprocess.CompletedProcess[str]:
-        path = self.tmp / "input.json"
-        path.write_text(
-            payload if isinstance(payload, str) else json.dumps(payload),
-            encoding="utf-8",
-        )
+    def run_cli_file(self, path: Path) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [*CLI, str(path)],
             cwd=REPO_ROOT,
@@ -65,6 +95,14 @@ class PreflightCliTestCase(unittest.TestCase):
             check=False,
             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         )
+
+    def run_cli(self, payload: object) -> subprocess.CompletedProcess[str]:
+        path = self.tmp / "input.json"
+        path.write_text(
+            payload if isinstance(payload, str) else json.dumps(payload),
+            encoding="utf-8",
+        )
+        return self.run_cli_file(path)
 
 
 class S06FixtureTests(PreflightCliTestCase):
@@ -186,14 +224,7 @@ class MalformedInputTests(PreflightCliTestCase):
         self.assertIn("not valid JSON", result.stderr)
 
     def test_missing_input_file(self) -> None:
-        result = subprocess.run(
-            [*CLI, str(self.tmp / "absent.json")],
-            cwd=REPO_ROOT,
-            capture_output=True,
-            text=True,
-            check=False,
-            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
-        )
+        result = self.run_cli_file(self.tmp / "absent.json")
         self.assertEqual(result.returncode, EXIT_CONTRACT_ERROR)
         self.assertIn("cannot read input", result.stderr)
 
@@ -324,6 +355,146 @@ class ContractParsingTests(unittest.TestCase):
             parse_preflight_document({"segments": []})
         with self.assertRaises(PreflightContractError):
             parse_preflight_document({"segments": []})
+
+
+class CanonicalFixtureTests(PreflightCliTestCase):
+    """The versioned example must really execute, not merely parse as JSON."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.raw = CANONICAL_FIXTURE.read_text(encoding="utf-8")
+        cls.document = json.loads(cls.raw)
+
+    def test_fixture_parses_into_guard_segments(self) -> None:
+        segments = parse_preflight_document(self.document)
+        self.assertEqual(
+            [segment.segment_id for segment in segments], ["SEG-01", "SEG-02"]
+        )
+        self.assertEqual(segments[0].source_range.start_frame, 100)
+        self.assertEqual(segments[0].source_range.end_frame_exclusive, 130)
+        self.assertEqual(segments[1].planned_record_frame_relative, 30)
+
+    def test_fixture_passes_through_the_cli_with_exit_zero(self) -> None:
+        result = self.run_cli_file(CANONICAL_FIXTURE)
+        self.assertEqual(result.returncode, EXIT_OK)
+        self.assertEqual(result.stderr, "")
+        report = json.loads(result.stdout)
+        self.assertTrue(report["passed"])
+        self.assertEqual(report["issues"], [])
+        self.assertEqual(report["segments_checked"], 2)
+        self.assertEqual(report["total_frames"], 50)
+
+    def test_fixture_output_is_deterministic(self) -> None:
+        first = self.run_cli_file(CANONICAL_FIXTURE)
+        second = self.run_cli_file(CANONICAL_FIXTURE)
+        self.assertEqual(first.stdout, second.stdout)
+
+    def test_fixture_carries_no_seconds_authoritative_field(self) -> None:
+        offending = sorted(
+            key
+            for key in collect_json_keys(self.document)
+            if key in _SECONDS_KEYS or key.endswith(_SECONDS_SUFFIXES)
+        )
+        self.assertEqual(offending, [])
+        self.assertNotIn("_seconds", self.raw)
+
+    def test_fixture_is_sanitized_of_paths_and_local_identity(self) -> None:
+        for value in collect_json_strings(self.document):
+            for character in _PATH_CHARACTERS:
+                self.assertNotIn(character, value)
+        for marker in ("users", "kang", "desktop", "movies"):
+            self.assertNotIn(marker, self.raw.lower())
+
+
+class ContractDriftTests(PreflightCliTestCase):
+    """Tie the contract document and the fixture to the real implementation."""
+
+    REQUIRED_TOP_LEVEL_KEYS = ("schema_version", "segments")
+    REQUIRED_SEGMENT_KEYS = ("segment_id", "candidate_id", "source_id", "source_range")
+    DOCUMENTED_OPTIONAL_KEYS = (
+        "continuation_group",
+        "verified_safe_end_frame_exclusive",
+        "planned_record_frame_relative",
+    )
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        # Read defensively: a missing or renamed document must surface as a
+        # readable assertion failure below, not as a setUpClass traceback.
+        cls.contract_text = (
+            CONTRACT_DOC.read_text(encoding="utf-8") if CONTRACT_DOC.is_file() else ""
+        )
+
+    def test_contract_document_exists_at_the_versioned_path(self) -> None:
+        # Bumping the schema version without a new versioned document fails here.
+        major = SCHEMA_VERSION.rsplit(".", 1)[-1]
+        self.assertEqual(CONTRACT_DOC.name, f"boundary-preflight-{major}.md")
+        self.assertTrue(CONTRACT_DOC.is_file())
+
+    def test_contract_document_declares_the_implementation_version(self) -> None:
+        self.assertIn(f"`{SCHEMA_VERSION}`", self.contract_text)
+
+    def test_fixture_schema_version_matches_the_implementation(self) -> None:
+        payload = json.loads(CANONICAL_FIXTURE.read_text(encoding="utf-8"))
+        self.assertEqual(payload["schema_version"], SCHEMA_VERSION)
+
+    def test_contract_document_names_every_observed_issue_code(self) -> None:
+        result = self.run_cli(document(*DeterminismTests.MULTI_ISSUE))
+        self.assertEqual(result.returncode, EXIT_BOUNDARY_ISSUES)
+        observed = {issue["code"] for issue in json.loads(result.stdout)["issues"]}
+        self.assertEqual(len(observed), 3)
+        for code in sorted(observed):
+            self.assertIn(code, self.contract_text)
+
+    def test_every_documented_required_field_is_really_required(self) -> None:
+        for field in self.REQUIRED_TOP_LEVEL_KEYS:
+            with self.subTest(level="document", field=field):
+                payload = document(segment_payload())
+                del payload[field]
+                self.assertEqual(
+                    self.run_cli(payload).returncode, EXIT_CONTRACT_ERROR
+                )
+        for field in self.REQUIRED_SEGMENT_KEYS:
+            with self.subTest(level="segment", field=field):
+                segment = segment_payload()
+                del segment[field]
+                self.assertEqual(
+                    self.run_cli(document(segment)).returncode, EXIT_CONTRACT_ERROR
+                )
+
+    def test_every_documented_optional_field_is_really_accepted(self) -> None:
+        for field in self.DOCUMENTED_OPTIONAL_KEYS:
+            self.assertIn(f"`{field}`", self.contract_text)
+        result = self.run_cli(
+            document(
+                segment_payload(
+                    continuation_group="GRP-A",
+                    verified_safe_end_frame_exclusive=20,
+                    planned_record_frame_relative=0,
+                )
+            )
+        )
+        self.assertEqual(result.returncode, EXIT_OK)
+        self.assertTrue(json.loads(result.stdout)["passed"])
+
+    def test_documented_minimal_example_passes(self) -> None:
+        minimal = {
+            "schema_version": SCHEMA_VERSION,
+            "segments": [
+                {
+                    "segment_id": "SEG-01",
+                    "candidate_id": "CAND-A1",
+                    "source_id": "SRC-A",
+                    "source_range": {"start_frame": 100, "end_frame_exclusive": 130},
+                }
+            ],
+        }
+        result = self.run_cli(minimal)
+        self.assertEqual(result.returncode, EXIT_OK)
+        report = json.loads(result.stdout)
+        self.assertTrue(report["passed"])
+        self.assertEqual(report["segments_checked"], 1)
+        self.assertEqual(report["total_frames"], 30)
 
 
 if __name__ == "__main__":
