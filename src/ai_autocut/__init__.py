@@ -1,5 +1,12 @@
 """Small, dependency-free foundations for AI-AutoCut."""
 
+from .boundary_guard import (
+    BoundaryGuardContractError,
+    GuardIssue,
+    GuardReport,
+    GuardSegment,
+    run_boundary_guard,
+)
 from .frame_boundary import (
     BoundaryAssessment,
     CandidateSlice,
@@ -21,10 +28,14 @@ from .frame_boundary import (
 )
 
 __all__ = [
+    "BoundaryGuardContractError",
     "BoundaryAssessment",
     "CandidateSlice",
     "FrameAlignmentError",
     "FrameBoundaryError",
+    "GuardIssue",
+    "GuardReport",
+    "GuardSegment",
     "Placement",
     "ReadbackMismatchError",
     "ReadbackVerification",
@@ -36,6 +47,7 @@ __all__ = [
     "assess_source_boundary",
     "build_relative_placements",
     "frames_to_seconds_exact",
+    "run_boundary_guard",
     "seconds_to_frame_exact",
     "verify_placement_readback",
 ]
