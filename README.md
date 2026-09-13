@@ -4,7 +4,7 @@ AI-AutoCut is the canonical engineering repository for Kang's AI-assisted automa
 
 ## Current stage
 
-This repository contains the canonical baseline plus a minimal, dependency-free Frame Boundary Kernel and sanitized regression evidence inherited with explicit provenance. No Real Engineering Pilot has started.
+This repository contains the canonical baseline, a dependency-free Frame Boundary Kernel, and an offline JSON preflight. The First Real Multi-Agent Engineering Pilot completed through separate Agent A and Agent B commits at implementation HEAD `the First Real Multi-Agent Engineering Pilot completion commit in canonical historyd8723b41d2f332549f652f502bb3402c8`; all 45 offline tests passed during final review on 2026-09-13. Product and video quality were **NOT EVALUATED**, and no next stage has started.
 
 ## Canonical identity
 
@@ -30,7 +30,7 @@ The machine-readable identity record is [PROJECT_IDENTITY.md](PROJECT_IDENTITY.m
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
 ```
 
-The historical sources and migration boundary are recorded in `docs/provenance/historical-inheritance-2026-09-13.md`. This kernel is a verified foundation only; it does not mean the Real Engineering Pilot has started.
+The historical sources and migration boundary are recorded in `docs/provenance/historical-inheritance-2026-09-13.md`.
 
 ## Offline boundary preflight
 
