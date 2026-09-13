@@ -4,7 +4,7 @@ AI-AutoCut is the canonical engineering repository for Kang's AI-assisted automa
 
 ## Current stage
 
-This repository currently contains only the canonical repository baseline. Historical implementation assets have not been migrated, and no Real Engineering Pilot has started.
+This repository contains the canonical baseline plus a minimal, dependency-free Frame Boundary Kernel and sanitized regression evidence inherited with explicit provenance. No Real Engineering Pilot has started.
 
 ## Canonical identity
 
@@ -21,6 +21,16 @@ The machine-readable identity record is [PROJECT_IDENTITY.md](PROJECT_IDENTITY.m
 - **OpenMontage is separate.** OpenMontage is an independent third-party reference implementation and capability candidate, not this repository's source of truth. Code-level reuse requires interface, dependency, and license review first.
 - **kang-agent-collab is separate.** AI-AutoCut may serve as a real pilot testbed for that collaboration Skill, but it does not contain or extend the Skill.
 - **Historical editing work remains in place.** Existing `editing-intelligence-v1-phase1`, `filter-v4-*`, and related experiments are Historical Source / Inheritance Candidates. They have not been copied, moved, renamed, deleted, or committed here.
+
+## Current inherited kernel
+
+`src/ai_autocut/frame_boundary.py` provides exact frame conversion, end-exclusive source ranges, relative placement geometry, timeline-start protection, auditable candidate/source-boundary checks, and editor-independent read-back verification. Run its offline regression suite with:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
+```
+
+The historical sources and migration boundary are recorded in `docs/provenance/historical-inheritance-2026-09-13.md`. This kernel is a verified foundation only; it does not mean the Real Engineering Pilot has started.
 
 ## Repository and data boundary
 

@@ -1,0 +1,41 @@
+"""Small, dependency-free foundations for AI-AutoCut."""
+
+from .frame_boundary import (
+    BoundaryAssessment,
+    CandidateSlice,
+    FrameAlignmentError,
+    FrameBoundaryError,
+    Placement,
+    ReadbackMismatchError,
+    ReadbackVerification,
+    SourceRange,
+    TimelineGeometryError,
+    absolute_timeline_frame,
+    assert_not_before_timeline_start,
+    assess_candidate_cut,
+    assess_source_boundary,
+    build_relative_placements,
+    frames_to_seconds_exact,
+    seconds_to_frame_exact,
+    verify_placement_readback,
+)
+
+__all__ = [
+    "BoundaryAssessment",
+    "CandidateSlice",
+    "FrameAlignmentError",
+    "FrameBoundaryError",
+    "Placement",
+    "ReadbackMismatchError",
+    "ReadbackVerification",
+    "SourceRange",
+    "TimelineGeometryError",
+    "absolute_timeline_frame",
+    "assert_not_before_timeline_start",
+    "assess_candidate_cut",
+    "assess_source_boundary",
+    "build_relative_placements",
+    "frames_to_seconds_exact",
+    "seconds_to_frame_exact",
+    "verify_placement_readback",
+]

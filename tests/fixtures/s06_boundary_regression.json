@@ -1,0 +1,22 @@
+{
+  "schema_version": "ai_autocut.boundary_regression.v1",
+  "case_id": "S06-historical-boundary-repair",
+  "fps": "30/1",
+  "frame_semantics": "source range is [start_frame, end_frame_exclusive)",
+  "historical_labels": {
+    "source_in_seconds": "17.67",
+    "unsafe_source_out_seconds": "20.23",
+    "repaired_source_out_seconds": "20.18",
+    "note": "These are historical decimal labels, not canonical frame-aligned timestamps."
+  },
+  "canonical_frame_evidence": {
+    "source_in_frame": 530,
+    "unsafe_legacy_rounded_end_frame_exclusive": 607,
+    "verified_safe_end_frame_exclusive": 605,
+    "repaired_end_frame_exclusive": 605
+  },
+  "observations": {
+    "unsafe": "The 20.23 out-point crossed a hard cut and exposed the next scene in the rendered tail.",
+    "repaired": "The boundary represented by end-exclusive frame 605 passed the historical visual review."
+  }
+}

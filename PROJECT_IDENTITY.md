@@ -18,4 +18,4 @@ AI-AutoCut is the canonical engineering repository for the AI automatic precisio
 
 It is not AdFlow and does not share AdFlow's engineering identity. It is not OpenMontage and does not treat OpenMontage as its source of truth. It may be used as a Pilot Testbed for `kang-agent-collab`, while AI-AutoCut remains an independent real project and `kang-agent-collab` remains an independent collaboration Skill.
 
-Historical editing assets have not been inherited into this repository. The Real Engineering Pilot has not started.
+A narrowly reviewed Frame Boundary Kernel and sanitized regression evidence have been inherited with explicit provenance. Other historical editing assets remain outside this repository. The Real Engineering Pilot has not started.
