@@ -4,7 +4,7 @@ AI-AutoCut is the canonical engineering repository for Kang's AI-assisted automa
 
 ## Current stage
 
-This repository contains the canonical baseline, a dependency-free Frame Boundary Kernel, and an offline JSON preflight. The First Real Multi-Agent Engineering Pilot completed through separate Agent A and Agent B commits at implementation HEAD `the First Real Multi-Agent Engineering Pilot completion commit in canonical historyd8723b41d2f332549f652f502bb3402c8`; all 45 offline tests passed during final review on 2026-09-13. Product and video quality were **NOT EVALUATED**, and no next stage has started.
+This repository contains the canonical baseline, a dependency-free Frame Boundary Kernel, an offline JSON preflight, and Material / Candidate Identity v1. The First Real Multi-Agent Engineering Pilot completed through separate Agent A and Agent B commits at implementation HEAD `the First Real Multi-Agent Engineering Pilot completion commit in canonical historyd8723b41d2f332549f652f502bb3402c8`; product and video quality were **NOT EVALUATED**. Material / Candidate Identity v1 was implemented afterward as ordinary product engineering; no later stage has started.
 
 ## Canonical identity
 
@@ -51,6 +51,19 @@ The process writes a deterministic JSON report to stdout and exits with:
 - `2` — input valid, but the boundary guard found boundary business issues
 
 A guard finding is reported as data on stdout, not as a program failure; a malformed document is reported on stderr and never as a guard finding.
+
+## Material / Candidate Identity v1
+
+`src/ai_autocut/identity.py` provides exact-byte Material IDs, deterministic
+frame-range Candidate IDs, a path-free shared catalog, a separate machine-local
+locator, and an upstream binding into the unchanged `boundary_preflight.v1`
+contract. The frozen identity contract is
+[docs/contracts/material-candidate-identity-v1.md](docs/contracts/material-candidate-identity-v1.md).
+
+Material files are fully hashed with SHA-256. Paths, filenames, mtimes, scores,
+labels, descriptions, and approval state do not participate in identity. A
+locator is trusted only after the located file's complete bytes are hashed again
+and match the registered Material.
 
 ## Repository and data boundary
 

@@ -1,0 +1,20 @@
+{
+  "schema_version": "material_candidate_identity.v1",
+  "materials": [
+    {
+      "material_id": "matv1_3e29b288505586976ba3121e262eb1faa35dcf92571e09d000c0ddfcf41a52c6",
+      "content_sha256": "3e29b288505586976ba3121e262eb1faa35dcf92571e09d000c0ddfcf41a52c6",
+      "byte_size": 31,
+      "media_kind": "video"
+    }
+  ],
+  "candidates": [
+    {
+      "candidate_id": "candv1_f337412aa64f3bb35393191555ae9f8f6dc2bc42732b62f4192e1412eb7e6e3c",
+      "material_id": "matv1_3e29b288505586976ba3121e262eb1faa35dcf92571e09d000c0ddfcf41a52c6",
+      "stream_index": 0,
+      "start_frame": 100,
+      "end_frame_exclusive": 130
+    }
+  ]
+}
