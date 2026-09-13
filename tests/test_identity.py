@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import tempfile
+import traceback
 import unittest
+from unittest.mock import patch
 
 from src.ai_autocut.identity import (
     CATALOG_SCHEMA_VERSION,
@@ -17,6 +19,7 @@ from src.ai_autocut.identity import (
     bind_boundary_preflight,
     candidate_id_for,
     canonical_candidate_identity_json,
+    hash_file_sha256,
     identify_material,
     parse_identity_catalog,
     parse_material_locations,
@@ -71,6 +74,19 @@ class IdentityTestCase(unittest.TestCase):
 
 
 class MaterialIdentityTests(IdentityTestCase):
+    def assert_sanitized_error_chain(
+        self, error: BaseException, leaked_path: Path
+    ) -> None:
+        self.assertIsInstance(error, IdentityContractError)
+        self.assertIsNone(error.__cause__)
+        self.assertIsNone(error.__context__)
+        rendered = "".join(
+            traceback.format_exception(type(error), error, error.__traceback__)
+        )
+        self.assertNotIn(str(leaked_path), rendered)
+        self.assertNotIn("PermissionError", rendered)
+        self.assertNotIn("OSError", rendered)
+
     def test_material_id_is_full_file_sha256_with_v1_prefix(self) -> None:
         self.assertEqual(
             self.material.material_id,
@@ -102,6 +118,27 @@ class MaterialIdentityTests(IdentityTestCase):
         with self.assertRaises(LocatorResolutionError) as caught:
             identify_material(missing)
         self.assertNotIn(str(missing), str(caught.exception))
+
+    def test_read_os_errors_are_removed_from_cause_and_traceback(self) -> None:
+        leaked = self.tmp / "private-read-path.mov"
+        for error_type in (OSError, PermissionError):
+            with self.subTest(error_type=error_type.__name__):
+                underlying = error_type(13, "denied", str(leaked))
+                with patch.object(Path, "open", side_effect=underlying):
+                    with self.assertRaises(IdentityContractError) as caught:
+                        hash_file_sha256(self.first_path)
+                self.assert_sanitized_error_chain(caught.exception, leaked)
+
+    def test_stat_permission_error_is_removed_from_cause_and_traceback(self) -> None:
+        leaked = self.tmp / "private-stat-path.mov"
+        underlying = PermissionError(13, "denied", str(leaked))
+        with patch(
+            "src.ai_autocut.identity.hash_file_sha256",
+            return_value=self.material.content_sha256,
+        ), patch.object(Path, "stat", side_effect=underlying):
+            with self.assertRaises(IdentityContractError) as caught:
+                identify_material(self.first_path)
+        self.assert_sanitized_error_chain(caught.exception, leaked)
 
 
 class CandidateIdentityTests(IdentityTestCase):
@@ -187,10 +224,11 @@ class CandidateIdentityTests(IdentityTestCase):
 
 class CatalogTests(IdentityTestCase):
     def test_canonical_fixture_parses_and_renders_deterministically(self) -> None:
-        raw = json.loads(FIXTURE.read_text(encoding="utf-8"))
-        parsed = parse_identity_catalog(raw)
+        raw = FIXTURE.read_text(encoding="utf-8")
+        parsed = parse_identity_catalog(json.loads(raw))
         self.assertEqual(parsed, self.catalog)
         self.assertEqual(render_identity_catalog(parsed), render_identity_catalog(parsed))
+        self.assertEqual(raw, render_identity_catalog(parsed))
 
     def test_render_order_is_independent_of_input_order(self) -> None:
         other_path = self.tmp / "other.mov"
@@ -245,6 +283,21 @@ class LocatorTests(IdentityTestCase):
         self.assertNotEqual(document["schema_version"], CATALOG_SCHEMA_VERSION)
         self.assertIn(str(self.first_path), strings(document))
         self.assertEqual(parse_material_locations(document), self.locations(self.first_path))
+
+    def test_nested_path_value_raises_identity_error_not_native_type_error(self) -> None:
+        document = {
+            "schema_version": LOCATIONS_SCHEMA_VERSION,
+            "locations": [
+                {
+                    "material_id": self.material.material_id,
+                    "paths": [["/x"]],
+                }
+            ],
+        }
+        with self.assertRaises(IdentityContractError) as caught:
+            parse_material_locations(document)
+        self.assertNotIsInstance(caught.exception, TypeError)
+        self.assertIn("locator paths[0]", str(caught.exception))
 
     def test_resolver_rehashes_and_returns_verified_path(self) -> None:
         self.assertEqual(

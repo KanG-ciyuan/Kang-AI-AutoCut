@@ -135,13 +135,30 @@ def hash_file_sha256(path: str | Path) -> str:
     if not source.is_file():
         raise LocatorResolutionError("material file is missing or is not a regular file")
     digest = hashlib.sha256()
+    read_failed = False
     try:
         with source.open("rb") as handle:
             while chunk := handle.read(1024 * 1024):
                 digest.update(chunk)
-    except OSError as exc:
-        raise LocatorResolutionError("material file could not be read") from exc
+    except OSError:
+        read_failed = True
+    if read_failed:
+        # Raise outside the except block so a path-bearing OSError is absent
+        # from cause, context, and formatted exception chains.
+        raise LocatorResolutionError("material file could not be read")
     return digest.hexdigest()
+
+
+def _file_size(path: Path, error_message: str) -> int:
+    size: int | None = None
+    try:
+        size = path.stat().st_size
+    except OSError:
+        pass
+    if size is None:
+        # Do not retain a path-bearing OSError in the exception chain.
+        raise LocatorResolutionError(error_message)
+    return size
 
 
 def material_id_from_sha256(content_sha256: str) -> str:
@@ -181,10 +198,7 @@ def identify_material(path: str | Path) -> MaterialIdentity:
 
     source = Path(path)
     digest = hash_file_sha256(source)
-    try:
-        size = source.stat().st_size
-    except OSError as exc:
-        raise LocatorResolutionError("material file metadata could not be read") from exc
+    size = _file_size(source, "material file metadata could not be read")
     return MaterialIdentity(material_id_from_sha256(digest), digest, size)
 
 
@@ -383,10 +397,10 @@ class MaterialLocation:
         _material_id(self.material_id)
         if not self.paths:
             raise IdentityContractError("locator paths must not be empty")
+        for index, path in enumerate(self.paths):
+            _required_text(path, f"locator paths[{index}]")
         if len(self.paths) != len(set(self.paths)):
             raise IdentityContractError("duplicate path in locator entry")
-        for path in self.paths:
-            _required_text(path, "locator path")
 
     def as_dict(self) -> dict[str, object]:
         return {"material_id": self.material_id, "paths": sorted(self.paths)}
@@ -462,12 +476,9 @@ def resolve_material_path(
         if not path.is_file():
             continue
         observed_hash = hash_file_sha256(path)
-        try:
-            observed_size = path.stat().st_size
-        except OSError as exc:
-            raise LocatorResolutionError(
-                "located material metadata could not be read"
-            ) from exc
+        observed_size = _file_size(
+            path, "located material metadata could not be read"
+        )
         if (
             observed_hash != material.content_sha256
             or observed_size != material.byte_size
