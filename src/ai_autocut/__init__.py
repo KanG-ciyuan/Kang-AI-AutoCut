@@ -7,6 +7,16 @@ from .boundary_guard import (
     GuardSegment,
     run_boundary_guard,
 )
+from .executable_timeline import (
+    BACKENDS,
+    COMPILER_STATUS,
+    ExecutableTimeline,
+    ExecutableTimelineContractError,
+    TimelineSegment,
+    compile_for_backend,
+    parse_executable_timeline,
+    render_executable_timeline,
+)
 from .frame_boundary import (
     BoundaryAssessment,
     CandidateSlice,
@@ -27,6 +37,20 @@ from .frame_boundary import (
     verify_placement_readback,
 )
 
+from .gold_manifest import (
+    ASSET_STATUSES,
+    GOLD_STATUSES,
+    GoldAssetReference,
+    GoldManifest,
+    GoldManifestContractError,
+    MasterRecord,
+    VisualAuthority,
+    assert_not_promoted,
+    parse_gold_manifest,
+    render_gold_manifest,
+    sha256_of_file,
+    verify_asset_reference,
+)
 from .paths import (
     ENV_ASCII_STAGING,
     ENV_DAVINCI_PATH,
@@ -79,4 +103,27 @@ __all__ = [
     "find_machine_paths",
     "is_ascii_safe",
     "looks_like_machine_path",
+
+    # gold manifest
+    "ASSET_STATUSES",
+    "GOLD_STATUSES",
+    "GoldAssetReference",
+    "GoldManifest",
+    "GoldManifestContractError",
+    "MasterRecord",
+    "VisualAuthority",
+    "assert_not_promoted",
+    "parse_gold_manifest",
+    "render_gold_manifest",
+    "sha256_of_file",
+    "verify_asset_reference",
+    # executable timeline
+    "BACKENDS",
+    "COMPILER_STATUS",
+    "ExecutableTimeline",
+    "ExecutableTimelineContractError",
+    "TimelineSegment",
+    "compile_for_backend",
+    "parse_executable_timeline",
+    "render_executable_timeline",
 ]

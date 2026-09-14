@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-autocut.invalid/schemas/gold_manifest.v1.schema.json",
+  "title": "gold_manifest.v1",
+  "description": "Lightweight, media-free record of a validated Gold result. Records identity and hashes only; never stores media bytes or machine-bound paths.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "gold_id",
+    "gold_id_status",
+    "status",
+    "timeline",
+    "editorial_text",
+    "voice_over",
+    "visual_authority",
+    "color_strategy",
+    "typography_strategy",
+    "audio_strategy",
+    "master",
+    "loudness",
+    "external_assets",
+    "reconciliation"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "gold_manifest.v1"
+    },
+    "gold_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$",
+      "description": "Short lowercase identifier. Provisional identifiers must say so via gold_id_status."
+    },
+    "gold_id_status": {
+      "enum": ["PROVISIONAL_INTERNAL", "CONFIRMED"]
+    },
+    "status": {
+      "enum": [
+        "PASS_WITH_RECONCILIATION_REQUIRED",
+        "RECONCILED",
+        "FROZEN",
+        "SUPERSEDED",
+        "REJECTED"
+      ],
+      "description": "FROZEN is an upper-review decision and must never be set by automated writeback."
+    },
+    "timeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frames", "fps", "duration_seconds", "width", "height"],
+      "properties": {
+        "frames": { "type": "integer", "minimum": 1 },
+        "fps": { "type": "number", "exclusiveMinimum": 0 },
+        "duration_seconds": { "type": "number", "exclusiveMinimum": 0 },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "editorial_text": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "lines"],
+        "properties": {
+          "role": { "enum": ["hook", "feature", "cta"] },
+          "lines": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      },
+      "description": "Roles must be unique. Voice-over subtitles are not an accepted role."
+    },
+    "voice_over": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy", "lines"],
+      "properties": {
+        "strategy": {
+          "enum": [
+            "CONTINUOUS_PERFORMANCE_CUT_INTO_SEGMENTS",
+            "INDEPENDENT_PER_SENTENCE"
+          ]
+        },
+        "lines": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "text"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "text": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "visual_authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "filename", "sha256", "frames", "has_audio"],
+      "properties": {
+        "role": {
+          "enum": ["FINAL_FROZEN_VISUAL_SOURCE", "CANDIDATE", "SUPERSEDED"]
+        },
+        "filename": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "frames": { "type": "integer", "minimum": 1 },
+        "has_audio": { "type": "boolean" }
+      }
+    },
+    "color_strategy": { "type": "object" },
+    "typography_strategy": { "type": "object" },
+    "audio_strategy": { "type": "object" },
+    "master": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "master_id",
+        "filename",
+        "sha256",
+        "frames",
+        "duration_seconds",
+        "selected"
+      ],
+      "properties": {
+        "master_id": { "type": "string", "minLength": 1 },
+        "filename": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "frames": { "type": "integer", "minimum": 1 },
+        "duration_seconds": { "type": "number", "exclusiveMinimum": 0 },
+        "selected": { "type": "boolean" }
+      }
+    },
+    "loudness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference", "measured"],
+      "properties": {
+        "reference": { "$ref": "#/$defs/loudnessPair" },
+        "measured": { "$ref": "#/$defs/loudnessPair" }
+      }
+    },
+    "external_assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "logical_role",
+          "filename",
+          "sha256",
+          "storage_class",
+          "asset_status"
+        ],
+        "properties": {
+          "logical_role": { "type": "string", "minLength": 1 },
+          "filename": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "storage_class": {
+            "enum": [
+              "EXTERNAL_WORKSPACE",
+              "LOCAL_RUNTIME",
+              "LEGACY_RD_WORKSPACE",
+              "REPOSITORY"
+            ]
+          },
+          "asset_status": {
+            "enum": [
+              "EXTERNAL_ASSET_NOT_YET_RECONCILED",
+              "EXTERNAL_ASSET_VERIFIED",
+              "EXTERNAL_ASSET_MISSING"
+            ]
+          }
+        }
+      },
+      "description": "Bare filenames plus logical storage class. A directory component is a contract error."
+    },
+    "reconciliation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["asset_status", "canonical_status", "notes"],
+      "properties": {
+        "asset_status": {
+          "enum": [
+            "EXTERNAL_ASSET_NOT_YET_RECONCILED",
+            "EXTERNAL_ASSET_VERIFIED",
+            "EXTERNAL_ASSET_MISSING"
+          ]
+        },
+        "canonical_status": { "type": "string", "minLength": 1 },
+        "notes": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "loudnessPair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["integrated_lufs", "true_peak_dbtp"],
+      "properties": {
+        "integrated_lufs": { "type": "number", "exclusiveMaximum": 0 },
+        "true_peak_dbtp": { "type": "number", "maximum": 0 }
+      }
+    }
+  }
+}

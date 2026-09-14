@@ -1,0 +1,161 @@
+{
+  "schema_version": "gold_manifest.v1",
+  "gold_id": "filter-gold-v1",
+  "gold_id_status": "CONFIRMED",
+  "status": "PASS_WITH_RECONCILIATION_REQUIRED",
+  "timeline": {
+    "frames": 518,
+    "fps": 30,
+    "duration_seconds": 17.266667,
+    "width": 1080,
+    "height": 1920
+  },
+  "editorial_text": [
+    {
+      "role": "hook",
+      "lines": [
+        "FILTER KERAN"
+      ]
+    },
+    {
+      "role": "feature",
+      "lines": [
+        "ARAH AIR",
+        "BISA DIATUR"
+      ]
+    },
+    {
+      "role": "cta",
+      "lines": [
+        "COCOK BUAT KERANMU?",
+        "CEK UKURAN",
+        "UJUNG KERAN DULU"
+      ]
+    }
+  ],
+  "voice_over": {
+    "strategy": "CONTINUOUS_PERFORMANCE_CUT_INTO_SEGMENTS",
+    "lines": [
+      {
+        "id": "VO1",
+        "text": "Bikin aktivitas di wastafel jadi lebih praktis."
+      },
+      {
+        "id": "VO2",
+        "text": "Mau bilas dari arah mana, tinggal kamu sesuaikan."
+      },
+      {
+        "id": "VO3",
+        "text": "Sebelum beli, pastikan ukurannya cocok dengan ujung keranmu."
+      }
+    ]
+  },
+  "visual_authority": {
+    "role": "FINAL_FROZEN_VISUAL_SOURCE",
+    "filename": "TYPO-P3-B.mp4",
+    "sha256": "eec4730b8a4ff441085296ebb15a0588e2ca25a9fad7389f2828d2b08c7cdf65",
+    "frames": 518,
+    "has_audio": false
+  },
+  "color_strategy": {
+    "authority": "conservative_color_match_d",
+    "principle": "PRODUCT_AUTHENTICITY_OVER_PERFECT_BACKGROUND_MATCH",
+    "universal_preset": false,
+    "grade_scope": "MINIMAL_NEIGHBOUR_MATCH_ONLY",
+    "lut_used": false,
+    "transition_count": 0
+  },
+  "typography_strategy": {
+    "authority": "typography_phase_3_b",
+    "priority": [
+      "product",
+      "action",
+      "text",
+      "decoration"
+    ],
+    "visual_direction": "CLEAN_PRODUCT_COMMERCIAL",
+    "policy_status": "POLICY_VALIDATED_IMPLEMENTATION_PENDING",
+    "text_is_not_vo_subtitles": true
+  },
+  "audio_strategy": {
+    "authority": "final_mastering_stage",
+    "vo_strategy": "CONTINUOUS_PERFORMANCE_CUT_INTO_SEGMENTS",
+    "vo2_repair_gain_db": -1.25,
+    "vo2_repair_range_seconds": [
+      5.7,
+      8.703
+    ],
+    "regeneration_performed": false,
+    "water_planning": "SHOT_AWARE_AND_EVENT_AWARE",
+    "mix_priority": [
+      "VO",
+      "EVIDENCE",
+      "BGM"
+    ],
+    "bgm_structure": [
+      "HOOK_INTRO",
+      "PRODUCT_BUILD",
+      "USAGE_LIFT",
+      "CTA_RESOLVE"
+    ],
+    "limiter": "OVERSAMPLED_TRUE_PEAK_LOOKAHEAD",
+    "source_audio_enabled": false
+  },
+  "master": {
+    "master_id": "MASTER-A",
+    "filename": "FILTER-V4-FINAL-MASTER-A.mp4",
+    "sha256": "2d481ef17398a500636f937e65bed2d4cc377a09f096572c01cc0c1b56ee7ac8",
+    "frames": 518,
+    "duration_seconds": 17.266667,
+    "selected": true
+  },
+  "loudness": {
+    "reference": {
+      "integrated_lufs": -16.0,
+      "true_peak_dbtp": -1.4
+    },
+    "measured": {
+      "integrated_lufs": -16.1,
+      "true_peak_dbtp": -1.4
+    }
+  },
+  "external_assets": [
+    {
+      "logical_role": "final_visual_source",
+      "filename": "TYPO-P3-B.mp4",
+      "sha256": "eec4730b8a4ff441085296ebb15a0588e2ca25a9fad7389f2828d2b08c7cdf65",
+      "storage_class": "EXTERNAL_WORKSPACE",
+      "asset_status": "EXTERNAL_ASSET_VERIFIED"
+    },
+    {
+      "logical_role": "final_master",
+      "filename": "FILTER-V4-FINAL-MASTER-A.mp4",
+      "sha256": "2d481ef17398a500636f937e65bed2d4cc377a09f096572c01cc0c1b56ee7ac8",
+      "storage_class": "LOCAL_RUNTIME",
+      "asset_status": "EXTERNAL_ASSET_VERIFIED"
+    },
+    {
+      "logical_role": "ab_reference_master",
+      "filename": "FILTER-V4-FINAL-MASTER-B.mp4",
+      "sha256": "a677024b075b7d7501209c210b796d019ef6de2bc0606bb6f74e069545c7f57c",
+      "storage_class": "LOCAL_RUNTIME",
+      "asset_status": "EXTERNAL_ASSET_VERIFIED"
+    }
+  ],
+  "reconciliation": {
+    "asset_status": "EXTERNAL_ASSET_VERIFIED",
+    "canonical_status": "LONG_TERM_GOLD_MEDIA_ROOT_NOT_YET_POPULATED",
+    "notes": [
+      "Creative and review work is PASS / FREEZE / COMPLETED, and media production is COMPLETED AND VERIFIED. Reconciliation is open for one reason only: the verified media has not yet been placed in the long-term Gold media root.",
+      "Target layout is $AUTOCUT_MEDIA_ROOT/gold/filter-gold-v1/ with visual/, audio/, master/, and evidence/ subdirectories; the selected master targets $AUTOCUT_MEDIA_ROOT/gold/filter-gold-v1/master/FILTER-V4-FINAL-MASTER-A.mp4.",
+      "This phase copied, moved, and created nothing. Every asset remains where it was produced.",
+      "Large media never belongs in Git. That is a standing repository boundary, not the reason reconciliation is still open.",
+      "Final timeline is 518 frames at 30 fps: Resolve main 443 frames plus a CTA hold reduced by upper review from 97 to 75 frames.",
+      "TYPO-P3-B.mp4 is the frozen visual source and carries no audio track; the audio master is a separate artifact.",
+      "FILTER-V4-FINAL-MASTER-A.mp4 is the selected master and is the first artifact that carries both the frozen picture and the mastered audio.",
+      "FILTER-V4-FINAL-MASTER-B.mp4 is REJECTED AS FINAL and is retained only as an A/B reference; it must not be migrated or deleted.",
+      "Reference loudness is a Gold measurement, not a universal platform law; the bound is true peak, measured at the MP4 after AAC encoding.",
+      "The earlier four-line locked voice-over script belongs to the Audio Prototype stage only and is superseded by the three-line final authority."
+    ]
+  }
+}

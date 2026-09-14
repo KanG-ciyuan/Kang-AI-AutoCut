@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-autocut.invalid/schemas/executable_timeline.v0.schema.json",
+  "title": "executable_timeline.v0",
+  "description": "Backend-neutral timeline contract. FFmpeg, DaVinci Resolve, and Jianying all consume this one document. Frame-canonical: seconds-based fields are contract errors, never rounded. The contract is validated; every compiler is NOT_IMPLEMENTED.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "frame_rate", "width", "height", "segments"],
+  "properties": {
+    "schema_version": { "const": "executable_timeline.v0" },
+    "frame_rate": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*/[1-9][0-9]*$",
+      "description": "Exact rational, so 30/1 and 30000/1001 stay distinct."
+    },
+    "width": { "type": "integer", "minimum": 1 },
+    "height": { "type": "integer", "minimum": 1 },
+    "segments": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "segment_id",
+          "source_id",
+          "source_start_frame",
+          "source_end_frame_exclusive",
+          "record_frame"
+        ],
+        "properties": {
+          "segment_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+          },
+          "source_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "A logical identity, not a filesystem path."
+          },
+          "source_start_frame": { "type": "integer", "minimum": 0 },
+          "source_end_frame_exclusive": { "type": "integer", "minimum": 1 },
+          "record_frame": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "description": "Invariants enforced by the validator: end-exclusive source ranges, positive duration, strictly contiguous record placement with no gap and no overlap, and unique segment_id."
+    }
+  },
+  "x-implementation-status": {
+    "contract": "VALIDATED",
+    "compilers": {
+      "ffmpeg": "NOT_IMPLEMENTED",
+      "davinci": "NOT_IMPLEMENTED",
+      "jianying": "NOT_IMPLEMENTED"
+    }
+  }
+}
