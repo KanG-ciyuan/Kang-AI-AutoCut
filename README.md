@@ -1,10 +1,53 @@
 # AI-AutoCut
 
-AI-AutoCut is the canonical engineering repository for Kang's AI-assisted automatic precision-editing system. It is intended to turn authorized source material into reviewable editing plans, previews, and validated video outputs while keeping human approval and creative quality review explicit.
+A **local-first AI professional video editing system**. It turns authorized
+source material into reviewable editing decisions and validated video outputs,
+while keeping human approval and creative quality review explicit.
 
 ## Current stage
 
-This repository contains the canonical baseline, a dependency-free Frame Boundary Kernel, an offline JSON preflight, and Material / Candidate Identity v1. The First Real Multi-Agent Engineering Pilot completed through separate Agent A and Agent B commits at implementation HEAD `the First Real Multi-Agent Engineering Pilot completion commit in canonical historyd8723b41d2f332549f652f502bb3402c8`; product and video quality were **NOT EVALUATED**. Material / Candidate Identity v1 was implemented afterward as ordinary product engineering; no later stage has started.
+**Gold Knowledge Baseline / Pre-Pipeline.**
+
+This repository holds validated knowledge, frozen contracts, and offline tests.
+It does **not** hold a working end-to-end production pipeline.
+
+To state the concrete limit plainly:
+
+> Given thirty raw videos, product information, a platform, a language, and a
+> target duration, this system **cannot** yet produce a final MP4 in one command.
+
+The individual capabilities below were validated through human-driven experiment
+runs. They have not been assembled into an unattended pipeline.
+
+## What has been validated
+
+| Capability | State |
+|---|---|
+| Editing Intelligence principles and reviewer dimensions | policy recorded |
+| Frame Boundary Kernel, Boundary Preflight, Material / Candidate Identity | implemented, tested |
+| Editing Plan v1 | frozen at commit `the Editing Plan v1 freeze commit in canonical history` — the repository HEAD may be later |
+| DaVinci Resolve as primary visual execution backend | decided ([ADR-0002](docs/decisions/ADR-0002-davinci-primary-visual-execution.md)) |
+| Jianying editable delivery / human takeover | decided ([ADR-0003](docs/decisions/ADR-0003-jianying-editable-delivery.md)) |
+| Conservative Color Match strategy | decided ([ADR-0005](docs/decisions/ADR-0005-conservative-color-match.md)) |
+| Shot-aware Typography policy | policy validated, placement not implemented |
+| Audio Intelligence concepts, continuous voice-over | policy validated |
+| Reviewer / Repair separation of duties | contract validated |
+| Filter Gold v1 result | recorded, `PASS_WITH_RECONCILIATION_REQUIRED` |
+
+## What is not complete
+
+- **automatic raw-media Shot Intelligence** — no extractor exists
+- **a ONE COMMAND pipeline** — does not exist
+- **Production Stage Runner** — not implemented
+- **Resume / Retry** — not implemented
+- **Artifact Registry** — not implemented; large staging data is cleaned up by hand
+- **Multi-job Queue** — not implemented
+- **Full Production Automation** — not achieved
+- **backend compilers** (FFmpeg, DaVinci, Jianying) — `NOT_IMPLEMENTED`
+- **automatic typography placement** — `NOT_IMPLEMENTED`
+
+Nothing in this repository is production-ready, fully automated, or a
+one-click professional editor. Those descriptions would be false today.
 
 ## Canonical identity
 
@@ -18,60 +61,69 @@ location resolves from an environment variable — see
 [docs/architecture/operations.md](docs/architecture/operations.md) and
 [config/examples/autocut.env.example](config/examples/autocut.env.example).
 
-The machine-readable identity record is [PROJECT_IDENTITY.md](PROJECT_IDENTITY.md). Agent entry rules are in [AGENTS.md](AGENTS.md).
+The machine-readable identity record is [PROJECT_IDENTITY.md](PROJECT_IDENTITY.md).
+Agent entry rules are in [AGENTS.md](AGENTS.md).
 
-## Project boundaries
-
-- **AdFlow is separate.** AdFlow is an independent historical Web/SaaS project. Any future connection must use a versioned file contract or API; the projects do not share engineering identity.
-- **OpenMontage is separate.** OpenMontage is an independent third-party reference implementation and capability candidate, not this repository's source of truth. Code-level reuse requires interface, dependency, and license review first.
-- **kang-agent-collab is separate.** AI-AutoCut may serve as a real pilot testbed for that collaboration Skill, but it does not contain or extend the Skill.
-- **Historical editing work remains in place.** Existing `editing-intelligence-v1-phase1`, `filter-v4-*`, and related experiments are Historical Source / Inheritance Candidates. They have not been copied, moved, renamed, deleted, or committed here.
-
-## Current inherited kernel
-
-`src/ai_autocut/frame_boundary.py` provides exact frame conversion, end-exclusive source ranges, relative placement geometry, timeline-start protection, auditable candidate/source-boundary checks, and editor-independent read-back verification. Run its offline regression suite with:
+## Running the offline tests
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
 ```
 
-The historical sources and migration boundary are recorded in `docs/provenance/historical-inheritance-2026-09-13.md`.
+The suite is offline and dependency-free. It validates the frozen contracts, the
+Gold manifest, and the path-hygiene rule.
 
 ## Offline boundary preflight
 
-`src/ai_autocut/preflight.py` exposes the committed multi-segment boundary guard as an offline JSON entry point. Run it from the repository root:
+`src/ai_autocut/preflight.py` exposes the committed multi-segment boundary guard
+as an offline JSON entry point:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 -m src.ai_autocut.preflight INPUT.json
 ```
 
-The field contract, semantics, and compatibility rule live in [docs/contracts/boundary-preflight-v1.md](docs/contracts/boundary-preflight-v1.md). A minimal runnable document is [tests/fixtures/boundary_preflight_v1_valid.json](tests/fixtures/boundary_preflight_v1_valid.json), which the test suite executes.
+Contract: [docs/contracts/boundary-preflight-v1.md](docs/contracts/boundary-preflight-v1.md).
+Preflight accepts canonical integer frames only — second-based fields such as
+`source_in_seconds` are rejected rather than rounded. Exit codes: `0` passed,
+`1` contract or runtime error, `2` valid input with boundary business issues.
 
-Preflight accepts canonical integer frames only — second-based fields such as `source_in_seconds` are rejected rather than rounded.
+## Gold record
 
-The process writes a deterministic JSON report to stdout and exits with:
+[schemas/gold_manifest/filter-gold-v1.json](schemas/gold_manifest/filter-gold-v1.json)
+records the validated Gold result: a 518-frame, 30 fps, 17.266667 s vertical
+edit, its selected master and hashes, and its reconciliation state.
 
-- `0` — input valid, boundary preflight passed
-- `1` — input format, schema, contract, or runtime error
-- `2` — input valid, but the boundary guard found boundary business issues
+The record stores a logical role, a bare filename, a SHA-256, and a storage
+class — never a path and never the bytes. Large media never belongs in Git, so
+that is a standing boundary rather than an open item. What is still open is
+placement: the verified master has not yet been moved to the long-term Gold
+media root. Narrative:
+[docs/gold/filter-gold-v1.md](docs/gold/filter-gold-v1.md).
 
-A guard finding is reported as data on stdout, not as a program failure; a malformed document is reported on stderr and never as a guard finding.
+## Design constraints
 
-## Material / Candidate Identity v1
-
-`src/ai_autocut/identity.py` provides exact-byte Material IDs, deterministic
-frame-range Candidate IDs, a path-free shared catalog, a separate machine-local
-locator, and an upstream binding into the unchanged `boundary_preflight.v1`
-contract. The frozen identity contract is
-[docs/contracts/material-candidate-identity-v1.md](docs/contracts/material-candidate-identity-v1.md).
-
-Material files are fully hashed with SHA-256. Paths, filenames, mtimes, scores,
-labels, descriptions, and approval state do not participate in identity. A
-locator is trusted only after the located file's complete bytes are hashed again
-and match the registered Material.
+Local-first is a requirement, not a temporary state. Phase 1 uses Python,
+FFmpeg/FFprobe, the local filesystem, DaVinci Resolve, Jianying, external AI
+APIs, and deterministic orchestration. Cloud infrastructure — object storage,
+server platforms, distributed workers, dashboards, user accounts — is
+deliberately absent. See [ADR-0007](docs/decisions/ADR-0007-local-first.md).
 
 ## Repository and data boundary
 
-Git should hold source code, tests, schemas, small licensed fixtures, documentation, reproducible configuration templates, and verified decision or validation records. Raw media, generated media, renders, previews, caches, model weights, local environments, credentials, and other large or regenerable runtime data stay outside Git.
+Git holds source code, tests, schemas, small licensed fixtures, documentation,
+configuration templates, and verified decision records.
 
-Engineering validation proves technical properties such as reproducibility, decoding, duration, dimensions, audio tracks, and required overlays. It does not by itself prove that a video has passed Kang's content or creative quality review.
+Raw media, generated media, renders, previews, caches, model weights, local
+environments, credentials, and secrets stay outside Git, and no real secret
+value appears in any tracked file.
+
+Engineering validation proves technical properties — reproducibility, decoding,
+duration, dimensions, audio tracks, overlays. It does **not** by itself prove
+that a video has passed human content or creative review. Those remain separate
+gates.
+
+## Licence
+
+**Apache-2.0.** The full licence text is at [LICENSE](LICENSE). Rationale, the
+no-`NOTICE` decision, and the items still open for a later stage are recorded in
+[LICENSE_DECISION_PENDING.md](LICENSE_DECISION_PENDING.md).

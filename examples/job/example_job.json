@@ -1,0 +1,66 @@
+{
+  "_comment": "EXAMPLE ONLY. Nothing consumes this document. There is no pipeline runner: see README.md in this directory.",
+  "schema_version": "job_manifest.draft",
+  "job_id": "example-water-filter-001",
+  "product": {
+    "name": "faucet water filter",
+    "category": "home improvement",
+    "facts": [
+      "attaches to the faucet outlet",
+      "the water direction is adjustable",
+      "ships in more than one outlet size"
+    ]
+  },
+  "platform": {
+    "name": "tiktok",
+    "aspect_ratio": "9:16",
+    "width": 1080,
+    "height": 1920,
+    "frame_rate": "30/1"
+  },
+  "language": {
+    "on_screen": "id",
+    "narration": "id"
+  },
+  "target_duration_seconds": 17.266667,
+  "target_duration_is_a_target": true,
+  "source_media": {
+    "root_role": "media_root",
+    "stream_index": 0,
+    "clips": [
+      {
+        "logical_id": "SRC-A",
+        "filename": "example-src-a.mp4",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ]
+  },
+  "creative_constraints": {
+    "hard_cut_only": true,
+    "lut_allowed": false,
+    "directional_graphics_allowed": false,
+    "voice_over_subtitles_allowed": false,
+    "product_color_protection": true,
+    "generative_frame_interpolation": false,
+    "one_primary_text_event_per_beat": true
+  },
+  "output_expectations": {
+    "deliver_final_mp4": true,
+    "deliver_editable_project": false,
+    "require_readback_verification": true,
+    "require_pixel_validation": true,
+    "reference_loudness": {
+      "integrated_lufs": -16.0,
+      "true_peak_dbtp": -1.4,
+      "is_a_universal_law": false
+    }
+  },
+  "_unimplemented": [
+    "pipeline_runner",
+    "stage_runner",
+    "job_state_machine",
+    "resume_retry",
+    "artifact_registry",
+    "multi_job_queue"
+  ]
+}

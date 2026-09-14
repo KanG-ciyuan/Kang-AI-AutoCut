@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-autocut.invalid/schemas/candidate_shot.v0.schema.json",
+  "title": "candidate_shot.v0",
+  "description": "DRAFT. Candidate Shot record for Shot Intelligence. A Candidate Shot keeps only what changes an editing decision. This is a draft contract with NO extraction implementation: nothing in this repository currently produces one from media.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "candidate_id",
+    "editing_facts",
+    "evidence_status"
+  ],
+  "properties": {
+    "schema_version": { "const": "candidate_shot.v0" },
+    "candidate_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+    },
+    "editing_facts": {
+      "type": "object",
+      "description": "Only facts that can change shot selection, ordering, or cut timing. Facts with no demonstrated editing consequence do not belong here.",
+      "additionalProperties": false,
+      "properties": {
+        "action_hook": { "type": "boolean" },
+        "product_identity": { "type": "boolean" },
+        "product_state": { "type": "string" },
+        "action_event": { "type": "string" },
+        "visual_state": { "type": "string" },
+        "visual_quality": { "type": "string" },
+        "source_context": { "type": "string" },
+        "narrative_beat_evidence": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Which narrative beats this shot can supply visual evidence for. Material Gap is measured as narrative beat evidence coverage, never as clip count."
+        },
+        "start_state": { "type": "string" },
+        "end_state": { "type": "string" }
+      }
+    },
+    "evidence_status": {
+      "enum": ["ROUGH_SCAN_ONLY", "FINE_ANALYSIS", "HUMAN_CONFIRMED"]
+    },
+    "candidate_boundary_frame": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "A Candidate Boundary is NOT a Timeline Boundary. It is evidence for a cut, not approval of one."
+    }
+  },
+  "x-implementation-status": {
+    "contract": "DRAFT",
+    "extraction": "NOT_IMPLEMENTED",
+    "analysis_stage": "Rough Scan -> editing-relevant Candidate Analysis -> Fine Analysis on the narrowed set"
+  },
+  "x-deliberately-out-of-scope": [
+    "dense optical flow",
+    "3D pose",
+    "all-object tracking",
+    "hundreds of object classes",
+    "per-frame captions",
+    "large vector database",
+    "graph database"
+  ]
+}
