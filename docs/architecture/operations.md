@@ -22,8 +22,17 @@ role raises `PathConfigurationError` naming the variable to set. A silent
 fallback to one machine's layout is how a canonical repository starts depending
 on one person's disk.
 
-Copy `config/examples/autocut.env.example` to a local, untracked file to
-configure a machine. The example file contains no real values.
+Copy `config/examples/autocut.env.example` to the local, untracked
+`.env.local` file to configure a machine. The example file contains no real
+values. Use `scripts/with-local-env` to load that file for a command without
+manually exporting variables in each shell; for example:
+
+```
+scripts/with-local-env python3 -m unittest discover -s tests -v
+```
+
+The helper is intentionally a command wrapper, not a shell-startup change and
+not a replacement for the environment-variable contract in `paths.py`.
 
 ## Resolve ASCII staging rule
 

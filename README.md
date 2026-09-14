@@ -32,7 +32,7 @@ runs. They have not been assembled into an unattended pipeline.
 | Shot-aware Typography policy | policy validated, placement not implemented |
 | Audio Intelligence concepts, continuous voice-over | policy validated |
 | Reviewer / Repair separation of duties | contract validated |
-| Filter Gold v1 result | recorded, `PASS_WITH_RECONCILIATION_REQUIRED` |
+| Filter Gold v1 result | recorded and reconciled, `RECONCILED` |
 
 ## What is not complete
 
@@ -94,10 +94,11 @@ records the validated Gold result: a 518-frame, 30 fps, 17.266667 s vertical
 edit, its selected master and hashes, and its reconciliation state.
 
 The record stores a logical role, a bare filename, a SHA-256, and a storage
-class — never a path and never the bytes. Large media never belongs in Git, so
-that is a standing boundary rather than an open item. What is still open is
-placement: the verified master has not yet been moved to the long-term Gold
-media root. Narrative:
+class — never a machine path and never the bytes. Large media never belongs in
+Git. The reconciled logical references are
+`$AUTOCUT_MEDIA_ROOT/gold/filter-gold-v1/visual/TYPO-P3-B.mp4` and
+`$AUTOCUT_MEDIA_ROOT/gold/filter-gold-v1/master/FILTER-V4-FINAL-MASTER-A.mp4`.
+Narrative:
 [docs/gold/filter-gold-v1.md](docs/gold/filter-gold-v1.md).
 
 ## Design constraints

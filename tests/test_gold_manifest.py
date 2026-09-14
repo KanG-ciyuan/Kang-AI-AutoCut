@@ -50,8 +50,8 @@ class GoldRecordTestCase(unittest.TestCase):
             parse_gold_manifest(document).gold_id_status, "PROVISIONAL_INTERNAL"
         )
 
-    def test_status_is_reconciliation_required(self) -> None:
-        self.assertEqual(self.manifest.status, "PASS_WITH_RECONCILIATION_REQUIRED")
+    def test_status_is_reconciled(self) -> None:
+        self.assertEqual(self.manifest.status, "RECONCILED")
 
     def test_automation_may_not_declare_a_freeze(self) -> None:
         # A FROZEN Gold is an upper-review decision.

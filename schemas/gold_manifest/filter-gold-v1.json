@@ -2,7 +2,7 @@
   "schema_version": "gold_manifest.v1",
   "gold_id": "filter-gold-v1",
   "gold_id_status": "CONFIRMED",
-  "status": "PASS_WITH_RECONCILIATION_REQUIRED",
+  "status": "RECONCILED",
   "timeline": {
     "frames": 518,
     "fps": 30,
@@ -131,7 +131,7 @@
       "logical_role": "final_master",
       "filename": "FILTER-V4-FINAL-MASTER-A.mp4",
       "sha256": "2d481ef17398a500636f937e65bed2d4cc377a09f096572c01cc0c1b56ee7ac8",
-      "storage_class": "LOCAL_RUNTIME",
+      "storage_class": "EXTERNAL_WORKSPACE",
       "asset_status": "EXTERNAL_ASSET_VERIFIED"
     },
     {
@@ -144,16 +144,16 @@
   ],
   "reconciliation": {
     "asset_status": "EXTERNAL_ASSET_VERIFIED",
-    "canonical_status": "LONG_TERM_GOLD_MEDIA_ROOT_NOT_YET_POPULATED",
+    "canonical_status": "LONG_TERM_GOLD_MEDIA_ROOT_POPULATED_AND_VERIFIED",
     "notes": [
-      "Creative and review work is PASS / FREEZE / COMPLETED, and media production is COMPLETED AND VERIFIED. Reconciliation is open for one reason only: the verified media has not yet been placed in the long-term Gold media root.",
-      "Target layout is $AUTOCUT_MEDIA_ROOT/gold/filter-gold-v1/ with visual/, audio/, master/, and evidence/ subdirectories; the selected master targets $AUTOCUT_MEDIA_ROOT/gold/filter-gold-v1/master/FILTER-V4-FINAL-MASTER-A.mp4.",
-      "This phase copied, moved, and created nothing. Every asset remains where it was produced.",
-      "Large media never belongs in Git. That is a standing repository boundary, not the reason reconciliation is still open.",
+      "Creative and review work is PASS / FREEZE / COMPLETED, and media production is COMPLETED AND VERIFIED. Long-term Gold media placement was completed and verified by SHA-256.",
+      "The canonical final visual source resolves to $AUTOCUT_MEDIA_ROOT/gold/filter-gold-v1/visual/TYPO-P3-B.mp4; the canonical selected master resolves to $AUTOCUT_MEDIA_ROOT/gold/filter-gold-v1/master/FILTER-V4-FINAL-MASTER-A.mp4.",
+      "Large media remains external to Git. The record retains only portable roles, bare filenames, and identity hashes.",
+      "Large media never belongs in Git. That is a standing repository boundary, not a reconciliation gap.",
       "Final timeline is 518 frames at 30 fps: Resolve main 443 frames plus a CTA hold reduced by upper review from 97 to 75 frames.",
       "TYPO-P3-B.mp4 is the frozen visual source and carries no audio track; the audio master is a separate artifact.",
       "FILTER-V4-FINAL-MASTER-A.mp4 is the selected master and is the first artifact that carries both the frozen picture and the mastered audio.",
-      "FILTER-V4-FINAL-MASTER-B.mp4 is REJECTED AS FINAL and is retained only as an A/B reference; it must not be migrated or deleted.",
+      "FILTER-V4-FINAL-MASTER-B.mp4 is REJECTED AS FINAL and is not promoted into the canonical Gold media root.",
       "Reference loudness is a Gold measurement, not a universal platform law; the bound is true peak, measured at the MP4 after AAC encoding.",
       "The earlier four-line locked voice-over script belongs to the Audio Prototype stage only and is superseded by the three-line final authority."
     ]

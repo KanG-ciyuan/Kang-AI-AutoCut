@@ -1,0 +1,23 @@
+#!/bin/sh
+# Run one command with the repository-local, untracked .env.local values.
+# The file is intentionally sourced only for this child process; paths.py
+# remains the authority for interpreting the resulting logical roles.
+
+set -eu
+
+config_file=".env.local"
+
+if [ ! -f "$config_file" ]; then
+    echo "missing local configuration: $config_file (copy config/examples/autocut.env.example)" >&2
+    exit 2
+fi
+
+if [ "$#" -eq 0 ]; then
+    echo "usage: scripts/with-local-env COMMAND [ARG...]" >&2
+    exit 2
+fi
+
+set -a
+. "./$config_file"
+set +a
+exec "$@"

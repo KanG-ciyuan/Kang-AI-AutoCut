@@ -41,6 +41,6 @@ The First Real Multi-Agent Engineering Pilot completed through separate Agent A 
 
 Editing Plan v1 is frozen at commit `the Editing Plan v1 freeze commit in canonical historye8d86ce0c4549bb1dc9f63b0ace3ffb56`. That commit is the freeze point, not the repository HEAD: HEAD may be later, and it is. Gold Consolidation Phase 2 added the Gold record, the path-sanitization contract, the backend-neutral Executable Timeline contract, and the typography, audio, and review policies described in `docs/`.
 
-Product and video quality were **NOT EVALUATED** by this repository's own engineering work. The Gold result recorded in `schemas/gold_manifest/filter-gold-v1.json` carries status `PASS_WITH_RECONCILIATION_REQUIRED`; no repository freeze has been declared, and declaring one is an upper-review decision. Reconciliation is open because the verified media has not yet been placed in the long-term Gold media root — not because media is excluded from Git.
+Product and video quality were **NOT EVALUATED** by this repository's own engineering work. The Gold result recorded in `schemas/gold_manifest/filter-gold-v1.json` carries status `RECONCILED`; the canonical visual source and selected master have verified long-term logical locations below `AUTOCUT_MEDIA_ROOT`. No repository freeze has been declared, and declaring one is an upper-review decision.
 
 The end-to-end production pipeline — automatic raw-media Shot Intelligence, a stage runner, resume/retry, an artifact registry, a job queue, and a one-command runner — is **NOT_IMPLEMENTED**.

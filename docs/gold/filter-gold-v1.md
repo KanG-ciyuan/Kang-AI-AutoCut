@@ -6,7 +6,7 @@ record is `schemas/gold_manifest/filter-gold-v1.json`; this document explains it
 ## Status
 
 ```
-PASS_WITH_RECONCILIATION_REQUIRED
+RECONCILED
 ```
 
 The split matters:
@@ -16,22 +16,20 @@ The split matters:
 | Creative / review | **PASS / FREEZE / COMPLETED** |
 | Media production | **COMPLETED AND VERIFIED** |
 | Canonical Gold manifest | **missing before Phase 2** — written now |
-| Canonical external asset references | **not fully closed** — see below |
-| Canonical repository writeback | **not completed before Phase 2** — written now |
-| Long-term Gold media storage | **NOT YET RECONCILED** |
+| Canonical external asset references | **closed** — see below |
+| Canonical repository writeback | **completed** |
+| Long-term Gold media storage | **RECONCILED AND VERIFIED** |
 
-**What reconciliation actually means here.** The creative work is finished and
-the media is produced and verified. Reconciliation is outstanding for exactly one
-reason: the verified media has not yet been placed in the **long-term Gold media
-root**. `MASTER-A` exists right now, but it still lives where it was produced
-rather than at its permanent address.
+**What reconciliation means here.** The creative work is finished, the media is
+produced and verified, and the two canonical Gold assets now occupy their
+long-term media-root locations. SHA-256 verification closed the placement gate.
 
 It is **not** open because "the media is not in Git". Large media should never be
 in Git — that is a standing repository boundary, and it will still be true after
 reconciliation is complete. Conflating the two would make a permanent design
 decision look like an outstanding defect.
 
-The future target structure is:
+The canonical target structure is:
 
 ```
 $AUTOCUT_MEDIA_ROOT/gold/filter-gold-v1/
@@ -41,11 +39,13 @@ $AUTOCUT_MEDIA_ROOT/gold/filter-gold-v1/
     evidence/
 ```
 
-with the selected master at
-`$AUTOCUT_MEDIA_ROOT/gold/filter-gold-v1/master/FILTER-V4-FINAL-MASTER-A.mp4`.
+with canonical assets at:
 
-None of those directories exists yet. This phase copied nothing, moved nothing,
-and created no media directory, because doing so is outside its scope.
+- `$AUTOCUT_MEDIA_ROOT/gold/filter-gold-v1/visual/TYPO-P3-B.mp4`
+- `$AUTOCUT_MEDIA_ROOT/gold/filter-gold-v1/master/FILTER-V4-FINAL-MASTER-A.mp4`
+
+These are logical references: the value of `AUTOCUT_MEDIA_ROOT` is machine-local
+and never belongs in a tracked repository contract.
 
 This manifest does **not** declare a repository freeze — that is an upper-review
 decision.
@@ -82,8 +82,8 @@ to 518 came from an explicit upper-review decision.
 selected master is the artifact that carries both the frozen picture and the
 mastered audio.
 
-`FILTER-V4-FINAL-MASTER-B.mp4` is **REJECTED AS FINAL** and is retained as an
-A/B reference. It must not be migrated or deleted.
+`FILTER-V4-FINAL-MASTER-B.mp4` is **REJECTED AS FINAL**. It is not promoted into
+the canonical Gold media root.
 
 ## Voice-over
 
@@ -130,23 +130,22 @@ against the located files while writing this record:
 | Logical role | Filename | Storage class |
 |---|---|---|
 | `final_visual_source` | `TYPO-P3-B.mp4` | external workspace |
-| `final_master` | `FILTER-V4-FINAL-MASTER-A.mp4` | local runtime |
+| `final_master` | `FILTER-V4-FINAL-MASTER-A.mp4` | external workspace |
 | `ab_reference_master` | `FILTER-V4-FINAL-MASTER-B.mp4` | local runtime |
 
 Every asset is `EXTERNAL_ASSET_VERIFIED`: the recorded hash matches the located
 bytes. That is a statement about **identity**, and it is already closed.
 
-What is still open is **placement**. Each asset currently sits in the working
-location where it was produced rather than under the long-term Gold media root
-described above. Identity is proven; the permanent address is not yet assigned.
+Placement is closed for the canonical visual source and selected master. Their
+permanent logical addresses are the two `AUTOCUT_MEDIA_ROOT` references above.
+`MASTER-B` remains an unpromoted A/B reference, not a canonical Gold asset.
 
 Absolute locations are deliberately absent from the record. They resolve from
 `AUTOCUT_MEDIA_ROOT` and `AUTOCUT_WORKSPACE` — see
 `docs/architecture/operations.md`.
 
-Reconciliation is therefore a **media-placement task for a later authorized
-stage**, not a knowledge gap. The knowledge is written back; the bytes still need
-a permanent home.
+Reconciliation is complete. It does not declare a repository freeze; that remains
+an upper-review decision.
 
 ## What this Gold established
 
