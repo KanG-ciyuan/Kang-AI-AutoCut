@@ -1,5 +1,18 @@
 """Small, dependency-free foundations for AI-AutoCut."""
 
+from .audio_plan import (
+    BGM_STRUCTURE,
+    EVENT_STATES,
+    GOLD_REFERENCE_LOUDNESS,
+    MIX_PRIORITY,
+    MIX_ROLES,
+    VO_STRATEGIES,
+    AudioPlan,
+    AudioPlanPolicyError,
+    SoundBridge,
+    WaterEvent,
+    parse_audio_plan,
+)
 from .boundary_guard import (
     BoundaryGuardContractError,
     GuardIssue,
@@ -36,7 +49,6 @@ from .frame_boundary import (
     seconds_to_frame_exact,
     verify_placement_readback,
 )
-
 from .gold_manifest import (
     ASSET_STATUSES,
     GOLD_STATUSES,
@@ -65,8 +77,35 @@ from .paths import (
     is_ascii_safe,
     looks_like_machine_path,
 )
+from .review import (
+    RELEASE_VERDICTS,
+    REVIEWER_DIMENSIONS,
+    REVIEW_GATES,
+    SEVERITIES,
+    Finding,
+    RepairPlan,
+    Review,
+    ReviewContractError,
+    build_targeted_repair,
+    parse_review,
+)
+from .typography import (
+    ALLOWED_MOTION,
+    DEFAULT_VISUAL_DIRECTION,
+    FORBIDDEN_MOTION,
+    MINIMUM_CONSIDERATIONS,
+    PLACEMENT_CONSIDERATIONS,
+    POLICY_STATUS as TYPOGRAPHY_POLICY_STATUS,
+    TEXT_PRIORITY,
+    TEXT_ROLES,
+    TextEvent,
+    TypographyPlan,
+    TypographyPolicyError,
+    parse_typography_plan,
+)
 
 __all__ = [
+    # frame boundary and guard
     "BoundaryGuardContractError",
     "BoundaryAssessment",
     "CandidateSlice",
@@ -89,7 +128,6 @@ __all__ = [
     "run_boundary_guard",
     "seconds_to_frame_exact",
     "verify_placement_readback",
-
     # path configuration
     "ENV_ASCII_STAGING",
     "ENV_DAVINCI_PATH",
@@ -103,7 +141,6 @@ __all__ = [
     "find_machine_paths",
     "is_ascii_safe",
     "looks_like_machine_path",
-
     # gold manifest
     "ASSET_STATUSES",
     "GOLD_STATUSES",
@@ -126,4 +163,40 @@ __all__ = [
     "compile_for_backend",
     "parse_executable_timeline",
     "render_executable_timeline",
+    # typography policy
+    "ALLOWED_MOTION",
+    "DEFAULT_VISUAL_DIRECTION",
+    "FORBIDDEN_MOTION",
+    "MINIMUM_CONSIDERATIONS",
+    "PLACEMENT_CONSIDERATIONS",
+    "TEXT_PRIORITY",
+    "TEXT_ROLES",
+    "TYPOGRAPHY_POLICY_STATUS",
+    "TextEvent",
+    "TypographyPlan",
+    "TypographyPolicyError",
+    "parse_typography_plan",
+    # audio policy
+    "BGM_STRUCTURE",
+    "EVENT_STATES",
+    "GOLD_REFERENCE_LOUDNESS",
+    "MIX_PRIORITY",
+    "MIX_ROLES",
+    "VO_STRATEGIES",
+    "AudioPlan",
+    "AudioPlanPolicyError",
+    "SoundBridge",
+    "WaterEvent",
+    "parse_audio_plan",
+    # review and repair
+    "RELEASE_VERDICTS",
+    "REVIEWER_DIMENSIONS",
+    "REVIEW_GATES",
+    "SEVERITIES",
+    "Finding",
+    "RepairPlan",
+    "Review",
+    "ReviewContractError",
+    "build_targeted_repair",
+    "parse_review",
 ]

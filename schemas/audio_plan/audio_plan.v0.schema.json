@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-autocut.invalid/schemas/audio_plan.v0.schema.json",
+  "title": "audio_plan.v0",
+  "description": "Audio Intelligence policy. Event state describes what the picture does; mix role describes how present the sound is. The two are orthogonal and must agree with the visual evidence. Policy is validated; synthesis, mixing, and mastering are NOT_IMPLEMENTED.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "vo_strategy", "water_events", "bgm_structure", "sound_bridges"],
+  "properties": {
+    "schema_version": { "const": "audio_plan.v0" },
+    "vo_strategy": {
+      "enum": [
+        "CONTINUOUS_PERFORMANCE_CUT_INTO_SEGMENTS",
+        "INDEPENDENT_PER_SENTENCE"
+      ],
+      "description": "One continuous performance cut into segments is the default: the same prompt does not reliably reproduce the same sampled speaker."
+    },
+    "water_events": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["shot_id", "has_water_evidence", "event_state", "mix_role"],
+        "properties": {
+          "shot_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+          },
+          "has_water_evidence": { "type": "boolean" },
+          "event_state": { "enum": ["OFF", "ONSET", "FLOW", "IMPACT", "DECAY"] },
+          "mix_role": { "enum": ["BED", "EVIDENCE", "HERO"] }
+        }
+      },
+      "description": "Rules enforced by the validator: a shot without water evidence must be OFF, and a non-BED role requires an active event state."
+    },
+    "bgm_structure": {
+      "type": "array",
+      "items": {
+        "enum": ["HOOK_INTRO", "PRODUCT_BUILD", "USAGE_LIFT", "CTA_RESOLVE"]
+      },
+      "description": "Must be exactly HOOK_INTRO -> PRODUCT_BUILD -> USAGE_LIFT -> CTA_RESOLVE. A single track laid end to end is not accepted."
+    },
+    "sound_bridges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from_shot_id", "to_shot_id", "continuity_reason"],
+        "properties": {
+          "from_shot_id": { "type": "string", "minLength": 1 },
+          "to_shot_id": { "type": "string", "minLength": 1 },
+          "continuity_reason": {
+            "type": "string",
+            "minLength": 1,
+            "description": "A sound bridge is only allowed with an explicit continuity reason."
+          }
+        }
+      }
+    }
+  },
+  "x-policy": {
+    "mix_priority": ["VO", "EVIDENCE", "BGM"],
+    "dry_visual_shot": "water OFF",
+    "event_state_is_not_mix_role": true,
+    "gold_reference_loudness": { "integrated_lufs": -16.0, "true_peak_dbtp": -1.4 },
+    "gold_reference_is_universal": false,
+    "creative_pass_precedes_mastering": true
+  }
+}

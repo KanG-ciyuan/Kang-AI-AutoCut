@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-autocut.invalid/schemas/typography_policy.v0.schema.json",
+  "title": "typography_policy.v0",
+  "description": "Shot-aware Typography policy. Editorial emphasis, not subtitle delivery. The policy is validated; automatic placement is NOT_IMPLEMENTED and no module renders text.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "visual_direction", "events"],
+  "properties": {
+    "schema_version": { "const": "typography_policy.v0" },
+    "visual_direction": { "const": "CLEAN_PRODUCT_COMMERCIAL" },
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "event_id",
+          "role",
+          "lines",
+          "motion",
+          "considered_zones",
+          "emphasis_terms",
+          "safe_area_verified"
+        ],
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+          },
+          "role": {
+            "enum": ["hook", "feature", "cta"],
+            "description": "Burned voice-over subtitles are not an accepted text role."
+          },
+          "lines": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "motion": { "enum": ["fade", "micro_motion", "easing", "stagger"] },
+          "considered_zones": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "product",
+                "face",
+                "hand",
+                "action",
+                "water",
+                "important_object",
+                "avoid_zones",
+                "negative_space",
+                "visual_density",
+                "text_role",
+                "safe_area",
+                "mobile_preview"
+              ]
+            },
+            "description": "Must declare at least product, action, safe_area, and mobile_preview."
+          },
+          "emphasis_terms": {
+            "type": "array",
+            "maxItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "safe_area_verified": { "type": "boolean" }
+        }
+      },
+      "description": "At most one primary text event per role, so one Beat keeps one text event."
+    }
+  },
+  "x-policy": {
+    "status": "POLICY_VALIDATED_IMPLEMENTATION_PENDING",
+    "placement_implementation": "NOT_IMPLEMENTED",
+    "priority": ["product", "action", "text", "decoration"],
+    "forbidden_motion": [
+      "bounce",
+      "rotation",
+      "glow",
+      "particles",
+      "arrows",
+      "trajectory_lines",
+      "stickers"
+    ]
+  }
+}

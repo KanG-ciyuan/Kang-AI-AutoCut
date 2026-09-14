@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-autocut.invalid/schemas/review.v0.schema.json",
+  "title": "review.v0",
+  "description": "Independent review of an edit. A reviewer is never the executor repeating its own success claim, so reviewer_id and executor_id must differ. Release always passes the human gate.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "reviewer_id", "executor_id", "findings"],
+  "properties": {
+    "schema_version": { "const": "review.v0" },
+    "reviewer_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+    },
+    "executor_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+    },
+    "findings": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["dimension", "severity", "detail", "accepted"],
+        "properties": {
+          "dimension": {
+            "enum": [
+              "shot_selection",
+              "action_boundary",
+              "shot_relationship",
+              "narrative_progression",
+              "rhythm",
+              "multi_source_remix",
+              "information_density",
+              "visual_continuity",
+              "effect_judgment",
+              "commercial_effectiveness"
+            ]
+          },
+          "severity": { "enum": ["PASS", "WEAK", "FAIL", "CRITICAL"] },
+          "detail": { "type": "string", "minLength": 1 },
+          "accepted": {
+            "type": "boolean",
+            "description": "Only a WEAK finding may be accepted. FAIL and CRITICAL can never be dispositioned away."
+          }
+        }
+      },
+      "description": "Every dimension is judged exactly once. Cardinality is fixed at the number of reviewer dimensions, and the validator additionally enforces set equality so a repeated dimension cannot satisfy the count."
+    }
+  },
+  "x-derived": {
+    "verdict_rule": "any CRITICAL -> REJECT; any non-accepted FAIL or WEAK -> NEEDS_REPAIR; otherwise PRODUCTION_READY",
+    "verdict_precondition": "every reviewer dimension judged exactly once; an incomplete review is a contract rejection, not a partial release",
+    "release_verdicts": ["PRODUCTION_READY", "NEEDS_REPAIR", "REJECT"],
+    "gates": ["DETERMINISTIC_QA", "INDEPENDENT_AI_REVIEW", "HUMAN_FINAL_GATE"],
+    "repair_default": "targeted to the smallest affected range; regenerating the entire video is refused"
+  }
+}
