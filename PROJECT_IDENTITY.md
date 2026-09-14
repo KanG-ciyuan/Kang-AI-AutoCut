@@ -1,15 +1,18 @@
 ---
 project_id: ai-autocut
-authoritative_entry: external authoritative entry/知识库/🏗 项目档案·AI自动精剪系统.md
-repository_or_workspace: <repo-root>
-canonical_repo: <repo-root>
+authoritative_entry: project knowledge base entry (external; not stored in this repository)
+repository_or_workspace: canonical checkout of ai-autocut (machine-local path, resolved from AUTOCUT_WORKSPACE)
+canonical_repo: ai-autocut
+runtime_data_root_role: AUTOCUT_WORKSPACE
+media_root_role: AUTOCUT_MEDIA_ROOT
 relationship_to_other_projects:
   adflow: separate_project
   openmontage: third_party_reference_and_capability_candidate
   kang-agent-collab: independent_skill_with_ai-autocut_as_pilot_testbed
+  legacy_rd_workspace: read_only_evidence_source
 status: verified
 confirmed_by: Kang
-last_verified: 2026-09-13
+last_verified: 2026-09-14
 ---
 
 # Project Identity

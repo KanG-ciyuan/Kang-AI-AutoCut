@@ -10,6 +10,7 @@ Before acting in this repository:
 6. Keep large media, generated outputs, renders, previews, caches, local environments, model weights, credentials, and secrets out of Git.
 7. Keep real secret values out of replies, code, documentation, logs, examples, and commits.
 8. Do not equate engineering completion with video content or creative quality completion; Kang's review remains a separate gate.
-9. For cross-Agent takeover, follow the contracts in `installed kang-agent-collab Skill reference` and its referenced `references/contracts.md`. Do not copy or extend that Skill inside this repository.
+9. For cross-Agent takeover, follow the installed `kang-agent-collab` Skill's own `SKILL.md` and its referenced `references/contracts.md`, resolved from the local skill root outside this repository. Do not copy or extend that Skill inside this repository.
+10. Never commit a machine-bound absolute path. Every runtime location is a logical role resolved from an environment variable; see `docs/architecture/operations.md` and `src/ai_autocut/paths.py`. The offline test suite enforces this.
 
 AI-AutoCut is separate from AdFlow and OpenMontage. Do not import either project's identity or files without an explicitly approved review and task scope.

@@ -237,7 +237,7 @@ class MalformedInputTests(PreflightCliTestCase):
 
 class PathLeakTests(PreflightCliTestCase):
     def test_machine_local_path_identifier_is_rejected(self) -> None:
-        leaked = "$AUTOCUT_WORKSPACE/raw/SRC-B.mov"
+        leaked = "/media/autocut/raw/SRC-B.mov"
         result = self.run_cli(document(segment_payload(source_id=leaked)))
         self.assertEqual(result.returncode, EXIT_CONTRACT_ERROR)
         self.assertIn("logical identifier", result.stderr)
@@ -247,7 +247,7 @@ class PathLeakTests(PreflightCliTestCase):
 
     def test_rejected_path_never_reaches_a_report(self) -> None:
         for leaked in (
-            "/Users/example/Movies/SRC-B.mov",
+            "/media/autocut/SRC-B.mov",
             "~/Movies/SRC-B.mov",
             "C:\\Media\\SRC-B.mov",
         ):
@@ -264,7 +264,7 @@ class PathLeakTests(PreflightCliTestCase):
         ):
             with self.subTest(payload=payload):
                 result = self.run_cli(payload)
-                for marker in ("/Users/", str(self.tmp), "file://", "\\"):
+                for marker in ("/media/", str(self.tmp), "file://", "\\"):
                     self.assertNotIn(marker, result.stdout)
 
 

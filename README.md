@@ -9,9 +9,14 @@ This repository contains the canonical baseline, a dependency-free Frame Boundar
 ## Canonical identity
 
 - Project ID: `ai-autocut`
-- Canonical repository: `<repo-root>`
 - Default branch: `main`
-- Runtime data root proposed for future use: `$AUTOCUT_WORKSPACE` (outside Git; not created by this bootstrap)
+- Runtime data root: logical role `AUTOCUT_WORKSPACE`
+- Media root: logical role `AUTOCUT_MEDIA_ROOT`
+
+No machine-bound absolute path appears in this repository. Every runtime
+location resolves from an environment variable — see
+[docs/architecture/operations.md](docs/architecture/operations.md) and
+[config/examples/autocut.env.example](config/examples/autocut.env.example).
 
 The machine-readable identity record is [PROJECT_IDENTITY.md](PROJECT_IDENTITY.md). Agent entry rules are in [AGENTS.md](AGENTS.md).
 

@@ -27,6 +27,21 @@ from .frame_boundary import (
     verify_placement_readback,
 )
 
+from .paths import (
+    ENV_ASCII_STAGING,
+    ENV_DAVINCI_PATH,
+    ENV_JIANYING_PATH,
+    ENV_LEGACY_WORKSPACE,
+    ENV_MEDIA_ROOT,
+    ENV_WORKSPACE,
+    PathConfiguration,
+    PathConfigurationError,
+    assert_ascii_safe,
+    find_machine_paths,
+    is_ascii_safe,
+    looks_like_machine_path,
+)
+
 __all__ = [
     "BoundaryGuardContractError",
     "BoundaryAssessment",
@@ -50,4 +65,18 @@ __all__ = [
     "run_boundary_guard",
     "seconds_to_frame_exact",
     "verify_placement_readback",
+
+    # path configuration
+    "ENV_ASCII_STAGING",
+    "ENV_DAVINCI_PATH",
+    "ENV_JIANYING_PATH",
+    "ENV_LEGACY_WORKSPACE",
+    "ENV_MEDIA_ROOT",
+    "ENV_WORKSPACE",
+    "PathConfiguration",
+    "PathConfigurationError",
+    "assert_ascii_safe",
+    "find_machine_paths",
+    "is_ascii_safe",
+    "looks_like_machine_path",
 ]

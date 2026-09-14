@@ -65,6 +65,21 @@ work/
 *.aac
 *.flac
 *.m4a
+*.yuv
+*.raw
+*.dpx
+*.exr
+
+# Provider raw dumps and trace output
+provider-raw/
+provider_dumps/
+traces/
+*.trace.jsonl
+*.mcp-calls.jsonl
+
+# Local secret files that are not .env-shaped
+.dev.vars
+*.dev.vars
 
 # Model weights and downloaded runtimes
 *.safetensors

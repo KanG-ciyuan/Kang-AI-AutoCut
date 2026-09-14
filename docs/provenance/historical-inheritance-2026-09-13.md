@@ -13,7 +13,10 @@ The new implementation treats frames as canonical. Unlike the historical helper,
 
 ## Historical sources reviewed
 
-All paths below are relative to `<legacy-rd-workspace>` and remained read-only.
+All paths below are relative to the legacy R&D experiment workspace, resolved at
+runtime from `AUTOCUT_LEGACY_WORKSPACE`, and remained read-only. The absolute
+location is deliberately not recorded here: see
+`docs/architecture/operations.md`.
 
 | Historical source | Capability reviewed | SHA-256 |
 |---|---|---|
