@@ -1,0 +1,10 @@
+{
+  "candidate_pool_id": "poolv1_0b4db20356f946e35c542dde2d6977961b6a66455641b7587e569f43076eb8fd",
+  "plan_id": "planv1_fb241f72e275a248ecb53e8cd6ce0a0ccf15f499b7f5fda7fa90616d5c4a70fe",
+  "schema_version": "editing_plan.v1",
+  "segments": [
+    {
+      "candidate_id": "candv1_f337412aa64f3bb35393191555ae9f8f6dc2bc42732b62f4192e1412eb7e6e3c"
+    }
+  ]
+}
