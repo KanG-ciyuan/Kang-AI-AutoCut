@@ -33,13 +33,13 @@ Media never enters this repository. Assets are referenced by logical role, bare 
 
 A narrowly reviewed Frame Boundary Kernel and sanitized regression evidence were inherited with explicit provenance. Other historical editing assets remain outside this repository.
 
-The First Real Multi-Agent Engineering Pilot completed through separate Agent A and Agent B engineering commits, ending at implementation HEAD `the First Real Multi-Agent Engineering Pilot completion commit in canonical historyd8723b41d2f332549f652f502bb3402c8`. Its 45 offline tests passed on 2026-09-13. Material / Candidate Identity v1 was implemented afterward as ordinary product engineering, with exact-byte Material IDs, deterministic frame-range Candidate IDs, a path-free catalog, and an upstream binding into the unchanged Boundary Preflight v1 contract.
+The First Real Multi-Agent Engineering Pilot completed through separate Agent A and Agent B engineering commits, ending at implementation HEAD `the First Real Multi-Agent Engineering Pilot completion commit in canonical history`. Its 45 offline tests passed on 2026-09-13. Material / Candidate Identity v1 was implemented afterward as ordinary product engineering, with exact-byte Material IDs, deterministic frame-range Candidate IDs, a path-free catalog, and an upstream binding into the unchanged Boundary Preflight v1 contract.
 
 ## Current stage
 
 **Gold Knowledge Baseline / Pre-Pipeline.**
 
-Editing Plan v1 is frozen at commit `the Editing Plan v1 freeze commit in canonical historye8d86ce0c4549bb1dc9f63b0ace3ffb56`. That commit is the freeze point, not the repository HEAD: HEAD may be later, and it is. Gold Consolidation Phase 2 added the Gold record, the path-sanitization contract, the backend-neutral Executable Timeline contract, and the typography, audio, and review policies described in `docs/`.
+Editing Plan v1 is frozen at commit `the Editing Plan v1 freeze commit in canonical history`. That commit is the freeze point, not the repository HEAD: HEAD may be later, and it is. Gold Consolidation Phase 2 added the Gold record, the path-sanitization contract, the backend-neutral Executable Timeline contract, and the typography, audio, and review policies described in `docs/`.
 
 Product and video quality were **NOT EVALUATED** by this repository's own engineering work. The Gold result recorded in `schemas/gold_manifest/filter-gold-v1.json` carries status `RECONCILED`; the canonical visual source and selected master have verified long-term logical locations below `AUTOCUT_MEDIA_ROOT`. No repository freeze has been declared, and declaring one is an upper-review decision.
 
