@@ -219,11 +219,21 @@ class Review:
         return True
 
     def as_dict(self) -> dict[str, object]:
+        """Serialise to the ``review.v0`` instance shape.
+
+        The document carries exactly the fields the schema declares. ``verdict`` is a
+        *derived* property, not an instance field, so it is deliberately absent here:
+        emitting it is what used to make ``as_dict()`` output unparseable by this
+        module's own parser. The verdict is recomputed from the recorded findings on
+        read, which is also the stronger position — the policy says a verdict cannot be
+        improved by rewriting a summary, and a stored verdict that nothing verifies is
+        exactly such a summary. Read it back with ``parse_review(doc).verdict``.
+        """
+
         return {
             "schema_version": SCHEMA_VERSION,
             "reviewer_id": self.reviewer_id,
             "executor_id": self.executor_id,
-            "verdict": self.verdict,
             "findings": [finding.as_dict() for finding in self.findings],
         }
 

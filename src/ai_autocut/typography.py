@@ -200,11 +200,18 @@ class TypographyPlan:
         )
 
     def as_dict(self) -> dict[str, object]:
+        """Serialise to the ``typography_policy.v0`` instance shape.
+
+        The document carries exactly the fields the schema declares. Module status is
+        not part of an instance: ``POLICY_STATUS`` and ``PLACEMENT_IMPLEMENTATION`` stay
+        importable and remain recorded in the schema's description, and ``self.status``
+        still reports it. Emitting them here is what used to make ``as_dict()`` output
+        unparseable by this module's own parser.
+        """
+
         return {
             "schema_version": SCHEMA_VERSION,
             "visual_direction": self.visual_direction,
-            "policy_status": POLICY_STATUS,
-            "placement_implementation": PLACEMENT_IMPLEMENTATION,
             "events": [event.as_dict() for event in self.events],
         }
 

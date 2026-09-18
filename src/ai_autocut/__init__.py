@@ -104,6 +104,50 @@ from .typography import (
     parse_typography_plan,
 )
 
+# Production capabilities that previously had no production caller. They are exported
+# here so the package surface matches what the fast path actually runs.
+#
+# ``shot_understanding`` and ``fast_path`` are deliberately NOT imported here: the
+# first requires numpy and the second reaches media tooling, and this package's
+# dependency-free import contract is worth more than the convenience. Use
+# ``python3 -m src.ai_autocut.fast_path`` for the orchestrator entry point.
+from .audio_program import (
+    DESIGNED_GAP_CLASSES,
+    GAP_CLASSES,
+    AudioProgramError,
+    AudioProgramReport,
+    GapFinding,
+    KeywordExpectation,
+    PlacedSegment,
+    assess_program,
+)
+from .intervention_ledger import (
+    INTERVENTION_KINDS,
+    Intervention,
+    InterventionLedger,
+    InterventionLedgerError,
+)
+from .narration_coverage import (
+    CoverageReport,
+    NarrationCoverageError,
+    assess_narration_coverage,
+)
+from .timebase_adapter import (
+    COORDINATE_SYSTEM,
+    FORBIDDEN_SOURCE_SELECTORS,
+    TimebaseAdapter,
+    TimebaseAdapterError,
+    assert_timestamp_safe,
+)
+from .typography_adapter import (
+    MissingTypographyExecutor,
+    TypographyAdapterError,
+    TypographyExecutor,
+    TypographyRequest,
+    TypographyResult,
+    execute_typography,
+)
+
 __all__ = [
     # frame boundary and guard
     "BoundaryGuardContractError",
@@ -199,4 +243,35 @@ __all__ = [
     "ReviewContractError",
     "build_targeted_repair",
     "parse_review",
+    # narration coverage (P0 production wiring)
+    "CoverageReport",
+    "NarrationCoverageError",
+    "assess_narration_coverage",
+    # audio program (P0 production wiring)
+    "DESIGNED_GAP_CLASSES",
+    "GAP_CLASSES",
+    "AudioProgramError",
+    "AudioProgramReport",
+    "GapFinding",
+    "KeywordExpectation",
+    "PlacedSegment",
+    "assess_program",
+    # timebase invariant (P0 production wiring)
+    "COORDINATE_SYSTEM",
+    "FORBIDDEN_SOURCE_SELECTORS",
+    "TimebaseAdapter",
+    "TimebaseAdapterError",
+    "assert_timestamp_safe",
+    # typography execution boundary
+    "MissingTypographyExecutor",
+    "TypographyAdapterError",
+    "TypographyExecutor",
+    "TypographyRequest",
+    "TypographyResult",
+    "execute_typography",
+    # prospective intervention ledger
+    "INTERVENTION_KINDS",
+    "Intervention",
+    "InterventionLedger",
+    "InterventionLedgerError",
 ]

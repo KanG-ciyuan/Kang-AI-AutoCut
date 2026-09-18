@@ -30,6 +30,17 @@ SOURCE_INVENTORY_FILENAME = "source_inventory.json"
 STAGING_QUOTA_BYTES = 5 * 1024 * 1024 * 1024
 
 STAGE_STATES = frozenset({"PENDING", "RUNNING", "PASS", "FAILED", "NEEDS_REVIEW"})
+
+#: Low-level execution/state vocabulary.
+#:
+#: This is execution detail, not the authoritative production lifecycle. The
+#: authoritative lifecycle is the eight-stage Production Fast Path in
+#: ``fast_path.py``; these states are the finer-grained record underneath it.
+#:
+#: ``PLAN_THE_WORDS`` and ``BUILD_THE_AUDIO`` were added because two of the eight
+#: semantic stages had no low-level state at all. Without them a copy or audio step
+#: could not be recorded, which is how an unrecorded stage becomes an unrun stage.
+#: The addition is purely additive: no existing state was removed or renamed.
 STAGE_ORDER = (
     "PREPARE",
     "ANALYZE",
@@ -39,6 +50,8 @@ STAGE_ORDER = (
     "EXECUTABLE_TIMELINE",
     "DAVINCI_EXECUTION",
     "PREVIEW",
+    "PLAN_THE_WORDS",
+    "BUILD_THE_AUDIO",
     "REVIEW",
     "FINAL",
     "DELIVERY",
@@ -50,6 +63,9 @@ ARTIFACT_KEYS = (
     "material_coverage",
     "editing_plan",
     "executable_timeline",
+    "timing_profile",
+    "narration_coverage",
+    "audio_program",
     "preview",
     "review",
     "final",

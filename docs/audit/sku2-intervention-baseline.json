@@ -1,0 +1,100 @@
+{
+  "schema_version": "sku2_intervention_baseline.v1",
+  "sku": "cushion-puff-second-sku-v1",
+  "status": "PARTIALLY_VERIFIED",
+  "immutable": true,
+  "source_artifact": "cushion-puff-second-sku-v1/post_blind/second_sku_learning_consolidation/second_sku_learning_consolidation.json#human_intervention_rate_sku2",
+  "source_note": "recorded for the trend only; NOT optimised retroactively",
+  "audited_at": "2026-09-18",
+  "audit_gate": "G.0 Phase 1",
+  "verification_method": "Each value was searched for an independent artifact that enumerates it. A value stated only in the consolidation block is not independently corroborated, and is labelled accordingly. Nothing here has been reconstructed, inferred, or upgraded after the fact.",
+  "fields": {
+    "VO_GENERATIONS": {
+      "value": 2,
+      "confidence": "VERIFIED",
+      "evidence": [
+        "cushion-puff-second-sku-v1/blind_v1/audio_v1/audio_mix_v1_report.md: VO_GENERATION_COUNT = 1",
+        "cushion-puff-second-sku-v1/blind_v1/audio_v2/audio_v2_report.md: DOUBAO_VO_CALLS = 1"
+      ]
+    },
+    "BGM_GENERATIONS": {
+      "value": 2,
+      "confidence": "VERIFIED",
+      "evidence": [
+        "cushion-puff-second-sku-v1/blind_v1/audio_v1/audio_mix_v1_report.md: PAID_API_CALLS = 2 (1 continuous VO + 1 BGM)",
+        "cushion-puff-second-sku-v1/blind_v1/audio_v2/audio_v2_report.md: DOUBAO_BGM_CALLS = 1"
+      ]
+    },
+    "SFX_GENERATIONS": {
+      "value": 1,
+      "confidence": "VERIFIED",
+      "evidence": [
+        "cushion-puff-second-sku-v1/blind_v1/audio_v1/audio_production_v1.json: SFX_GENERATIONS = 1",
+        "cushion-puff-second-sku-v1/blind_v1/audio_v1/audio_direction_v2/audio_direction_sheet_v2.md: procedural filtered-noise synthesis is rejected",
+        "cushion-puff-second-sku-v1/blind_v1/audio_v2/audio_v2_state.json: procedural_synthesis REJECTED"
+      ],
+      "caveat": "the count is corroborated; the rejection is corroborated separately, not inside the count"
+    },
+    "VISUAL_RANGE_REPAIRS": {
+      "value": 2,
+      "confidence": "VERIFIED",
+      "evidence": [
+        "cushion-puff-second-sku-v1/blind_v1/picture_finishing/pf01_repair.json: repaired_units lists exactly U03 and U04",
+        "cushion-puff-second-sku-v1/blind_v1/picture_finishing/c01_vfr_repair_report.md"
+      ]
+    },
+    "COPY_INTERVENTIONS": {
+      "value": 3,
+      "confidence": "PARTIAL",
+      "evidence": [
+        "cushion-puff-second-sku-v1/blind_v1/copy_v3/copy_proposal_v3.md: a Supervisor-requested creative revision at the pre-paid-copy-approval checkpoint"
+      ],
+      "caveat": "only 1 of the 3 is attributable to a named artifact; no artifact enumerates 3"
+    },
+    "TIMELINE_REPAIRS": {
+      "value": 1,
+      "confidence": "PARTIAL",
+      "evidence": [
+        "cushion-puff-second-sku-v1/blind_v1/picture_finishing/c01_vfr_repair_report.md: C-01 VFR Execution Repair + Bounded PF-01 Timeline Repair",
+        "cushion-puff-second-sku-v1/blind_v1/picture_finishing/pf01_repair.json: timeline_changed = true"
+      ],
+      "caveat": "not enumerable; double-count hazard - this is the same PF-01 operation counted in VISUAL_RANGE_REPAIRS"
+    },
+    "CREATIVE_REVIEW_REJECTIONS": {
+      "value": 2,
+      "confidence": "PARTIAL",
+      "evidence": [
+        "cushion-puff-second-sku-v1/blind_v1/audio_v1/audio_direction_v2/audio_direction_sheet_v2.md: Audio Mix v1 failed creative review on seven counts"
+      ],
+      "caveat": "at least four candidates exist (audio v1, copy v3, v2.1, typography v1 to v1.1, BGM v1 bed, SFX synthesis); no artifact selects which two"
+    },
+    "LOCAL_AUDIO_REPAIRS": {
+      "value": 2,
+      "confidence": "PARTIAL",
+      "evidence": [
+        "cushion-puff-second-sku-v1/blind_v1/audio_v2/audio_v2_report.md: two defects found and fixed during the build",
+        "cushion-puff-second-sku-v1/blind_v1/audio_v2/v2_1/audio_v2_1_state.json: AUDIO_V2_1_RHYTHM_REPAIR_RESULT APPLIED - local placement only"
+      ],
+      "caveat": "two competing enumerations; which two is not resolvable"
+    },
+    "SUPERVISOR_DECISIONS": {
+      "value": 14,
+      "confidence": "NOT_VERIFIABLE",
+      "evidence": [],
+      "caveat": "bare assertion - no artifact enumerates 14 decisions. The only occurrence of fourteen in the job is an unrelated review sentence."
+    },
+    "RENDER_TO_ACCEPTED_STEPS": {
+      "value": 11,
+      "confidence": "NOT_VERIFIABLE",
+      "evidence": [],
+      "caveat": "nothing defines 11 steps. Nearby documented lists are 8 (production fast path stages) and 5 (blind run completed stages)."
+    }
+  },
+  "known_disagreements": [
+    "VO count reads three ways: the consolidation block says 2, while audio_production_v1.json and its reports record VO_GENERATION_COUNT = 0 for the blocked attempt set.",
+    "Picture pair counts disagree across artifacts: 3 of 6, four of six, and a table listing five.",
+    "picture_finishing_assessment.md records Corrections applied: none alongside VISUAL_RANGE_REPAIRS = 2; these are different concepts (colour correction vs source-range repair) and are a real misreading hazard.",
+    "PRODUCTION_CLOSED is false in final_delivery_manifest.json: as of final delivery the final commercial review had not occurred."
+  ],
+  "usage": "Third SKU comparison uses this file only for fields marked VERIFIED. PARTIAL and NOT_VERIFIABLE fields are reported as trend context and must never be presented as a measured baseline."
+}
