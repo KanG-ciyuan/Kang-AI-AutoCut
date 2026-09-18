@@ -28,6 +28,21 @@ SEVERITIES = ("PASS", "WEAK", "FAIL", "CRITICAL")
 RELEASE_VERDICTS = ("PRODUCTION_READY", "NEEDS_REPAIR", "REJECT")
 
 #: The dimensions a review must judge. Each is answered exactly once.
+#:
+#: The last three are a later addition, and each was added only because a real failure
+#: had no dimension that could name it:
+#:
+#: ``comprehension``        whether the viewer was given time to understand a beat, which
+#:                          ``information_density`` (how much arrives) and ``rhythm`` (how
+#:                          it paces) do not ask
+#: ``typography_quality``   the rendered text layer, which no dimension previously covered
+#:                          even though a typography policy exists
+#: ``audio_hierarchy``      whether the produced mix obeys the planned priority, which is
+#:                          enforced at plan time and was unenforced at review time
+#:
+#: Deliberately NOT added, because an existing dimension already names them:
+#: fragmentation (shot_relationship, rhythm), product authenticity (visual_continuity),
+#: ending closure (narrative_progression, commercial_effectiveness).
 REVIEWER_DIMENSIONS = (
     "shot_selection",
     "action_boundary",
@@ -39,7 +54,34 @@ REVIEWER_DIMENSIONS = (
     "visual_continuity",
     "effect_judgment",
     "commercial_effectiveness",
+    "comprehension",
+    "typography_quality",
+    "audio_hierarchy",
 )
+
+#: Which production layer each dimension is repaired in.
+#:
+#: This is what makes Repair Scope Lock real: a failed dimension unlocks its own layer and
+#: nothing else, so a typography defect cannot trigger a re-edit and a comprehension defect
+#: cannot trigger a re-mix. `RepairPlan` itself is unchanged.
+DIMENSION_LAYERS = {
+    "shot_selection": "editing",
+    "action_boundary": "editing",
+    "shot_relationship": "editing",
+    "narrative_progression": "editing",
+    "rhythm": "editing",
+    "comprehension": "editing",
+    "multi_source_remix": "picture_finishing",
+    "visual_continuity": "picture_finishing",
+    "effect_judgment": "picture_finishing",
+    "typography_quality": "typography",
+    "audio_hierarchy": "audio",
+    "information_density": "copy",
+    "commercial_effectiveness": "copy",
+}
+
+#: The layers a repair may unlock, most expensive last.
+REPAIR_LAYERS = ("typography", "audio", "picture_finishing", "copy", "editing")
 
 #: A WEAK finding may be released only when it is explicitly accepted. FAIL and
 #: CRITICAL can never be accepted away.
@@ -299,3 +341,42 @@ def verdict_rank(verdict: str) -> int:
             f"verdict must be one of: {', '.join(RELEASE_VERDICTS)}"
         )
     return RELEASE_VERDICTS.index(verdict)
+
+
+def layers_for_repair(plan: RepairPlan) -> tuple[str, ...]:
+    """Return the production layers a repair plan is allowed to unlock.
+
+    Ordered from the cheapest layer to the most expensive, so a caller that repairs one
+    layer at a time starts with the one that touches the least. Everything not named here
+    stays untouched and is re-used.
+    """
+
+    if not isinstance(plan, RepairPlan):
+        raise ReviewContractError("plan must be a RepairPlan")
+    unlocked = {
+        DIMENSION_LAYERS[dimension] for dimension in plan.affected_dimensions
+    }
+    return tuple(layer for layer in REPAIR_LAYERS if layer in unlocked)
+
+
+def deterministic_finding(
+    dimension: str, severity: str, *, claim: str, measured: object
+) -> Finding:
+    """Build a finding that carries the measurement it is based on.
+
+    A review that can be written from prose alone is not evidence. ``Finding`` itself is
+    left exactly as it was; this helper only enforces how its existing ``detail`` field is
+    filled, so a deterministic check reports the value, range or count that produced it.
+    """
+
+    if not isinstance(claim, str) or not claim.strip():
+        raise ReviewContractError("a finding must state its claim")
+    if measured is None or (isinstance(measured, str) and not measured.strip()):
+        raise ReviewContractError(
+            f"dimension {dimension!r} must report the measurement behind it; a finding "
+            "with no measured value cannot be reproduced from the artifacts"
+        )
+    return Finding(
+        dimension=dimension, severity=severity,
+        detail=f"{claim.strip()} [measured: {measured}]",
+    )

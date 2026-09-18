@@ -18,8 +18,8 @@
     },
     "findings": {
       "type": "array",
-      "minItems": 10,
-      "maxItems": 10,
+      "minItems": 13,
+      "maxItems": 13,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -36,7 +36,10 @@
               "information_density",
               "visual_continuity",
               "effect_judgment",
-              "commercial_effectiveness"
+              "commercial_effectiveness",
+              "comprehension",
+              "typography_quality",
+              "audio_hierarchy"
             ]
           },
           "severity": { "enum": ["PASS", "WEAK", "FAIL", "CRITICAL"] },
@@ -55,6 +58,14 @@
     "verdict_precondition": "every reviewer dimension judged exactly once; an incomplete review is a contract rejection, not a partial release",
     "release_verdicts": ["PRODUCTION_READY", "NEEDS_REPAIR", "REJECT"],
     "gates": ["DETERMINISTIC_QA", "INDEPENDENT_AI_REVIEW", "HUMAN_FINAL_GATE"],
-    "repair_default": "targeted to the smallest affected range; regenerating the entire video is refused"
+    "repair_default": "targeted to the smallest affected range; regenerating the entire video is refused",
+    "dimension_layers": {
+      "editing": ["shot_selection", "action_boundary", "shot_relationship", "narrative_progression", "rhythm", "comprehension"],
+      "picture_finishing": ["multi_source_remix", "visual_continuity", "effect_judgment"],
+      "typography": ["typography_quality"],
+      "audio": ["audio_hierarchy"],
+      "copy": ["information_density", "commercial_effectiveness"]
+    },
+    "repair_scope_lock": "a failed dimension unlocks only its own layer; every other layer is re-used"
   }
 }
