@@ -23,8 +23,10 @@ editing intelligence, narrative planning, timeline construction, picture
 finishing, typography, audio, mastering, review and repair — with **human approval
 as an explicit gate**.
 
-It runs on your own machine. Your media stays on your disk. Every creative
-decision is recorded, and the system refuses to report success it cannot measure.
+It runs on your own machine. The production control path and media processing are
+local-first; external AI providers may receive only the inputs explicitly required
+for approved intelligence or generation tasks. Every creative decision is recorded,
+and the system refuses to report success it cannot measure.
 
 > **Commercial-first, extensible by design.** Commercial advertising is the first
 > production-validated workflow. The architecture is built to expand into broader
@@ -61,7 +63,7 @@ Kang AI-AutoCut treats video production as an **engineering pipeline**:
 | "It looks done" is the only check | Output is measured: frames, black frames, freezes, loudness, true peak, master hash |
 | A model can silently skip a step | A stage **cannot pass without naming the capability it ran** |
 | Human judgement is invisible | Human input happens at named gates, and is logged |
-| Your footage is uploaded | Media never leaves the machine |
+| Your footage is uploaded to a provider | Processing is local-first; providers receive only the inputs a task requires |
 
 ---
 
@@ -418,7 +420,9 @@ The value is in the architecture, not in a promise about outcomes:
   loudness, true peak and the master digest are measured from the file.
 - **Human intervention is visible.** The system logs when a gate opened, who
   acted, and when it resolved.
-- **Local media ownership.** Footage never has to leave the machine.
+- **Local media ownership.** Source media is not automatically uploaded to a cloud
+  pipeline; the control path and media processing stay on your machine, and an
+  approved external provider receives only the inputs a task explicitly requires.
 - **Provider flexibility.** Generation sits behind a boundary, so a provider
   choice is replaceable.
 
