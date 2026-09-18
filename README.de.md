@@ -265,7 +265,7 @@ Aufforderung wie diese:
 Installiere Kang AI-AutoCut auf diesem Computer gemäß den Anweisungen im
 Repository.
 
-Repository: https://github.com/KanG-ciyuan/AI-AutoCut
+Repository: https://github.com/KanG-ciyuan/Kang-AI-AutoCut
 
 Bevor du etwas änderst:
 1. Lies README.md, PROJECT_IDENTITY.md und AGENTS.md.
@@ -318,7 +318,7 @@ Lockdatei zu vertrauen, die es nicht gibt.
 ### Einrichtung
 
 ```sh
-git clone https://github.com/KanG-ciyuan/AI-AutoCut.git
+git clone https://github.com/KanG-ciyuan/Kang-AI-AutoCut.git
 cd AI-AutoCut
 
 # Local configuration: resolves environment variables, never machine paths

@@ -258,7 +258,7 @@ Berikan URL repositori dan prompt seperti berikut kepada Agent coding yang mumpu
 ```text
 Instal Kang AI-AutoCut di komputer ini menggunakan instruksi di repositori.
 
-Repositori: https://github.com/KanG-ciyuan/AI-AutoCut
+Repositori: https://github.com/KanG-ciyuan/Kang-AI-AutoCut
 
 Sebelum mengubah apa pun:
 1. Baca README.md, PROJECT_IDENTITY.md dan AGENTS.md.
@@ -309,7 +309,7 @@ yang tidak ada.
 ### Penyiapan
 
 ```sh
-git clone https://github.com/KanG-ciyuan/AI-AutoCut.git
+git clone https://github.com/KanG-ciyuan/Kang-AI-AutoCut.git
 cd AI-AutoCut
 
 # Local configuration: resolves environment variables, never machine paths

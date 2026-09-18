@@ -262,7 +262,7 @@ este:
 ```text
 Instala Kang AI-AutoCut en este ordenador siguiendo las instrucciones del repositorio.
 
-Repositorio: https://github.com/KanG-ciyuan/AI-AutoCut
+Repositorio: https://github.com/KanG-ciyuan/Kang-AI-AutoCut
 
 Antes de cambiar nada:
 1. Lee README.md, PROJECT_IDENTITY.md y AGENTS.md.
@@ -313,7 +313,7 @@ lockfile que no está.
 ### Configuración inicial
 
 ```sh
-git clone https://github.com/KanG-ciyuan/AI-AutoCut.git
+git clone https://github.com/KanG-ciyuan/Kang-AI-AutoCut.git
 cd AI-AutoCut
 
 # Local configuration: resolves environment variables, never machine paths

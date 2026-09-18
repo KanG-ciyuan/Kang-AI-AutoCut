@@ -251,7 +251,7 @@ Kang AI-AutoCut は **Agent とともに操作される** よう設計されて�
 このコンピュータに、リポジトリの手順に従って Kang AI-AutoCut をインストールして
 ください。
 
-リポジトリ: https://github.com/KanG-ciyuan/AI-AutoCut
+リポジトリ: https://github.com/KanG-ciyuan/Kang-AI-AutoCut
 
 何かを変更する前に:
 1. README.md、PROJECT_IDENTITY.md、AGENTS.md を読むこと。
@@ -300,7 +300,7 @@ Kang AI-AutoCut は **Agent とともに操作される** よう設計されて�
 ### セットアップ
 
 ```sh
-git clone https://github.com/KanG-ciyuan/AI-AutoCut.git
+git clone https://github.com/KanG-ciyuan/Kang-AI-AutoCut.git
 cd AI-AutoCut
 
 # Local configuration: resolves environment variables, never machine paths

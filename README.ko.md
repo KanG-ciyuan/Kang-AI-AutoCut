@@ -247,7 +247,7 @@ Agent나 컴퓨터 사용(computer-use) Agent가 있습니다. **이는 예시�
 ```text
 저장소의 안내에 따라 이 컴퓨터에 Kang AI-AutoCut을 설치해 주세요.
 
-저장소: https://github.com/KanG-ciyuan/AI-AutoCut
+저장소: https://github.com/KanG-ciyuan/Kang-AI-AutoCut
 
 무엇이든 변경하기 전에:
 1. README.md, PROJECT_IDENTITY.md, AGENTS.md를 읽어 주세요.
@@ -294,7 +294,7 @@ Agent는 환경을 점검하고, 사용자가 승인한 사전 요구 사항을 
 ### 설정
 
 ```sh
-git clone https://github.com/KanG-ciyuan/AI-AutoCut.git
+git clone https://github.com/KanG-ciyuan/Kang-AI-AutoCut.git
 cd AI-AutoCut
 
 # Local configuration: resolves environment variables, never machine paths

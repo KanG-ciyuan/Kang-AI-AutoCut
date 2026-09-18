@@ -250,7 +250,7 @@ Give a capable coding Agent the repository URL and a prompt like this:
 ```text
 Install Kang AI-AutoCut on this computer using the repository instructions.
 
-Repository: https://github.com/KanG-ciyuan/AI-AutoCut
+Repository: https://github.com/KanG-ciyuan/Kang-AI-AutoCut
 
 Before changing anything:
 1. Read README.md, PROJECT_IDENTITY.md and AGENTS.md.
@@ -299,7 +299,7 @@ there.
 ### Setup
 
 ```sh
-git clone https://github.com/KanG-ciyuan/AI-AutoCut.git
+git clone https://github.com/KanG-ciyuan/Kang-AI-AutoCut.git
 cd AI-AutoCut
 
 # Local configuration: resolves environment variables, never machine paths

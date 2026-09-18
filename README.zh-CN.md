@@ -215,7 +215,7 @@ Kang AI-AutoCut 的设计目标是**由 Agent 来操作** —— 这里的 Agent
 ```text
 请按照仓库中的说明，在本机安装 Kang AI-AutoCut。
 
-仓库地址：https://github.com/KanG-ciyuan/AI-AutoCut
+仓库地址：https://github.com/KanG-ciyuan/Kang-AI-AutoCut
 
 在改动任何内容之前：
 1. 阅读 README.md、PROJECT_IDENTITY.md 和 AGENTS.md。
@@ -254,7 +254,7 @@ Kang AI-AutoCut 的设计目标是**由 Agent 来操作** —— 这里的 Agent
 ### 环境配置
 
 ```sh
-git clone https://github.com/KanG-ciyuan/AI-AutoCut.git
+git clone https://github.com/KanG-ciyuan/Kang-AI-AutoCut.git
 cd AI-AutoCut
 
 # Local configuration: resolves environment variables, never machine paths
