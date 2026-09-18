@@ -291,7 +291,7 @@
         "END_TO_END_REACHABLE": true
       },
       "third_sku_ready": true,
-      "notes": "Runtime-proven. Job-scoped and local: it joins the ranges the fast path extracted through the timebase adapter and normalises geometry, then the stage re-measures the real file (frames, geometry, fps, sha256). No universal engine, and no DaVinci research reopened."
+      "notes": "Runtime-proven. Job-scoped and local: it joins the ranges the fast path extracted through the timebase adapter and applies each unit’s own explicit geometry (FIT scales and pads; CROP takes an explicit source rectangle and scales it to the output — never inferred, never adjusted, and never silently replaced by a fit), then the stage re-measures the real file (frames, geometry, fps, sha256). No universal engine, no automatic framing, and no DaVinci research reopened."
     },
     {
       "stage": "PLAN THE WORDS",

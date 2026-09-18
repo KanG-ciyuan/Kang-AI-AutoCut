@@ -54,7 +54,7 @@ relationships between them.
 | FINISH THE PICTURE | read-only picture measurement | `PARTIALLY_WIRED` | **no** | yes | no |
 | FINISH THE PICTURE | product authenticity protection | `PARTIALLY_WIRED` | **no** | yes | no |
 | FINISH THE PICTURE | KEEP / REVIEW / CORRECT decision | `WIRED` | **no** | yes | no |
-| FINISH THE PICTURE | picture execution | `JOB_SPECIFIC_ONLY` | **no** | no | no |
+| FINISH THE PICTURE | picture execution | `WIRED` | yes | yes | yes |
 | PLAN THE WORDS | commercial narration coverage | `WIRED` | yes | yes | yes |
 | PLAN THE WORDS | spoken duration validation | `NOT_WIRED` | yes | no | no |
 | PLAN THE WORDS | typography policy validation | `NOT_WIRED` | no | no | no |
