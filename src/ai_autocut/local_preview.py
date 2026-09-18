@@ -1,4 +1,22 @@
-"""Minimal local, video-only execution for one validated Editing Plan."""
+"""Minimal local, video-only execution for one validated Editing Plan.
+
+Production scope: **EXCLUDED from Third-SKU production.**
+--------------------------------------------------------
+This module builds its filter graph with ``trim=start_frame=N:end_frame=M`` against the
+source file (see :func:`build_filter_graph`). That is a source-coordinate selection by
+decoded frame index, and it is the exact shape that produced the Second SKU's frame
+miscount: a source frame index is not ``30 x`` its time when the source is variable
+frame rate.
+
+It is a correct local preview for a constant frame rate source and a validated Editing
+Plan, and it is retained for that. It is **not** an authorised Third-SKU production
+source-range path, because routing it through the timebase invariant would mean
+rewriting its execution rather than classifying it — and that rewrite is out of scope.
+
+Third-SKU production source ranges go through ``timebase_adapter.TimebaseAdapter``.
+:func:`assert_third_sku_production_allowed` makes the exclusion enforceable rather than
+advisory, so a future caller cannot quietly adopt this module for production.
+"""
 
 from __future__ import annotations
 
@@ -14,6 +32,36 @@ from .editing_plan import EditingPlan, bind_plan_boundary_preflight, parse_editi
 from .identity import IdentityCatalog, MaterialLocations, parse_identity_catalog, parse_material_locations, resolve_material_path
 from .preflight import build_report, parse_preflight_document, run_preflight
 
+#: This module's production scope. See the module docstring.
+THIRD_SKU_PRODUCTION_SCOPE = "EXCLUDED"
+
+#: Why it is excluded, stated once so the reason travels with the constant.
+THIRD_SKU_EXCLUSION_REASON = (
+    "build_filter_graph selects source frames with trim=start_frame / end_frame, which "
+    "is a decoded frame index used as a source coordinate. That is unsafe for a "
+    "variable frame rate source, which is the Second SKU defect. Third-SKU production "
+    "source ranges must go through timebase_adapter.TimebaseAdapter."
+)
+
+
+class LocalPreviewScopeError(ValueError):
+    """Raised when this module is asked to act as a Third-SKU production path."""
+
+
+def assert_third_sku_production_allowed(scope: str) -> None:
+    """Refuse Third-SKU production use; allow preview and local inspection.
+
+    Called by any path that would adopt this module for production. The default outcome
+    is refusal, because the failure it guards against is silent.
+    """
+
+    if scope == "THIRD_SKU_PRODUCTION":
+        raise LocalPreviewScopeError(THIRD_SKU_EXCLUSION_REASON)
+    if scope not in ("LOCAL_PREVIEW", "LOCAL_INSPECTION"):
+        raise LocalPreviewScopeError(
+            f"unknown production scope {scope!r}; expected LOCAL_PREVIEW, "
+            "LOCAL_INSPECTION or THIRD_SKU_PRODUCTION"
+        )
 
 class LocalPreviewError(ValueError):
     """Raised when a local preview cannot be safely produced or verified."""

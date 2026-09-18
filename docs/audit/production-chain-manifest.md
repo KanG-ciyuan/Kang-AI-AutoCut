@@ -3,108 +3,174 @@
 > **The question this document answers:** *is this capability actually in the real
 > production chain?*
 
-It exists because the Gate G.0 audit found capabilities that were implemented, had
-passing unit tests, and were still never called by any production path —
-`timebase.py`, `narration_coverage.py`, `audio_program.py` and the whole
-`review`/repair contract. A file existing is not evidence. A test passing is not
-evidence. Only a **production caller** is evidence.
+The machine-readable form is
+[`production-chain-manifest.json`](production-chain-manifest.json). Its invariants are
+enforced by `tests/test_production_chain_manifest.py`, so this document cannot mark a
+capability ready without the runtime behaviour to support it.
 
-The machine-readable form is [`production-chain-manifest.json`](production-chain-manifest.json).
-Its invariants are enforced by `tests/test_production_chain_manifest.py`, so this
-document cannot mark a capability `WIRED` without naming a caller that exists.
+## Why this was rewritten
 
-## Status vocabulary
+The Phase 2B manifest described readiness with a single flag, and independent inspection
+rejected it: capabilities were marked `WIRED` and `third_sku_ready` when the runtime did
+not support the claim. A capability could be *implemented* and still be unreachable.
 
-| Status | Means |
+This revision replaces the flag with **six independent dimensions**, and enforces the
+relationships between them.
+
+| Dimension | Means |
 |---|---|
-| `WIRED` | a production caller exists, is named, and is in git |
-| `PARTIALLY_WIRED` | reachable from some production path, but not the fast path, or not on real media |
-| `NOT_WIRED` | implemented and possibly tested, but no production caller |
-| `JOB_SPECIFIC_ONLY` | exists only as a per-job script outside version control |
-| `EXPERIMENTAL_ONLY` | reachable only from a test or evaluation harness |
-| `DEPRECATED` | superseded and retained |
-| `UNKNOWN` | not determined |
+| `IMPLEMENTED` | the capability's logic exists in this repository |
+| `VALIDATOR_WIRED` | a production path calls its validator |
+| `PRODUCER_DEFINED` | its required artifact has exactly one registered producer |
+| `EXECUTOR_AVAILABLE` | an executor ships here (false ⇒ a job-specific adapter must be supplied) |
+| `MANUAL_GATE_DEFINED` | the manual/adapter step is explicit in the registry or the contracts |
+| `END_TO_END_REACHABLE` | the fast path reaches this stage and it can PASS once its producers have acted |
 
 ## Enforced invariants
 
 1. `WIRED` ⇒ `production_caller` is not null
 2. `WIRED` ⇒ `git_tracked` is true
-3. `third_sku_ready` ⇒ `wiring_status == WIRED`
-4. every P0 module has a non-null production caller
-5. `implementation` path exists on disk
-6. `stage` is one of the eight semantic stages
+3. `third_sku_ready` ⇒ `END_TO_END_REACHABLE`
+4. `third_sku_ready` ⇒ `EXECUTOR_AVAILABLE`
+5. `third_sku_ready` ⇒ `PRODUCER_DEFINED`
+6. `EXECUTOR_AVAILABLE == false` **and** `PRODUCER_DEFINED == true` ⇒ `MANUAL_GATE_DEFINED`
+7. every P0 module has a non-null production caller
+8. `implementation` path exists on disk
+9. `stage` is one of the eight semantic stages
 
 ## Summary
 
-| Stage | Capability | Status | 3rd SKU ready |
-|---|---|---|---|
-| PREPARE | source ingestion and immutability | `WIRED` | yes |
-| PREPARE | material and candidate identity | `PARTIALLY_WIRED` | no |
-| UNDERSTAND SHOTS | visual segmentation | `WIRED` | yes |
-| UNDERSTAND SHOTS | semantic / action grouping | `NOT_WIRED` | no |
-| UNDERSTAND SHOTS | material capacity estimation | `NOT_WIRED` | no |
-| PLAN THE EDIT | action-aware timeline range validation | `WIRED` | yes |
-| PLAN THE EDIT | executable timeline contract | `PARTIALLY_WIRED` | no |
-| FINISH THE PICTURE | source-range execution through the timebase invariant | `WIRED` | yes |
-| FINISH THE PICTURE | read-only picture measurement | `PARTIALLY_WIRED` | no |
-| FINISH THE PICTURE | product authenticity protection | `PARTIALLY_WIRED` | no |
-| FINISH THE PICTURE | KEEP / REVIEW / CORRECT decision | `WIRED` | yes |
-| FINISH THE PICTURE | DaVinci Resolve execution | `JOB_SPECIFIC_ONLY` | no |
-| PLAN THE WORDS | commercial narration coverage | `WIRED` | yes |
-| PLAN THE WORDS | spoken duration validation | `PARTIALLY_WIRED` | no |
-| PLAN THE WORDS | typography policy validation | `PARTIALLY_WIRED` | no |
-| PLAN THE WORDS | typography execution | `JOB_SPECIFIC_ONLY` | no |
-| BUILD THE AUDIO | audio program verification (FIT / SYNC / RHYTHM) | `WIRED` | yes |
-| BUILD THE AUDIO | audio plan contract | `PARTIALLY_WIRED` | no |
-| BUILD THE AUDIO | audio rendering and mixing | `JOB_SPECIFIC_ONLY` | no |
-| ASSEMBLE & MASTER | packaging, encode/remux, final master | `NOT_WIRED` | no |
-| REVIEW & REPAIR | review contract and release verdict | `WIRED` | yes |
-| REVIEW & REPAIR | targeted repair planning | `WIRED` | yes |
-| REVIEW & REPAIR | automated commercial reviewer | `NOT_WIRED` | no |
-| REVIEW & REPAIR | prospective intervention ledger | `WIRED` | yes |
+| Stage | Capability | Status | Executor | E2E | Ready |
+|---|---|---|---|---|---|
+| PREPARE | source ingestion and immutability | `WIRED` | yes | yes | yes |
+| PREPARE | material and candidate identity | `NOT_WIRED` | yes | no | no |
+| UNDERSTAND SHOTS | placement authoring under the measured timebase | `WIRED` | yes | yes | yes |
+| UNDERSTAND SHOTS | visual segmentation | `WIRED` | yes | yes | yes |
+| UNDERSTAND SHOTS | semantic / action grouping | `NOT_WIRED` | yes | no | no |
+| UNDERSTAND SHOTS | material capacity estimation | `NOT_WIRED` | no | no | no |
+| PLAN THE EDIT | action-aware timeline range validation | `WIRED` | yes | yes | yes |
+| PLAN THE EDIT | executable timeline contract | `NOT_WIRED` | no | no | no |
+| FINISH THE PICTURE | source-range execution under the timebase invariant | `WIRED` | yes | yes | yes |
+| FINISH THE PICTURE | read-only picture measurement | `PARTIALLY_WIRED` | **no** | yes | no |
+| FINISH THE PICTURE | product authenticity protection | `PARTIALLY_WIRED` | **no** | yes | no |
+| FINISH THE PICTURE | KEEP / REVIEW / CORRECT decision | `WIRED` | **no** | yes | no |
+| FINISH THE PICTURE | picture execution | `JOB_SPECIFIC_ONLY` | **no** | no | no |
+| PLAN THE WORDS | commercial narration coverage | `WIRED` | yes | yes | yes |
+| PLAN THE WORDS | spoken duration validation | `NOT_WIRED` | yes | no | no |
+| PLAN THE WORDS | typography policy validation | `NOT_WIRED` | no | no | no |
+| PLAN THE WORDS | typography execution | `JOB_SPECIFIC_ONLY` | **no** | no | no |
+| BUILD THE AUDIO | audio program verification (FIT / SYNC / RHYTHM) | `WIRED` | **no** | yes | no |
+| BUILD THE AUDIO | audio plan contract | `NOT_WIRED` | no | no | no |
+| BUILD THE AUDIO | audio rendering and mixing | `JOB_SPECIFIC_ONLY` | **no** | no | no |
+| ASSEMBLE & MASTER | packaging, encode/remux, final master | `PARTIALLY_WIRED` | **no** | no | no |
+| REVIEW & REPAIR | review contract and release verdict | `WIRED` | yes | yes | yes |
+| REVIEW & REPAIR | targeted repair planning | `WIRED` | yes | yes | yes |
+| REVIEW & REPAIR | human release gate | `WIRED` | yes | yes | yes |
+| REVIEW & REPAIR | automated commercial reviewer | `NOT_WIRED` | no | no | no |
+| REVIEW & REPAIR | prospective intervention ledger | `WIRED` | yes | yes | yes |
 
-**Nine capabilities are `WIRED`. Fifteen are not.** That ratio is the honest state of
-the system, and it is the reason a Third SKU blind run is still a test of the
-capabilities that *are* wired rather than of a finished pipeline.
+**Eight capabilities are ready. Eighteen are not.** Several are `WIRED` — their validator
+runs in production — while still not being *ready*, because the executor that would act
+on their output does not ship here. `KEEP / REVIEW / CORRECT decision` is the clearest
+case: the decision runs, but nothing in this repository acts on a `CORRECT`.
 
-## Read this before claiming one-command production
+## `full_chain_completable_today: false`
 
-The fast path is an authoritative **control** path, not an autonomous editor. It knows
-which stage comes next and which capability must run. It does **not**:
+No executor ships for picture execution, typography execution, audio rendering or
+assembly. Each is an **explicit adapter gate with a published contract**, so the chain is
+reproducible but not completable without a job-specific adapter.
 
-- resolve `REVIEW_REQUIRED` or `SUPERVISOR_DECISION_REQUIRED` — both always stop the run
-- repair anything on its own
-- render video, mix audio, or package a delivery
+That is the honest headline. The run stops and names who must act; it does not pretend.
 
-`ASSEMBLE & MASTER` returns `SUPERVISOR_DECISION_REQUIRED` and never `PASS`, because
-there is no packaging code in this repository. A run that reaches it has stopped, not
-finished.
+## Every artifact has a producer
 
-## Known limitations carried in this manifest
+`src/ai_autocut/producer_registry.py` assigns each required artifact exactly one producer:
+`AUTO`, `CODEX`, `HUMAN` or `ADAPTER`. **No required artifact has NO PRODUCER or UNKNOWN
+PRODUCER**, and that is asserted by test.
+
+| Artifact | Producer | Type |
+|---|---|---|
+| `source_inventory.json` | `job_foundation.initialize_filter_job` | CODEX |
+| `shots/placements.json` | placement author | CODEX |
+| `edit/timeline_ranges.json` | edit planner | CODEX |
+| `picture/measurements.json` | picture measurement adapter | ADAPTER |
+| `picture/source_ranges.json` | source-range author | CODEX |
+| `copy/commercial_units.json` | copy planner | CODEX |
+| `audio/placement.json` | VO placement adapter | ADAPTER |
+| `audio/sync_expectations.json` | sync expectation author | CODEX |
+| `assemble/assembly_evidence.json` | packaging adapter | ADAPTER |
+| `review/review.json` | reviewer | CODEX |
+| `release/human_release.json` | human release authority | HUMAN |
+
+A `CODEX` or `HUMAN` producer is legitimate. The goal of this work is reproducibility,
+not autonomy. **Hidden manual reconstruction is what is not allowed**: every gate names
+its input contract, output contract, procedure, evidence requirement, checkpoint and
+ledger obligation.
+
+## Execution contracts
+
+Picture execution, typography execution, audio rendering and assembly each declare a
+contract in `src/ai_autocut/execution_contracts.py`: producer type, required input,
+expected output, procedure, validation, evidence, resume condition and ledger
+obligation. A job-specific adapter is allowed; a hidden remembered command is not.
+
+## The timebase invariant is global
+
+```
+SOURCE coordinate   = measured PTS timestamp in seconds
+TIMELINE coordinate = CFR frame index
+```
+
+It governs **every** active production path that converts a source range into timeline
+frames:
+
+- **placement coordinates** (`assert_placement_timing`) — every placement must state a
+  measured `t_in_seconds`; a coordinate derived from `frame_index / fps` is refused
+  before segmentation runs;
+- **source-range execution** (`execute` + `assert_range_coverage`) — a unit executed
+  without passing through the adapter fails the run.
+
+Two legacy paths are classified rather than left ambiguous:
+
+- `local_preview.build_filter_graph` selects source frames with
+  `trim=start_frame`, the exact Second SKU defect shape. It is **excluded from Third-SKU
+  production** by an enforceable guard, and retained for local preview only.
+- `shot_understanding` works in decoded frame indices, which is legitimate for
+  segmentation. Its `duration_seconds` is **not** used as a production time coordinate.
+
+## Outcomes and exit codes
+
+| Outcome | Exit code | Meaning |
+|---|---|---|
+| `PASS` | 0 | the run completed |
+| `BLOCKED` | 3 | a named producer must act |
+| `REVIEW_REQUIRED` | 4 | a wired capability refused; a human decides |
+| `SUPERVISOR_DECISION_REQUIRED` | 5 | a judgement or approval belongs to the Supervisor |
+| `FAIL` | 6 | the stage ran and produced an unacceptable result |
+| `REJECT` | 7 | a CRITICAL finding; returns to planning |
+
+A reviewer verdict is **not** a release. `PRODUCTION_READY` produces
+`SUPERVISOR_DECISION_REQUIRED` until a distinct `release/human_release.json` approves it.
+
+## Known limitations carried here
 
 - **DaVinci.** Not globally classified as unable to render. Resolve rendered five full
   timelines on 2026-09-15/16 with passing pixel validation. The recorded failure is
-  specifically a **Fusion Text+ title bake** under the recorded environment, never
-  diagnosed and never re-tested. Out of scope; not investigated.
+  specifically a **Fusion Text+ title bake**, never diagnosed and never re-tested.
 - **Typography.** The historical SKU#1 `editorial_text_plan.json` is rejected by the
-  frozen policy validator for nine unrelated extra keys, and the policy vocabulary can
-  express 3 of its 5 events. Recorded, deliberately not repaired.
+  frozen policy validator for nine unrelated extra keys. Recorded, not repaired.
+- **Run-aware segmentation (C-01).** Unresolved; this work addresses the timebase
+  *execution* aspect only.
 - **Selected-range verification.** The project's own note stands: *"no automated check —
   needs vision."*
-- **Run-aware segmentation.** Unresolved (C-01); the VFR *execution* aspect is what this
-  commit addresses.
-- **Semantic grouping.** Structurally inert in the only run that reached it:
-  `group_shapes` was `{SINGLE: 18}` because the caller passed a constant
-  `narrative_role`, so no `ACTION_RESULT` unit was ever produced.
 
 ## Intervention baseline
 
 The Second SKU baseline is frozen at **`PARTIALLY_VERIFIED`** in
 [`sku2-intervention-baseline.json`](sku2-intervention-baseline.json), with a confidence
-label on every field. Four values are `PARTIAL` and two are `NOT_VERIFIABLE`. Nothing in
-this repository reconstructs, infers, or upgrades them.
+label on every field. Four values are `PARTIAL` and two are `NOT_VERIFIABLE`. Nothing
+here reconstructs or upgrades them.
 
-A Third SKU records interventions prospectively through
-`src/ai_autocut/intervention_ledger.py`, appended at the moment they occur. Comparison
-is a key-by-key subtraction against the frozen baseline, and a delta against a
-`NOT_VERIFIABLE` field is reported as trend context, never as measured improvement.
+A Third SKU records interventions **prospectively**: the fast path writes a ledger entry
+automatically when a gate halts a run, so the operator is not asked to remember. A count
+that was not recorded when it occurred does not exist.

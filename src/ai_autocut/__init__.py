@@ -111,6 +111,22 @@ from .typography import (
 # first requires numpy and the second reaches media tooling, and this package's
 # dependency-free import contract is worth more than the convenience. Use
 # ``python3 -m src.ai_autocut.fast_path`` for the orchestrator entry point.
+from .execution_contracts import (
+    CONTRACT_NAMES,
+    CONTRACTS,
+    ExecutionContract,
+    ExecutionContractError,
+    get_contract,
+    verify_assembly_evidence,
+)
+from .producer_registry import (
+    PRODUCER_TYPES,
+    PRODUCERS,
+    Producer,
+    ProducerRegistryError,
+    gate_for,
+    producer_for,
+)
 from .audio_program import (
     DESIGNED_GAP_CLASSES,
     GAP_CLASSES,
@@ -269,6 +285,20 @@ __all__ = [
     "TypographyRequest",
     "TypographyResult",
     "execute_typography",
+    # artifact producer registry
+    "PRODUCERS",
+    "PRODUCER_TYPES",
+    "Producer",
+    "ProducerRegistryError",
+    "gate_for",
+    "producer_for",
+    # execution contracts
+    "CONTRACTS",
+    "CONTRACT_NAMES",
+    "ExecutionContract",
+    "ExecutionContractError",
+    "get_contract",
+    "verify_assembly_evidence",
     # prospective intervention ledger
     "INTERVENTION_KINDS",
     "Intervention",

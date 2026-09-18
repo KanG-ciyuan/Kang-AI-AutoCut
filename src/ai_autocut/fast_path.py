@@ -3,39 +3,48 @@
 What this is
 ------------
 One control path that knows, for a job: **which semantic stage comes next, which
-capability must run in it, which artifacts must exist, and whether execution may
-continue.** It is a *control* path, not an intelligence: it makes no creative
-decision, repairs nothing on its own, and never substitutes for the Supervisor.
+capability must run in it, which artifact must exist and who produces it, and whether
+execution may continue.** It is a *control* path, not an intelligence: it makes no
+creative decision, repairs nothing on its own, and never substitutes for the Supervisor.
 
 What this is not
 ----------------
-It is not a one-command autonomous editor, and it does not claim to be. A stage with
-no adapter returns ``SUPERVISOR_DECISION_REQUIRED`` rather than passing quietly, so an
-unbuilt capability shows up as an explicit stop instead of a green light.
+It is not an autonomous pipeline, and it does not claim to be. Four boundaries — picture
+execution, typography execution, audio rendering, and assembly — have no in-repository
+executor. Each declares an explicit :mod:`execution_contracts` contract, and the stage
+gates on it rather than passing quietly.
 
-Why it exists
--------------
-The Gate G.0 audit found capabilities that were implemented, tested and then never
-called by any production path: ``timebase.py``, ``narration_coverage.py``,
-``audio_program.py`` and the whole ``review``/repair contract. Every one of them had
-passing unit tests, which is exactly why unit tests could not catch it.
+Every artifact has a producer
+-----------------------------
+Independent inspection found that the earlier path declared its inputs but never said
+who produced them, which made it a validation harness around preconstructed artifacts
+rather than a runner. :mod:`producer_registry` now assigns every required artifact
+exactly one explicit producer — ``AUTO``, ``CODEX``, ``HUMAN`` or ``ADAPTER`` — and this
+module returns an explicit **producer gate** naming the producer that must act, instead
+of proceeding or failing vaguely.
 
-The guard is structural. Each :class:`Stage` **declares** its capability, its inputs
-and its outputs, and every :class:`StageResult` **records the capability that actually
-ran**. A stage that reports ``PASS`` without naming a capability is a wiring failure by
-construction, and ``tests/test_fast_path_wiring.py`` fails if a declared capability
-loses its caller.
+A ``CODEX`` or ``HUMAN`` producer is legitimate. The goal is reproducibility, not
+autonomy. Hidden manual reconstruction is what is not allowed.
 
 Stage outcomes
 --------------
 ``PASS``                        the stage completed and its artifacts exist
+``BLOCKED``                     a named producer must act before this stage can run
 ``REVIEW_REQUIRED``             a wired capability refused; a human decides
-``SUPERVISOR_DECISION_REQUIRED`` a capability is unbuilt or a judgement is the Supervisor's
-``BLOCKED``                     an input or the environment is missing
+``SUPERVISOR_DECISION_REQUIRED`` a judgement or approval belongs to the Supervisor
+``REJECT``                      a CRITICAL finding; returns to planning, not to repair
 ``FAIL``                        the stage ran and produced an unacceptable result
 
-``REVIEW_REQUIRED`` and ``SUPERVISOR_DECISION_REQUIRED`` **always stop the run.**
-Nothing here resolves them, retries them, or works around them.
+Every non-``PASS`` outcome stops the run. Nothing here resolves one, retries it, or
+works around it. Each maps to a documented non-zero exit code so a halted run cannot be
+mistaken for a success.
+
+Resume
+------
+``run()`` resumes from the first semantic stage that has not passed. A completed stage
+is not re-executed unless it is explicitly invalidated. ``--stage`` goes through the
+same checkpoint path, and every outcome is persisted, so a run interrupted by a producer
+gate continues from the correct stage once that producer has acted.
 """
 
 from __future__ import annotations
@@ -51,11 +60,13 @@ from . import (
     audio_plan,
     audio_program,
     editing_intelligence,
+    execution_contracts,
     intervention_ledger,
     job_foundation,
     narration_coverage,
     picture_decision,
     picture_measurement,
+    producer_registry,
     product_protection,
     review,
     shot_understanding,
@@ -66,6 +77,8 @@ from .paths import assert_ascii_safe
 
 STATE_FILENAME = "fast_path_state.json"
 ARTIFACT_REFERENCES_FILENAME = "artifact_references.json"
+HUMAN_RELEASE_ARTIFACT = "release/human_release.json"
+ASSEMBLY_EVIDENCE_ARTIFACT = "assemble/assembly_evidence.json"
 
 SEMANTIC_STAGES = (
     "PREPARE",
@@ -80,29 +93,39 @@ SEMANTIC_STAGES = (
 
 OUTCOMES = (
     "PASS",
+    "BLOCKED",
     "REVIEW_REQUIRED",
     "SUPERVISOR_DECISION_REQUIRED",
-    "BLOCKED",
+    "REJECT",
     "FAIL",
 )
 
+#: Documented process exit codes. A halted run must never look like a success to a
+#: caller that only inspects the exit status.
+EXIT_CODES = {
+    "PASS": 0,
+    "BLOCKED": 3,
+    "REVIEW_REQUIRED": 4,
+    "SUPERVISOR_DECISION_REQUIRED": 5,
+    "FAIL": 6,
+    "REJECT": 7,
+}
+
 #: Fast-path outcome -> the low-level ``job_foundation`` state it is recorded as.
-#: The low-level vocabulary is execution detail underneath the semantic lifecycle.
 OUTCOME_TO_LOW_LEVEL_STATE = {
     "PASS": "PASS",
+    "BLOCKED": "FAILED",
     "REVIEW_REQUIRED": "NEEDS_REVIEW",
     "SUPERVISOR_DECISION_REQUIRED": "NEEDS_REVIEW",
-    "BLOCKED": "FAILED",
+    "REJECT": "FAILED",
     "FAIL": "FAILED",
 }
 
 #: Outcomes that halt the run. The orchestrator never resolves them itself.
-HALTING_OUTCOMES = (
-    "REVIEW_REQUIRED",
-    "SUPERVISOR_DECISION_REQUIRED",
-    "BLOCKED",
-    "FAIL",
-)
+HALTING_OUTCOMES = tuple(outcome for outcome in OUTCOMES if outcome != "PASS")
+
+#: Human release decisions. A release is a separate act from a review.
+RELEASE_DECISIONS = ("APPROVED", "REJECTED")
 
 
 class FastPathError(ValueError):
@@ -120,10 +143,9 @@ class Stage:
     outputs: tuple[str, ...]
     manual: bool = False
     note: str = ""
-    #: Cross-cutting invariants applied to work inside this stage, in addition to the
-    #: stage's headline capability. ``timebase_adapter`` belongs here rather than as a
-    #: single stage's capability, because it governs *every* source-range conversion
-    #: rather than being one step of one stage.
+    #: Cross-cutting invariants applied to work inside this stage. ``timebase_adapter``
+    #: belongs here rather than as one stage's capability, because it governs *every*
+    #: source-range conversion rather than being one step of one stage.
     invariants: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
@@ -135,13 +157,12 @@ class Stage:
             )
         for invariant in self.invariants:
             if "." not in invariant:
-                raise FastPathError(
-                    f"invariant {invariant!r} must be a dotted path"
-                )
+                raise FastPathError(f"invariant {invariant!r} must be a dotted path")
 
 
 #: The declarative control table. This is the single place that decides which
-#: capability a stage must run, which is what stops a stage being quietly skipped.
+#: capability a stage must run and which artifacts it consumes, which is what stops a
+#: stage being quietly skipped.
 STAGES: tuple[Stage, ...] = (
     Stage(
         name="PREPARE",
@@ -149,7 +170,7 @@ STAGES: tuple[Stage, ...] = (
         capability="job_foundation.verify_source_immutability",
         inputs=("source_inventory.json",),
         outputs=("source_inventory.json",),
-        note="source inventory is immutable; a job that was never initialized stops here",
+        note="source inventory is immutable; an uninitialized job gates here",
     ),
     Stage(
         name="UNDERSTAND SHOTS",
@@ -157,6 +178,11 @@ STAGES: tuple[Stage, ...] = (
         capability="shot_understanding.analyse_placements",
         inputs=("shots/placements.json",),
         outputs=("shots/shot_understanding.json",),
+        note=(
+            "every placement is verified against the measured PTS table before use, so a "
+            "placement coordinate derived from an assumed frame rate is refused"
+        ),
+        invariants=("timebase_adapter.TimebaseAdapter.assert_placement_timing",),
     ),
     Stage(
         name="PLAN THE EDIT",
@@ -172,10 +198,9 @@ STAGES: tuple[Stage, ...] = (
         inputs=("picture/measurements.json",),
         outputs=("picture/picture_finishing.json",),
         note=(
-            "read-only measurement and decision. Every source range declared in "
-            "picture/source_ranges.json is executed through the timebase adapter, "
-            "which is the only authorised source-range path. DaVinci execution is an "
-            "adapter boundary and is not performed here"
+            "read-only measurement and decision. Every source range is executed through "
+            "the timebase adapter, which refuses a range that is not reproducible. "
+            "Picture execution is an adapter boundary and is not performed here"
         ),
         invariants=("timebase_adapter.TimebaseAdapter.execute",),
     ),
@@ -198,14 +223,13 @@ STAGES: tuple[Stage, ...] = (
     Stage(
         name="ASSEMBLE & MASTER",
         low_level=("FINAL",),
-        capability=None,
-        inputs=(),
-        outputs=("final/master.json",),
-        manual=True,
+        capability="execution_contracts.verify_assembly_evidence",
+        inputs=(ASSEMBLY_EVIDENCE_ARTIFACT,),
+        outputs=(ASSEMBLY_EVIDENCE_ARTIFACT,),
         note=(
-            "no production packaging adapter exists. The repository contains no "
-            "packaging code, so this stage stops for a Supervisor rather than "
-            "reporting success it did not achieve"
+            "gates on the assemble_master execution contract. No packaging engine ships "
+            "in this repository, so a job-specific adapter must supply measured assembly "
+            "evidence; the stage does not pass on a claim"
         ),
     ),
     Stage(
@@ -214,14 +238,17 @@ STAGES: tuple[Stage, ...] = (
         capability="review.parse_review",
         inputs=("review/review.json",),
         outputs=("review/verdict.json",),
-        note="an incomplete review fails closed; the human gate always applies",
+        note=(
+            "an incomplete review fails closed; a CRITICAL finding returns REJECT; and a "
+            "reviewer verdict is not a release — a distinct human release decision is "
+            "consumed before this stage may pass"
+        ),
     ),
 )
 
 STAGE_BY_NAME = {stage.name: stage for stage in STAGES}
 
-#: The modules the fast path is required to reach. A wiring test asserts each one is
-#: declared by some stage, so a refactor that disconnects one fails loudly.
+#: The modules the fast path is required to reach.
 REQUIRED_PRODUCTION_MODULES = (
     "narration_coverage",
     "audio_program",
@@ -240,6 +267,8 @@ class StageResult:
     artifacts: tuple[str, ...] = ()
     reason: str | None = None
     evidence: Mapping[str, Any] = field(default_factory=dict)
+    #: Present when a named producer must act before this stage can run.
+    gate: Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
         if self.stage not in SEMANTIC_STAGES:
@@ -255,15 +284,23 @@ class StageResult:
                 "ran; a silent pass is the failure this control path exists to prevent"
             )
 
+    @property
+    def exit_code(self) -> int:
+        return EXIT_CODES[self.outcome]
+
     def as_dict(self) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             "stage": self.stage,
             "outcome": self.outcome,
             "capability": self.capability,
             "artifacts": list(self.artifacts),
             "reason": self.reason,
             "evidence": dict(self.evidence),
+            "exit_code": self.exit_code,
         }
+        if self.gate is not None:
+            payload["producer_gate"] = dict(self.gate)
+        return payload
 
 
 @dataclass(frozen=True)
@@ -274,13 +311,27 @@ class RunReport:
     results: tuple[StageResult, ...]
     stopped_at: str | None
     completed: bool
+    resumed_from: str | None = None
+
+    @property
+    def outcome(self) -> str:
+        if self.completed:
+            return "PASS"
+        return self.results[-1].outcome if self.results else "FAIL"
+
+    @property
+    def exit_code(self) -> int:
+        return EXIT_CODES[self.outcome]
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "schema_version": "fast_path_run.v1",
             "job_id": self.job_id,
             "completed": self.completed,
+            "outcome": self.outcome,
+            "exit_code": self.exit_code,
             "stopped_at": self.stopped_at,
+            "resumed_from": self.resumed_from,
             "stages": [result.as_dict() for result in self.results],
         }
 
@@ -297,23 +348,22 @@ def resolve_capability(dotted: str) -> Callable[..., Any]:
     if not isinstance(dotted, str) or "." not in dotted:
         raise FastPathError(f"capability {dotted!r} must be a dotted path")
     module_name, _, symbol = dotted.rpartition(".")
-    candidates = [module_name]
-    if not module_name.startswith(("ai_autocut", "src.")):
-        candidates = [f"ai_autocut.{module_name}", f"src.ai_autocut.{module_name}"]
-    elif module_name.startswith("ai_autocut"):
+    if module_name.startswith("ai_autocut"):
         candidates = [module_name, f"src.{module_name}"]
+    elif module_name.startswith("src."):
+        candidates = [module_name]
+    else:
+        candidates = [f"ai_autocut.{module_name}", f"src.ai_autocut.{module_name}"]
     module = None
     errors: list[str] = []
     for candidate in candidates:
         try:
             module = importlib.import_module(candidate)
             break
-        except ImportError as exc:  # try the next spelling
+        except ImportError as exc:
             errors.append(f"{candidate}: {exc}")
     if module is None:
-        raise FastPathError(
-            f"cannot import {dotted!r} ({'; '.join(errors)})"
-        )
+        raise FastPathError(f"cannot import {dotted!r} ({'; '.join(errors)})")
     try:
         attribute = getattr(module, symbol)
     except AttributeError as exc:
@@ -323,6 +373,40 @@ def resolve_capability(dotted: str) -> Callable[..., Any]:
     if not callable(attribute):
         raise FastPathError(f"{dotted!r} is not callable")
     return attribute
+
+
+def parse_human_release(document: object) -> dict[str, Any]:
+    """Validate a human release decision.
+
+    Deliberately a separate artifact from the review. A reviewer verdict is a judgement
+    about the work; a release is a decision to ship it. Merging them is how a machine
+    verdict becomes a release nobody made.
+    """
+
+    if not isinstance(document, Mapping):
+        raise FastPathError("a human release must be a JSON object")
+    required = ("schema_version", "decision", "authority", "review_verdict", "statement")
+    missing = [key for key in required if key not in document]
+    if missing:
+        raise FastPathError(
+            "human release is missing required field(s): " + ", ".join(missing)
+        )
+    decision = document["decision"]
+    if decision not in RELEASE_DECISIONS:
+        raise FastPathError(
+            f"release decision {decision!r} must be one of: "
+            + ", ".join(RELEASE_DECISIONS)
+        )
+    for key in ("authority", "statement", "review_verdict"):
+        value = document[key]
+        if not isinstance(value, str) or not value.strip():
+            raise FastPathError(f"human release field {key!r} must be a non-empty string")
+    return {
+        "decision": decision,
+        "authority": document["authority"],
+        "review_verdict": document["review_verdict"],
+        "statement": document["statement"],
+    }
 
 
 class FastPath:
@@ -392,10 +476,13 @@ class FastPath:
         if isinstance(existing, dict) and "stages" in existing:
             return existing
         return {
-            "schema_version": "fast_path_state.v1",
+            "schema_version": "fast_path_state.v2",
             "job_id": self.job_id,
             "supervisor_authority": self.supervisor_authority,
-            "stages": {name: {"outcome": None, "capability": None} for name in SEMANTIC_STAGES},
+            "stages": {
+                name: {"outcome": None, "capability": None, "valid": False}
+                for name in SEMANTIC_STAGES
+            },
             "history": [],
         }
 
@@ -408,18 +495,47 @@ class FastPath:
                 return name
         return None
 
+    def completed_stages(self) -> tuple[str, ...]:
+        state = self.state()
+        return tuple(
+            name for name in SEMANTIC_STAGES if state["stages"][name]["outcome"] == "PASS"
+        )
+
+    def invalidate(self, stage: str, *, reason: str) -> None:
+        """Explicitly re-open a completed stage.
+
+        A stage is only re-executed when it is invalidated. Silently re-running completed
+        work would discard the evidence the run already produced.
+        """
+
+        if stage not in STAGE_BY_NAME:
+            raise FastPathError(f"unknown stage {stage!r}")
+        state = self.state()
+        state["stages"][stage] = {
+            "outcome": None,
+            "capability": None,
+            "valid": False,
+            "invalidated": reason,
+        }
+        state["history"].append(
+            {"stage": stage, "outcome": "INVALIDATED", "reason": reason}
+        )
+        self._write(STATE_FILENAME, state)
+
     def checkpoint(self, result: StageResult) -> None:
         state = self.state()
         stage = STAGE_BY_NAME[result.stage]
         state["stages"][result.stage] = {
             "outcome": result.outcome,
             "capability": result.capability,
+            "valid": result.outcome == "PASS",
             "low_level": [
                 {"stage": low, "state": OUTCOME_TO_LOW_LEVEL_STATE[result.outcome]}
                 for low in stage.low_level
             ],
             "artifacts": list(result.artifacts),
             "reason": result.reason,
+            "gate": dict(result.gate) if result.gate else None,
         }
         state["history"].append(result.as_dict())
         self._write(STATE_FILENAME, state)
@@ -434,6 +550,67 @@ class FastPath:
         for artifact in result.artifacts:
             references["artifacts"][Path(artifact).stem] = artifact
         self._write(ARTIFACT_REFERENCES_FILENAME, references)
+
+        self.reconcile_pipeline_state()
+        self._record_gate(result)
+
+    def reconcile_pipeline_state(self) -> dict[str, Any]:
+        """Mirror achieved low-level states into ``pipeline_state.json``.
+
+        The eight semantic stages are the lifecycle; the thirteen low-level states are
+        execution detail. They are not competing architectures, so this reconciles one
+        into the other rather than keeping a second truth.
+
+        The two vocabularies order ``REVIEW`` and ``FINAL`` differently: the low-level
+        order is REVIEW then FINAL, while the semantic order assembles and then reviews.
+        So this drains whatever the ordering currently permits after each stage, and
+        ``FINAL`` lands once ``REVIEW`` has passed. That is a consequence of the mapping
+        and is recorded rather than hidden.
+        """
+
+        state = self.state()
+        achieved = {
+            low
+            for name in SEMANTIC_STAGES
+            if state["stages"][name]["outcome"] == "PASS"
+            for low in STAGE_BY_NAME[name].low_level
+            if low in job_foundation.STAGE_ORDER
+        }
+        foundation = job_foundation.ensure_state(self.root, self.job_id)
+        current = foundation.state()
+        recorded: list[str] = []
+        deferred: list[str] = []
+        for index, low in enumerate(job_foundation.STAGE_ORDER):
+            if low not in achieved:
+                continue
+            if current["stages"][low]["state"] == "PASS":
+                continue
+            # A low-level state may only be recorded once every state before it has
+            # passed. The semantic order assembles before it reviews, while the
+            # low-level order reviews before it finalizes, so FINAL is deferred until
+            # REVIEW has passed. That is a property of the mapping, and it is reported
+            # rather than forced.
+            predecessors = job_foundation.STAGE_ORDER[:index]
+            if any(
+                current["stages"][prior]["state"] != "PASS" for prior in predecessors
+            ):
+                deferred.append(low)
+                continue
+            if current["stages"][low]["state"] == "PENDING":
+                foundation.transition(
+                    low, "RUNNING", evidence={"kind": "fast_path_reconciliation"}
+                )
+            foundation.transition(
+                low, "PASS", evidence={"kind": "fast_path_reconciliation"}
+            )
+            current = foundation.state()
+            recorded.append(low)
+        return {
+            "achieved_low_level_states": sorted(achieved),
+            "newly_recorded": recorded,
+            "deferred_until_predecessors_pass": deferred,
+            "pipeline_state": str(foundation.state_path),
+        }
 
     # ---- interventions ---------------------------------------------------------
 
@@ -469,6 +646,55 @@ class FastPath:
             )
         )
 
+    def _gate_already_recorded(self, stage: str, artifact: str) -> bool:
+        marker = f"producer gate:{artifact}"
+        for row in self.ledger.entries():
+            if row.get("stage") == stage and str(row.get("detail", "")).startswith(marker):
+                return True
+        return False
+
+    def _record_gate(self, result: StageResult) -> None:
+        """Record every gate outcome automatically.
+
+        The operator is not asked to remember: a gate that halted the run is recorded
+        *because* it halted the run. Recording is deduplicated per artifact so a resumed
+        run does not inflate the count of a gate that was already open.
+        """
+
+        if result.outcome == "PASS":
+            return
+        if result.gate is not None:
+            artifact = str(
+                result.gate.get("missing_artifact") or result.gate.get("artifact") or ""
+            )
+            kind = str(result.gate.get("intervention_kind") or "SUPERVISOR_DECISIONS")
+            if artifact and self._gate_already_recorded(result.stage, artifact):
+                return
+            self.record_intervention(
+                stage=result.stage,
+                kind=kind,
+                actor="HUMAN",
+                detail=(
+                    f"producer gate:{artifact} requires "
+                    f"{result.gate.get('producer_type')} producer "
+                    f"{result.gate.get('producer_id')!r}"
+                ),
+                trigger=result.outcome,
+            )
+            return
+        kind = (
+            "CREATIVE_REVIEW_REJECTIONS"
+            if result.outcome == "REJECT"
+            else "SUPERVISOR_DECISIONS"
+        )
+        self.record_intervention(
+            stage=result.stage,
+            kind=kind,
+            actor="HUMAN",
+            detail=f"{result.outcome}: {result.reason or 'no reason recorded'}",
+            trigger=result.outcome,
+        )
+
     # ---- execution -------------------------------------------------------------
 
     def run_stage(self, name: str) -> StageResult:
@@ -480,19 +706,30 @@ class FastPath:
     def step(self, name: str) -> StageResult:
         """Run one stage and checkpoint it.
 
-        A stage that ran but was not recorded is the failure mode this whole control
-        path exists to prevent, so recording is part of stepping rather than something
-        a caller may forget.
+        A stage that ran but was not recorded is the failure mode this control path
+        exists to prevent, so recording is part of stepping rather than something a
+        caller may forget. The CLI uses this, so ``--stage`` checkpoints identically to
+        a full run.
         """
 
         result = self.run_stage(name)
         self.checkpoint(result)
         return result
 
-    def run(self, *, until: str | None = None) -> RunReport:
+    def run(self, *, until: str | None = None, resume: bool = True) -> RunReport:
+        """Run from the first incomplete stage.
+
+        ``resume=True`` (the default) skips stages that have already passed. A stage is
+        re-executed only after an explicit :meth:`invalidate`.
+        """
+
+        state = self.state()
         results: list[StageResult] = []
         stopped_at: str | None = None
+        resumed_from = self.next_stage() if resume else SEMANTIC_STAGES[0]
         for name in SEMANTIC_STAGES:
+            if resume and state["stages"][name]["outcome"] == "PASS":
+                continue
             result = self.step(name)
             results.append(result)
             if result.outcome in HALTING_OUTCOMES:
@@ -500,29 +737,60 @@ class FastPath:
                 break
             if until is not None and name == until:
                 break
+        completed = stopped_at is None and self.next_stage() is None
         return RunReport(
             job_id=self.job_id,
             results=tuple(results),
             stopped_at=stopped_at,
-            completed=stopped_at is None and len(results) == len(SEMANTIC_STAGES),
+            completed=completed,
+            resumed_from=resumed_from,
         )
+
+    # ---- gate helpers ----------------------------------------------------------
+
+    def _producer_gate(
+        self, stage: Stage, artifact: str, *, missing_inputs: tuple[str, ...] = ()
+    ) -> StageResult:
+        """Return an explicit gate naming the producer that must act."""
+
+        gate = producer_registry.gate_for(
+            artifact, self.root, missing_inputs=missing_inputs
+        )
+        return StageResult(
+            stage=stage.name,
+            outcome="BLOCKED",
+            capability=None,
+            reason=(
+                f"{gate['action_required']}. {str(gate['resume_condition']).capitalize()}."
+            ),
+            gate=gate,
+        )
+
+    def _blocked(self, stage: Stage, missing: Sequence[str]) -> StageResult:
+        """Gate a stage whose declared input is absent.
+
+        The first missing declared input determines the producer, so a stage never
+        reports a vague blockage when the registry knows exactly who must act.
+        """
+
+        artifact = missing[0]
+        try:
+            return self._producer_gate(stage, artifact, missing_inputs=tuple(missing))
+        except producer_registry.ProducerRegistryError:
+            return StageResult(
+                stage=stage.name,
+                outcome="BLOCKED",
+                capability=None,
+                reason="missing required input(s): " + ", ".join(missing),
+                evidence={"missing_inputs": list(missing)},
+            )
 
     # ---- stage runners ---------------------------------------------------------
 
     def _stage_prepare(self, stage: Stage) -> StageResult:
         missing = self._missing_inputs(stage)
         if missing:
-            return StageResult(
-                stage=stage.name,
-                outcome="SUPERVISOR_DECISION_REQUIRED",
-                capability=None,
-                reason=(
-                    "this job is not initialized: "
-                    + ", ".join(missing)
-                    + " is absent. Job initialization is a Supervisor step and is not "
-                    "performed automatically."
-                ),
-            )
+            return self._blocked(stage, missing)
         inventory = self._read("source_inventory.json") or {}
         files = inventory.get("files")
         if not isinstance(files, list) or not files:
@@ -532,8 +800,7 @@ class FastPath:
                 capability=stage.capability,
                 reason="source_inventory.json carries no files",
             )
-        identical = job_foundation.verify_source_immutability(files)
-        if not identical:
+        if not job_foundation.verify_source_immutability(files):
             return StageResult(
                 stage=stage.name,
                 outcome="FAIL",
@@ -561,6 +828,35 @@ class FastPath:
                 capability=stage.capability,
                 reason="shots/placements.json carries no placements",
             )
+
+        # The invariant applies to placement coordinates, not only to extraction. A
+        # decoded frame range is legitimate for segmentation; treating its duration as
+        # frames/fps is not, so every placement's declared timestamp is checked against
+        # the measured PTS table before it is used.
+        timing: list[dict[str, Any]] = []
+        try:
+            for item in raw:
+                timing.append(
+                    self.timebase.assert_placement_timing(
+                        placement_id=item["placement_id"],
+                        source=item["media_path"],
+                        source_in=int(item["source_in"]),
+                        source_out_exclusive=int(item["source_out_exclusive"]),
+                        t_in_seconds=(
+                            float(item["t_in_seconds"])
+                            if item.get("t_in_seconds") is not None
+                            else None
+                        ),
+                    )
+                )
+        except (KeyError, TypeError, ValueError) as exc:
+            return StageResult(
+                stage=stage.name,
+                outcome="FAIL",
+                capability="timebase_adapter.TimebaseAdapter.assert_placement_timing",
+                reason=f"placement coordinates refused: {exc}",
+            )
+
         try:
             placements = [
                 shot_understanding.Placement(
@@ -586,6 +882,7 @@ class FastPath:
         document = {
             "schema_version": "fast_path_shot_understanding.v1",
             "capability": stage.capability,
+            "coordinate_system": timebase_adapter.COORDINATE_SYSTEM,
             "placements": [
                 {
                     "placement_id": analysis.placement_id,
@@ -600,6 +897,7 @@ class FastPath:
                 }
                 for analysis in analyses
             ],
+            "placement_timing": timing,
         }
         artifact = self._write(stage.outputs[0], document)
         return StageResult(
@@ -607,7 +905,13 @@ class FastPath:
             outcome="PASS",
             capability=stage.capability,
             artifacts=(artifact,),
-            evidence={"placements": len(analyses)},
+            evidence={
+                "placements": len(analyses),
+                "coordinate_system": timebase_adapter.COORDINATE_SYSTEM,
+                "variable_frame_rate_sources": sum(
+                    1 for entry in timing if entry["variable_frame_rate"]
+                ),
+            },
         )
 
     def _stage_plan_the_edit(self, stage: Stage) -> StageResult:
@@ -670,10 +974,6 @@ class FastPath:
         if missing:
             return self._blocked(stage, missing)
 
-        # The timebase invariant is enforced here, for every source range this stage
-        # is asked to execute. A range is addressed by a measured source timestamp; a
-        # source frame index may be recorded but is resolved through the measured PTS
-        # table, never by dividing by an assumed frame rate.
         timing_profiles: list[dict[str, Any]] = []
         range_document = self._read("picture/source_ranges.json")
         if isinstance(range_document, Mapping):
@@ -685,10 +985,8 @@ class FastPath:
                     capability=stage.capability,
                     reason="picture/source_ranges.json declares no ranges",
                 )
-            units: list[str] = []
+            units = [str(item["unit_id"]) for item in ranges]
             try:
-                for item in ranges:
-                    units.append(str(item["unit_id"]))
                 for item in ranges:
                     if item.get("t_in_seconds") is not None:
                         resolution = self.timebase.resolve_from_seconds(
@@ -714,8 +1012,8 @@ class FastPath:
                     self.timebase.execute(resolution, out_path)
                     timing_profiles.append(resolution.as_dict())
                 # Bypass detection: every declared unit must have gone through the
-                # adapter. If a future refactor extracts a range some other way, this
-                # raises instead of the gap passing unnoticed.
+                # adapter. A future refactor that extracts a range another way leaves
+                # the unit unrecorded and this raises instead of the gap passing.
                 self.timebase.assert_range_coverage(units)
             except (KeyError, TypeError, ValueError) as exc:
                 return StageResult(
@@ -754,9 +1052,7 @@ class FastPath:
                 shot = picture_measurement.ShotMeasurement(**measurement)
                 protection = None
                 if item.get("protection"):
-                    protection = product_protection.ProtectionResult(
-                        **item["protection"]
-                    )
+                    protection = product_protection.ProtectionResult(**item["protection"])
                 decision = picture_decision.decide_shot(
                     shot=shot,
                     pair=None,
@@ -782,7 +1078,8 @@ class FastPath:
             {
                 "schema_version": "fast_path_picture_finishing.v1",
                 "capability": stage.capability,
-                "da_vinci_execution": "ADAPTER_BOUNDARY_NOT_PERFORMED",
+                "picture_execution": "ADAPTER_BOUNDARY_NOT_PERFORMED",
+                "execution_contract": execution_contracts.get_contract("picture").as_dict(),
                 "decisions": decisions,
             },
         )
@@ -799,59 +1096,6 @@ class FastPath:
                 "source_ranges_executed": len(timing_profiles),
                 "coordinate_system": timebase_adapter.COORDINATE_SYSTEM,
             },
-        )
-
-    def _stage_plan_the_words(self, stage: Stage) -> StageResult:
-        missing = self._missing_inputs(stage)
-        if missing:
-            return self._blocked(stage, missing)
-        payload = self._read("copy/commercial_units.json") or {}
-        raw = payload.get("units")
-        if not isinstance(raw, list) or not raw:
-            return StageResult(
-                stage=stage.name,
-                outcome="FAIL",
-                capability=stage.capability,
-                reason="copy/commercial_units.json carries no units",
-            )
-        try:
-            units = [self._commercial_unit(item) for item in raw]
-            report = narration_coverage.assess_narration_coverage(units)
-        except (KeyError, TypeError, ValueError) as exc:
-            return StageResult(
-                stage=stage.name,
-                outcome="FAIL",
-                capability=stage.capability,
-                reason=f"narration coverage refused the units: {exc}",
-            )
-        document = report.as_dict()
-        document["summary"] = narration_coverage.summary(report)
-        document["capability"] = stage.capability
-        artifact = self._write(stage.outputs[0], document)
-        if report.verdict != "PASS":
-            return StageResult(
-                stage=stage.name,
-                outcome="REVIEW_REQUIRED",
-                capability=stage.capability,
-                artifacts=(artifact,),
-                reason=(
-                    f"narration coverage returned {report.verdict}: the voice does not "
-                    "carry the selling narrative. A narrative repair is a creative "
-                    "decision and is not performed automatically. Paid voice generation "
-                    "must not run until this is resolved."
-                ),
-                evidence={
-                    "verdict": report.verdict,
-                    "silent_units": list(report.silent_units),
-                    "blocking": len(report.blocking),
-                },
-            )
-        return StageResult(
-            stage=stage.name,
-            outcome="PASS",
-            capability=stage.capability,
-            artifacts=(artifact,),
-            evidence={"verdict": report.verdict, "units": len(units)},
         )
 
     def _commercial_unit(self, item: Mapping[str, Any]) -> Any:
@@ -908,6 +1152,62 @@ class FastPath:
             explanation_supported=bool(item["explanation_supported"]),
         )
 
+    def _stage_plan_the_words(self, stage: Stage) -> StageResult:
+        missing = self._missing_inputs(stage)
+        if missing:
+            return self._blocked(stage, missing)
+        payload = self._read("copy/commercial_units.json") or {}
+        raw = payload.get("units")
+        if not isinstance(raw, list) or not raw:
+            return StageResult(
+                stage=stage.name,
+                outcome="FAIL",
+                capability=stage.capability,
+                reason="copy/commercial_units.json carries no units",
+            )
+        try:
+            units = [self._commercial_unit(item) for item in raw]
+            report = narration_coverage.assess_narration_coverage(units)
+        except (KeyError, TypeError, ValueError) as exc:
+            return StageResult(
+                stage=stage.name,
+                outcome="FAIL",
+                capability=stage.capability,
+                reason=f"narration coverage refused the units: {exc}",
+            )
+        document = report.as_dict()
+        document["summary"] = narration_coverage.summary(report)
+        document["capability"] = stage.capability
+        document["execution_contract"] = execution_contracts.get_contract(
+            "typography"
+        ).as_dict()
+        artifact = self._write(stage.outputs[0], document)
+        if report.verdict != "PASS":
+            return StageResult(
+                stage=stage.name,
+                outcome="REVIEW_REQUIRED",
+                capability=stage.capability,
+                artifacts=(artifact,),
+                reason=(
+                    f"narration coverage returned {report.verdict}: the voice does not "
+                    "carry the selling narrative. A narrative repair is a creative "
+                    "decision and is not performed automatically. Paid voice generation "
+                    "must not run until this is resolved."
+                ),
+                evidence={
+                    "verdict": report.verdict,
+                    "silent_units": list(report.silent_units),
+                    "blocking": len(report.blocking),
+                },
+            )
+        return StageResult(
+            stage=stage.name,
+            outcome="PASS",
+            capability=stage.capability,
+            artifacts=(artifact,),
+            evidence={"verdict": report.verdict, "units": len(units)},
+        )
+
     def _stage_build_the_audio(self, stage: Stage) -> StageResult:
         missing = self._missing_inputs(stage)
         if missing:
@@ -949,24 +1249,18 @@ class FastPath:
                 key: (float(value[0]), float(value[1]))
                 for key, value in (payload.get("slots") or {}).items()
             }
-            # A declared audio design is job-scoped art direction, exactly like the
-            # typography layout: the module does not invent reasons for silence, so a
-            # gap the job intends must be stated here or it is reported as a defect.
             design = {
                 tuple(str(key).split("->", 1)): (str(value[0]), str(value[1]))
                 for key, value in (payload.get("design") or {}).items()
             }
             hero_window = payload.get("hero_window")
-            # No universal sync tolerance: whatever this job declared, or nothing.
             tolerance = expectations_payload.get("sync_tolerance")
             report = audio_program.assess_program(
                 segments,
                 slots=slots or None,
                 design=design or None,
                 hero_window=(
-                    (float(hero_window[0]), float(hero_window[1]))
-                    if hero_window
-                    else None
+                    (float(hero_window[0]), float(hero_window[1])) if hero_window else None
                 ),
                 hero_approach_from=payload.get("hero_approach_from"),
                 final_segment=payload.get("final_segment"),
@@ -982,6 +1276,7 @@ class FastPath:
             )
         document = report.as_dict()
         document["capability"] = stage.capability
+        document["execution_contract"] = execution_contracts.get_contract("audio").as_dict()
         artifact = self._write(stage.outputs[0], document)
         if not report.approved:
             return StageResult(
@@ -1011,26 +1306,42 @@ class FastPath:
         )
 
     def _stage_assemble_master(self, stage: Stage) -> StageResult:
-        """This stage stops. There is no packaging code in this repository."""
+        """Gate on measured assembly evidence from a job-specific adapter.
 
+        The stage does not pass on a claim, and it does not pass because someone ticked a
+        box: it passes when evidence satisfying the ``assemble_master`` contract exists.
+        Once that evidence is present the run resumes and reaches REVIEW.
+        """
+
+        missing = self._missing_inputs(stage)
+        if missing:
+            return self._blocked(stage, missing)
+        document = self._read(ASSEMBLY_EVIDENCE_ARTIFACT)
+        try:
+            verified = execution_contracts.verify_assembly_evidence(document)
+        except execution_contracts.ExecutionContractError as exc:
+            return StageResult(
+                stage=stage.name,
+                outcome="FAIL",
+                capability=stage.capability,
+                reason=(
+                    "assembly evidence does not satisfy the assemble_master contract: "
+                    f"{exc}"
+                ),
+            )
         return StageResult(
             stage=stage.name,
-            outcome="SUPERVISOR_DECISION_REQUIRED",
-            capability=None,
-            reason=(
-                "no production packaging adapter exists. Assembly, encode/remux, "
-                "frame and black-frame validation, audio QA and final master "
-                "generation are job-local or manual today, so this stage cannot "
-                "report PASS. Supply a packaging adapter, or accept this as an "
-                "explicit manual step."
-            ),
-            evidence={"manual_adapter_required": True},
+            outcome="PASS",
+            capability=stage.capability,
+            artifacts=(ASSEMBLY_EVIDENCE_ARTIFACT,),
+            evidence=verified,
         )
 
     def _stage_review_repair(self, stage: Stage) -> StageResult:
         missing = self._missing_inputs(stage)
         if missing:
             return self._blocked(stage, missing)
+
         payload = self._read("review/review.json")
         try:
             parsed = review.parse_review(payload)
@@ -1045,9 +1356,10 @@ class FastPath:
                 ),
             )
         verdict = parsed.verdict
-        artifact = self._write(
-            stage.outputs[0],
-            {
+
+        def write_verdict(layers: list[str], released: bool = False,
+                          authority: str | None = None) -> str:
+            document: dict[str, Any] = {
                 "schema_version": "fast_path_review_verdict.v1",
                 "capability": stage.capability,
                 "reviewer_id": parsed.reviewer_id,
@@ -1057,15 +1369,48 @@ class FastPath:
                 "blocking_dimensions": [
                     finding.dimension for finding in parsed.blocking_findings
                 ],
-                "repair_layers": list(
-                    review.layers_for_repair(
-                        review.build_targeted_repair(parsed, ["ALL"])
-                    )
+                "repair_layers": layers,
+                "released": released,
+            }
+            if authority is not None:
+                document["release_authority"] = authority
+            return self._write(stage.outputs[0], document)
+
+        # A CRITICAL finding is not repaired by a targeted fix; it returns to planning.
+        # This is checked before repair planning, because the repair contract itself
+        # refuses to build a plan for a REJECT review.
+        if verdict == "REJECT":
+            artifact = write_verdict([])
+            return StageResult(
+                stage=stage.name,
+                outcome="REJECT",
+                capability=stage.capability,
+                artifacts=(artifact,),
+                reason=(
+                    "the review carries a CRITICAL finding, so the verdict is REJECT. A "
+                    "REJECT is not repaired by a targeted fix; it returns to planning, "
+                    "and that decision belongs to the Supervisor."
+                ),
+                evidence={"verdict": verdict},
+            )
+
+        repair_layers: list[str] = []
+        if parsed.blocking_findings:
+            # Controlled path: a malformed repair plan is a contract result, not an
+            # unhandled exception escaping to the caller.
+            try:
+                plan = review.build_targeted_repair(parsed, ["ALL"])
+                repair_layers = list(review.layers_for_repair(plan))
+            except (TypeError, ValueError) as exc:
+                return StageResult(
+                    stage=stage.name,
+                    outcome="FAIL",
+                    capability="review.build_targeted_repair",
+                    reason=f"repair planning refused this review: {exc}",
                 )
-                if parsed.blocking_findings
-                else [],
-            },
-        )
+
+        artifact = write_verdict(repair_layers)
+
         if verdict != "PRODUCTION_READY":
             return StageResult(
                 stage=stage.name,
@@ -1076,25 +1421,73 @@ class FastPath:
                     f"verdict is {verdict}. Release always passes the human gate and "
                     "repair never auto-releases; neither is resolved here."
                 ),
-                evidence={"verdict": verdict},
+                evidence={"verdict": verdict, "repair_layers": repair_layers},
             )
+
+        # The reviewer says the work is production ready. That is not a release.
+        release_document = self._read(HUMAN_RELEASE_ARTIFACT)
+        if release_document is None:
+            gate = producer_registry.gate_for(HUMAN_RELEASE_ARTIFACT, self.root)
+            return StageResult(
+                stage=stage.name,
+                outcome="SUPERVISOR_DECISION_REQUIRED",
+                capability=stage.capability,
+                artifacts=(artifact,),
+                reason=(
+                    "the review verdict is PRODUCTION_READY, but a reviewer verdict is "
+                    "not a release. A distinct human release decision is required at "
+                    f"{HUMAN_RELEASE_ARTIFACT}."
+                ),
+                evidence={"verdict": verdict},
+                gate=gate,
+            )
+        try:
+            release = parse_human_release(release_document)
+        except FastPathError as exc:
+            return StageResult(
+                stage=stage.name,
+                outcome="FAIL",
+                capability=stage.capability,
+                artifacts=(artifact,),
+                reason=f"the human release document is not usable: {exc}",
+            )
+        if release["review_verdict"] != verdict:
+            return StageResult(
+                stage=stage.name,
+                outcome="FAIL",
+                capability=stage.capability,
+                artifacts=(artifact,),
+                reason=(
+                    f"the human release answers verdict {release['review_verdict']!r} "
+                    f"but the review now derives {verdict!r}; the release does not "
+                    "describe this review."
+                ),
+            )
+        if release["decision"] == "REJECTED":
+            return StageResult(
+                stage=stage.name,
+                outcome="REJECT",
+                capability=stage.capability,
+                artifacts=(artifact,),
+                reason=(
+                    f"the human release authority {release['authority']!r} rejected "
+                    f"release: {release['statement']}"
+                ),
+                evidence={"verdict": verdict, "authority": release["authority"]},
+            )
+
+        # Mark the verdict document as released without rewriting its verdict.
+        artifact = write_verdict(repair_layers, True, release["authority"])
         return StageResult(
             stage=stage.name,
             outcome="PASS",
             capability=stage.capability,
-            artifacts=(artifact,),
-            evidence={"verdict": verdict, "human_gate": parsed.requires_human_gate},
-        )
-
-    # ---- helpers ---------------------------------------------------------------
-
-    def _blocked(self, stage: Stage, missing: Sequence[str]) -> StageResult:
-        return StageResult(
-            stage=stage.name,
-            outcome="BLOCKED",
-            capability=None,
-            reason="missing required input(s): " + ", ".join(missing),
-            evidence={"missing_inputs": list(missing)},
+            artifacts=(artifact, HUMAN_RELEASE_ARTIFACT),
+            evidence={
+                "verdict": verdict,
+                "human_gate": parsed.requires_human_gate,
+                "release_authority": release["authority"],
+            },
         )
 
 
@@ -1106,7 +1499,17 @@ def _parser() -> Any:
     )
     parser.add_argument("--job-root", type=Path, required=True)
     parser.add_argument("--job-id", default=None)
-    parser.add_argument("--stage", default=None, help="run only this semantic stage")
+    parser.add_argument(
+        "--stage",
+        default=None,
+        choices=SEMANTIC_STAGES,
+        help="run one semantic stage; it checkpoints exactly like a full run",
+    )
+    parser.add_argument(
+        "--no-resume",
+        action="store_true",
+        help="re-execute from PREPARE instead of resuming at the first incomplete stage",
+    )
     parser.add_argument("--fps", type=int, default=30)
     parser.add_argument(
         "--ascii-staging-check",
@@ -1123,15 +1526,23 @@ def main(argv: Sequence[str] | None = None) -> int:
             assert_ascii_safe(args.job_root.resolve(), role="job_root")
         path = FastPath(args.job_root, job_id=args.job_id, fps=args.fps)
         if args.stage:
-            result = path.run_stage(args.stage)
+            result = path.step(args.stage)
             payload: Any = result.as_dict()
+            code = result.exit_code
         else:
-            payload = path.run().as_dict()
+            report = path.run(resume=not args.no_resume)
+            payload = report.as_dict()
+            code = report.exit_code
         print(json.dumps(payload, ensure_ascii=False, indent=2))
-        return 0
+        return code
     except (FastPathError, ValueError) as exc:
-        print(json.dumps({"error": str(exc)}, ensure_ascii=False))
-        return 2
+        print(
+            json.dumps(
+                {"error": str(exc), "outcome": "FAIL", "exit_code": EXIT_CODES["FAIL"]},
+                ensure_ascii=False,
+            )
+        )
+        return EXIT_CODES["FAIL"]
 
 
 if __name__ == "__main__":
@@ -1139,9 +1550,13 @@ if __name__ == "__main__":
 
 
 __all__ = [
+    "ASSEMBLY_EVIDENCE_ARTIFACT",
+    "EXIT_CODES",
     "HALTING_OUTCOMES",
+    "HUMAN_RELEASE_ARTIFACT",
     "OUTCOMES",
     "OUTCOME_TO_LOW_LEVEL_STATE",
+    "RELEASE_DECISIONS",
     "REQUIRED_PRODUCTION_MODULES",
     "SEMANTIC_STAGES",
     "STAGES",
@@ -1151,5 +1566,6 @@ __all__ = [
     "Stage",
     "StageResult",
     "main",
+    "parse_human_release",
     "resolve_capability",
 ]

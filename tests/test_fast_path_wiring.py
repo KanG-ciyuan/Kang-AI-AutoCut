@@ -54,6 +54,7 @@ class RecordingTimebase:
 
     def __init__(self) -> None:
         self.resolved: list[dict[str, object]] = []
+        self.verified: list[str] = []
         self.executed: list[str] = []
         self.coverage_checked: list[list[str]] = []
 
@@ -91,6 +92,24 @@ class RecordingTimebase:
             frames_produced=30,
             out_path=out_path,
         )
+
+    def assert_placement_timing(self, **kwargs: object) -> dict[str, object]:
+        placement_id = str(kwargs["placement_id"])
+        if kwargs.get("t_in_seconds") is None:
+            raise TimebaseAdapterError(
+                f"placement {placement_id!r} states no t_in_seconds"
+            )
+        self.verified.append(placement_id)
+        return {
+            "placement_id": placement_id,
+            "coordinate_system": "SOURCE_PTS_SECONDS -> CFR_TIMELINE_FRAMES",
+            "measured_t_in_seconds": float(kwargs["t_in_seconds"]),
+            "measured_duration_seconds": 1.0,
+            "assumed_cfr_duration_seconds": 1.0,
+            "duration_delta_seconds": 0.0,
+            "variable_frame_rate": False,
+            "duration_coordinate": "MEASURED_PTS",
+        }
 
     def assert_range_coverage(self, unit_ids: object) -> None:
         expected = list(unit_ids)  # type: ignore[arg-type]
@@ -150,6 +169,7 @@ def build_job(root: Path, *, silence_units: bool = False, undesigned_gap: bool =
                         "media_path": str(source),
                         "source_in": 0,
                         "source_out_exclusive": 30,
+                        "t_in_seconds": 0.0,
                     }
                 ]
             }
@@ -495,7 +515,9 @@ class WiringProofTests(Fixture, unittest.TestCase):
             result = self.path.run_stage("REVIEW & REPAIR")
         spy.assert_called_once()
         self.assertEqual(result.capability, "review.parse_review")
-        self.assertEqual(result.outcome, "PASS")
+        # The reviewer's verdict is PRODUCTION_READY, but a verdict is not a release.
+        self.assertEqual(result.outcome, "SUPERVISOR_DECISION_REQUIRED")
+        self.assertEqual(result.gate["artifact"], "release/human_release.json")
 
     def test_fast_path_calls_timebase_for_every_source_range(self) -> None:
         result = self.path.run_stage("FINISH THE PICTURE")
@@ -696,20 +718,34 @@ class RefusalTests(Fixture, unittest.TestCase):
         self.assertEqual(result.outcome, "REVIEW_REQUIRED")
         self.assertEqual(result.evidence["verdict"], "NEEDS_REPAIR")
 
-    def test_assemble_and_master_requires_a_supervisor(self) -> None:
-        """There is no packaging code in this repository, so it must not PASS."""
+    def test_assemble_and_master_gates_on_adapter_evidence(self) -> None:
+        """There is no packaging code here, so it gates rather than passing."""
 
         result = self.path.run_stage("ASSEMBLE & MASTER")
-        self.assertEqual(result.outcome, "SUPERVISOR_DECISION_REQUIRED")
+        self.assertEqual(result.outcome, "BLOCKED")
         self.assertIsNone(result.capability)
-        self.assertTrue(result.evidence["manual_adapter_required"])
+        self.assertEqual(result.gate["producer_type"], "ADAPTER")
+        self.assertEqual(result.gate["producer_id"], "packaging-adapter")
+
+    def test_assemble_and_master_refuses_evidence_that_is_a_claim(self) -> None:
+        """The stage passes on measured QA, not on an assertion that it was done."""
+
+        (self.job / "assemble").mkdir(exist_ok=True)
+        (self.job / "assemble" / "assembly_evidence.json").write_text(
+            json.dumps({"master_path": "final/master.mp4"}), encoding="utf-8"
+        )
+        result = self.path.run_stage("ASSEMBLE & MASTER")
+        self.assertEqual(result.outcome, "FAIL")
+        self.assertIn("assemble_master contract", str(result.reason))
 
     def test_an_uninitialized_job_stops_at_prepare(self) -> None:
         job = build_job(self.tmp / "noinit")
         (job / "source_inventory.json").unlink()
         path = FastPath(job, job_id="sku3-noinit", timebase=RecordingTimebase())
         result = path.run_stage("PREPARE")
-        self.assertEqual(result.outcome, "SUPERVISOR_DECISION_REQUIRED")
+        self.assertEqual(result.outcome, "BLOCKED")
+        self.assertEqual(result.gate["missing_artifact"], "source_inventory.json")
+        self.assertEqual(result.gate["producer_type"], "CODEX")
 
     def test_a_missing_input_blocks_rather_than_passes(self) -> None:
         job = build_job(self.tmp / "missing")
@@ -760,13 +796,17 @@ class RunLevelTests(Fixture, unittest.TestCase):
     """The run as a whole, and its refusal to resolve anything itself."""
 
     @unittest.skipUnless(_has_ffmpeg(), "decodable media is required")
-    def test_a_clean_job_runs_to_the_packaging_stop(self) -> None:
+    def test_a_clean_job_runs_to_the_assembly_producer_gate(self) -> None:
         report = self.path.run()
         self.assertEqual(report.stopped_at, "ASSEMBLE & MASTER")
         self.assertFalse(report.completed)
         outcomes = [result.outcome for result in report.results]
-        self.assertEqual(outcomes[-1], "SUPERVISOR_DECISION_REQUIRED")
         self.assertEqual(outcomes[:-1], ["PASS"] * 6)
+        self.assertEqual(outcomes[-1], "BLOCKED")
+        self.assertEqual(
+            report.results[-1].gate["missing_artifact"], "assemble/assembly_evidence.json"
+        )
+        self.assertEqual(report.exit_code, 3)
 
     def test_the_run_never_auto_resolves_a_review(self) -> None:
         job = build_job(self.tmp / "haltsilent", silence_units=True)
@@ -812,11 +852,19 @@ class StageResultTests(unittest.TestCase):
         with self.assertRaises(FastPathError):
             StageResult(stage="NOPE", outcome="PASS", capability="x.y")
 
-    def test_halting_outcomes_are_exactly_the_four_stops(self) -> None:
+    def test_halting_outcomes_are_every_non_pass_outcome(self) -> None:
         self.assertEqual(
             set(HALTING_OUTCOMES),
-            {"REVIEW_REQUIRED", "SUPERVISOR_DECISION_REQUIRED", "BLOCKED", "FAIL"},
+            {
+                "REVIEW_REQUIRED",
+                "SUPERVISOR_DECISION_REQUIRED",
+                "BLOCKED",
+                "FAIL",
+                "REJECT",
+            },
         )
+        self.assertNotIn("PASS", HALTING_OUTCOMES)
+        self.assertEqual(set(OUTCOMES), set(HALTING_OUTCOMES) | {"PASS"})
 
 
 if __name__ == "__main__":

@@ -239,6 +239,21 @@ class JobFoundation:
         _write_json_atomic(self.state_path, state)
 
 
+def ensure_state(root: Path, job_id: str) -> JobFoundation:
+    """Return a JobFoundation for ``root``, creating an empty state when absent.
+
+    Used by the production fast path to reconcile its semantic stages into the
+    low-level state record. It never overwrites an existing state: a recorded stage is
+    evidence and is not reset.
+    """
+
+    foundation = JobFoundation(Path(root))
+    if not foundation.state_path.exists():
+        foundation.root.mkdir(parents=True, exist_ok=True)
+        _write_json_atomic(foundation.state_path, _empty_state(job_id))
+    return foundation
+
+
 def initialize_filter_job(
     *, job_id: str, source_root: Path, workspace: Path, staging_root: Path, media_root: Path, davinci_path: Path,
     quota_bytes: int = STAGING_QUOTA_BYTES,

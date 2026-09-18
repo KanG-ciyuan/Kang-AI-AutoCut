@@ -248,6 +248,102 @@ class TimebaseAdapter:
                 f"{resolution.source} ends at {timing.timestamps[-1]:.6f}s"
             )
 
+    # ---- placement coordinates -------------------------------------------------
+
+    def measured_duration_seconds(
+        self, *, source: str, source_in: int, source_out_exclusive: int
+    ) -> float:
+        """The real duration of a decoded frame range, from the measured PTS table.
+
+        This is the point of the invariant: ``(out - in) / fps`` is only correct for a
+        constant frame rate source. For a variable frame rate source the decoded
+        range's real duration comes from the timestamps, and the two answers differ.
+        """
+
+        timing = self.timing(source)
+        if source_out_exclusive <= source_in:
+            raise TimebaseAdapterError("a source range must be non-empty")
+        if source_in < 0 or source_out_exclusive > timing.frame_count:
+            raise TimebaseAdapterError(
+                f"range [{source_in}, {source_out_exclusive}) is outside {source} "
+                f"({timing.frame_count} decoded frames)"
+            )
+        start = timing.timestamp_of(source_in)
+        if source_out_exclusive < timing.frame_count:
+            end = timing.timestamp_of(source_out_exclusive)
+        else:
+            step = timing.timestamps[-1] - timing.timestamps[-2]
+            end = timing.timestamps[-1] + step
+        return round(end - start, 6)
+
+    def assert_placement_timing(
+        self,
+        *,
+        placement_id: str,
+        source: str,
+        source_in: int,
+        source_out_exclusive: int,
+        t_in_seconds: float | None,
+        tolerance_frames: float = 1.0,
+    ) -> dict[str, object]:
+        """Verify a placement's coordinates against the measured PTS table.
+
+        A placement records a decoded frame range, which is legitimate for
+        segmentation. What is not legitimate is treating that range's *time* as
+        ``frames / fps``: on a variable frame rate source a decoded range of N frames is
+        not ``N / 30`` seconds long.
+
+        So every production placement must also state ``t_in_seconds`` — the measured
+        source timestamp of ``source_in``. This verifies the two agree. When they do not,
+        the coordinates were derived from an assumed constant frame rate, and the run
+        stops instead of propagating a wrong source coordinate.
+        """
+
+        timing = self.timing(source)
+        if source_out_exclusive <= source_in:
+            raise TimebaseAdapterError(
+                f"placement {placement_id!r} must cover a non-empty range"
+            )
+        if source_in < 0 or source_out_exclusive > timing.frame_count:
+            raise TimebaseAdapterError(
+                f"placement {placement_id!r} asks for [{source_in}, "
+                f"{source_out_exclusive}) but {source} has {timing.frame_count} "
+                "decoded frames"
+            )
+        measured_start = round(timing.timestamp_of(source_in), 6)
+        if t_in_seconds is None:
+            raise TimebaseAdapterError(
+                f"placement {placement_id!r} states no t_in_seconds. A decoded frame "
+                "index is not a source time for a variable frame rate source, so the "
+                "measured timestamp must be stated explicitly."
+            )
+        frame_tolerance = tolerance_frames / self.fps
+        if abs(float(t_in_seconds) - measured_start) > frame_tolerance:
+            raise TimebaseAdapterError(
+                f"placement {placement_id!r} declares t_in_seconds="
+                f"{float(t_in_seconds):.6f} but frame {source_in} of {source} is at "
+                f"{measured_start:.6f}s. The declared coordinate was derived from an "
+                "assumed constant frame rate, not from the source's measured PTS."
+            )
+        assumed = round((source_out_exclusive - source_in) / self.fps, 6)
+        measured = self.measured_duration_seconds(
+            source=source,
+            source_in=source_in,
+            source_out_exclusive=source_out_exclusive,
+        )
+        return {
+            "placement_id": placement_id,
+            "source": source,
+            "coordinate_system": COORDINATE_SYSTEM,
+            "source_frame_range": [source_in, source_out_exclusive],
+            "measured_t_in_seconds": measured_start,
+            "measured_duration_seconds": measured,
+            "assumed_cfr_duration_seconds": assumed,
+            "duration_delta_seconds": round(measured - assumed, 6),
+            "variable_frame_rate": timing.is_variable_frame_rate,
+            "duration_coordinate": "MEASURED_PTS",
+        }
+
     # ---- execution -------------------------------------------------------------
 
     def execute(
