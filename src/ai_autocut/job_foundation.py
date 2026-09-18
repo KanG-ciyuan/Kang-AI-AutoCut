@@ -307,22 +307,261 @@ def initialize_filter_job(
     return foundation
 
 
+#: Media extensions a generic commercial SKU can start from. A job may narrow this,
+#: but the default is not derived from any single SKU.
+SUPPORTED_SOURCE_SUFFIXES = (".mp4", ".mov", ".mkv", ".m4v", ".webm", ".avi")
+
+
+def discover_sources(
+    source_root: Path, suffixes: Iterable[str] = SUPPORTED_SOURCE_SUFFIXES
+) -> list[Path]:
+    """Every supported media file directly inside ``source_root``, in stable order.
+
+    No count is assumed. A SKU with one source and a SKU with four hundred take the
+    same path, which is the point of a generic initializer.
+    """
+
+    if not source_root.is_dir():
+        raise JobFoundationError("source root must be an existing directory")
+    wanted = {suffix.lower() for suffix in suffixes}
+    return sorted(
+        item
+        for item in source_root.iterdir()
+        if item.is_file() and item.suffix.lower() in wanted
+    )
+
+
+def build_generic_source_inventory(
+    source_root: Path, suffixes: Iterable[str] = SUPPORTED_SOURCE_SUFFIXES
+) -> list[dict[str, Any]]:
+    """Identify every discovered source. Zero usable media is an error, not an empty job."""
+
+    files = discover_sources(source_root, suffixes)
+    if not files:
+        raise JobFoundationError(
+            "no supported source media found in "
+            f"{source_root} (looked for: {', '.join(sorted(set(suffixes)))})"
+        )
+    inventory: list[dict[str, Any]] = []
+    for index, source in enumerate(files, start=1):
+        stat = source.stat()
+        inventory.append(
+            {
+                "source_id": f"SRC-{index:03d}",
+                "filename": source.name,
+                "path": str(source.resolve()),
+                "size_bytes": stat.st_size,
+                "mtime_ns": stat.st_mtime_ns,
+                "sha256": sha256_of_file(source),
+            }
+        )
+    return inventory
+
+
+def initialize_job(
+    *,
+    job_id: str,
+    product: Mapping[str, Any],
+    source_root: Path,
+    workspace: Path,
+    media_root: Path | None = None,
+    staging_root: Path | None = None,
+    davinci_path: Path | None = None,
+    source_suffixes: Iterable[str] = SUPPORTED_SOURCE_SUFFIXES,
+    quota_bytes: int = STAGING_QUOTA_BYTES,
+) -> JobFoundation:
+    """Initialize one generic commercial job.
+
+    This is the Third-SKU producer contract for ``source_inventory.json``. It requires
+    only what a fresh commercial SKU actually has: an id, a product identity, and a
+    directory of source media.
+
+    It deliberately does **not** require a fixed file count, a Filter identity, or any
+    SKU#1 or SKU#2 value. ``initialize_filter_job`` is kept unchanged for historical
+    compatibility, and nothing here changes its behaviour.
+    """
+
+    if not job_id or any(
+        character not in "abcdefghijklmnopqrstuvwxyz0123456789-" for character in job_id
+    ):
+        raise JobFoundationError(
+            "job id must be lowercase ASCII letters, digits, and hyphens"
+        )
+    if not isinstance(product, Mapping):
+        raise JobFoundationError("product identity must be a mapping")
+    name = product.get("name")
+    if not isinstance(name, str) or not name.strip():
+        raise JobFoundationError(
+            "a generic job must state its product identity; product.name is required"
+        )
+    if workspace.exists():
+        raise JobFoundationError(
+            "job workspace already exists; refusing to overwrite evidence"
+        )
+    if _is_within(workspace, source_root):
+        raise JobFoundationError(
+            "workspace must never be inside immutable source material"
+        )
+
+    staging: dict[str, Any] | None = None
+    if staging_root is not None:
+        if _is_within(staging_root, source_root):
+            raise JobFoundationError(
+                "staging must never be inside immutable source material"
+            )
+        staging = validate_staging_path(staging_root, quota_bytes)
+    if davinci_path is not None and not davinci_path.is_dir():
+        raise JobFoundationError("configured DaVinci application path is unavailable")
+
+    inventory = build_generic_source_inventory(source_root, source_suffixes)
+    workspace.mkdir(parents=True)
+    foundation = JobFoundation(workspace)
+    _write_json_atomic(
+        foundation.source_inventory_path,
+        {
+            "schema_version": "source_inventory.v1",
+            "source_root": str(source_root.resolve()),
+            "supported_suffixes": sorted({s.lower() for s in source_suffixes}),
+            "files": inventory,
+        },
+    )
+    runtime: dict[str, Any] = {"external_workspace": str(workspace.resolve())}
+    if media_root is not None:
+        runtime["media_root"] = str(media_root.resolve())
+    if staging is not None:
+        runtime["ascii_staging"] = staging
+        runtime["staging_quota_bytes"] = quota_bytes
+    if davinci_path is not None:
+        runtime["davinci_application"] = str(davinci_path.resolve())
+    _write_json_atomic(
+        foundation.manifest_path,
+        {
+            "schema_version": "job_manifest.v2",
+            "job_id": job_id,
+            "created_at": _utc_now(),
+            "product": dict(product),
+            "source": {
+                "inventory": SOURCE_INVENTORY_FILENAME,
+                "count": len(inventory),
+                "source_root": str(source_root.resolve()),
+            },
+            "runtime": runtime,
+        },
+    )
+    _write_json_atomic(foundation.state_path, _empty_state(job_id))
+    _write_json_atomic(
+        foundation.artifact_references_path,
+        {
+            "schema_version": "artifact_references.v1",
+            "job_id": job_id,
+            "artifacts": {key: None for key in ARTIFACT_KEYS},
+        },
+    )
+    foundation.transition(
+        "PREPARE",
+        "RUNNING",
+        evidence={
+            "kind": "source_immutability_precheck",
+            "passed": verify_source_immutability(inventory),
+        },
+    )
+    foundation.transition(
+        "PREPARE",
+        "PASS",
+        evidence={
+            "kind": "source_inventory",
+            "path": SOURCE_INVENTORY_FILENAME,
+            "files": len(inventory),
+        },
+    )
+    return foundation
+
+
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Initialize one immutable Filter production job")
+    parser = argparse.ArgumentParser(
+        description="Initialize one production job (generic by default)"
+    )
     parser.add_argument("--job-id", required=True)
     parser.add_argument("--source-root", type=Path, required=True)
     parser.add_argument("--workspace", type=Path, required=True)
-    parser.add_argument("--staging-root", type=Path, required=True)
-    parser.add_argument("--media-root", type=Path, required=True)
-    parser.add_argument("--davinci-path", type=Path, required=True)
+    parser.add_argument(
+        "--product-name",
+        default=None,
+        help="product identity for a generic job; required unless --filter is used",
+    )
+    parser.add_argument("--product-name-localized", default=None)
+    parser.add_argument("--media-root", type=Path, default=None)
+    parser.add_argument("--staging-root", type=Path, default=None)
+    parser.add_argument("--davinci-path", type=Path, default=None)
+    parser.add_argument(
+        "--filter",
+        action="store_true",
+        help=(
+            "use the historical Filter-first-job initializer (exactly 16 MP4 files, "
+            "Faucet Filter identity). Kept for compatibility; not the Third-SKU "
+            "producer contract."
+        ),
+    )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
-        job = initialize_filter_job(job_id=args.job_id, source_root=args.source_root, workspace=args.workspace, staging_root=args.staging_root, media_root=args.media_root, davinci_path=args.davinci_path)
-        print(json.dumps({"job_manifest": str(job.manifest_path), "pipeline_state": str(job.state_path), "resume_stage": job.resume_stage()}, ensure_ascii=False))
+        if args.filter:
+            missing = [
+                name
+                for name, value in (
+                    ("--media-root", args.media_root),
+                    ("--staging-root", args.staging_root),
+                    ("--davinci-path", args.davinci_path),
+                )
+                if value is None
+            ]
+            if missing:
+                print(
+                    f"the Filter initializer requires: {', '.join(missing)}",
+                    file=sys.stderr,
+                )
+                return 2
+            job = initialize_filter_job(
+                job_id=args.job_id,
+                source_root=args.source_root,
+                workspace=args.workspace,
+                staging_root=args.staging_root,
+                media_root=args.media_root,
+                davinci_path=args.davinci_path,
+            )
+        else:
+            if not args.product_name:
+                print(
+                    "--product-name is required for a generic job; the product identity "
+                    "is a job input, not a built-in",
+                    file=sys.stderr,
+                )
+                return 2
+            product: dict[str, Any] = {"name": args.product_name}
+            if args.product_name_localized:
+                product["localized_name"] = args.product_name_localized
+            job = initialize_job(
+                job_id=args.job_id,
+                product=product,
+                source_root=args.source_root,
+                workspace=args.workspace,
+                media_root=args.media_root,
+                staging_root=args.staging_root,
+                davinci_path=args.davinci_path,
+            )
+        print(
+            json.dumps(
+                {
+                    "job_manifest": str(job.manifest_path),
+                    "pipeline_state": str(job.state_path),
+                    "resume_stage": job.resume_stage(),
+                },
+                ensure_ascii=False,
+            )
+        )
         return 0
     except JobFoundationError as exc:
         print(f"job foundation error: {exc}", file=sys.stderr)

@@ -1662,7 +1662,7 @@ class FastPath:
             if isinstance(upstream, Mapping) and upstream.get("frame_count"):
                 expected_frames = int(upstream["frame_count"])
                 break
-        job = self._read("job.json") or {}
+        job = self._read("job.json") or self._read("job_manifest.json") or {}
         loudness_target = None
         if isinstance(job, Mapping):
             audio_contract = job.get("audio") or {}

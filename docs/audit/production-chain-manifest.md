@@ -58,29 +58,29 @@ relationships between them.
 | PLAN THE WORDS | commercial narration coverage | `WIRED` | yes | yes | yes |
 | PLAN THE WORDS | spoken duration validation | `NOT_WIRED` | yes | no | no |
 | PLAN THE WORDS | typography policy validation | `NOT_WIRED` | no | no | no |
-| PLAN THE WORDS | typography execution | `JOB_SPECIFIC_ONLY` | **no** | no | no |
+| PLAN THE WORDS | typography execution | `WIRED` | yes | yes | yes |
 | BUILD THE AUDIO | audio program verification (FIT / SYNC / RHYTHM) | `WIRED` | **no** | yes | no |
 | BUILD THE AUDIO | audio plan contract | `NOT_WIRED` | no | no | no |
-| BUILD THE AUDIO | audio rendering and mixing | `JOB_SPECIFIC_ONLY` | **no** | no | no |
-| ASSEMBLE & MASTER | packaging, encode/remux, final master | `PARTIALLY_WIRED` | **no** | no | no |
+| BUILD THE AUDIO | audio rendering and mixing | `WIRED` | yes | yes | yes |
+| ASSEMBLE & MASTER | packaging, encode/remux, final master | `WIRED` | yes | yes | yes |
 | REVIEW & REPAIR | review contract and release verdict | `WIRED` | yes | yes | yes |
 | REVIEW & REPAIR | targeted repair planning | `WIRED` | yes | yes | yes |
 | REVIEW & REPAIR | human release gate | `WIRED` | yes | yes | yes |
 | REVIEW & REPAIR | automated commercial reviewer | `NOT_WIRED` | no | no | no |
 | REVIEW & REPAIR | prospective intervention ledger | `WIRED` | yes | yes | yes |
 
-**Eight capabilities are ready. Eighteen are not.** Several are `WIRED` — their validator
-runs in production — while still not being *ready*, because the executor that would act
-on their output does not ship here. `KEEP / REVIEW / CORRECT decision` is the clearest
-case: the decision runs, but nothing in this repository acts on a `CORRECT`.
+**Fourteen capabilities are ready. Twelve are not.** Readiness means the capability's real
+execution output is produced and verified by the chain, not merely that its logic exists.
+The four execution boundaries reached `ready` in Phase 6, when the chain produced and then
+independently re-measured a real master.
 
-## `full_chain_completable_today: false`
+Capabilities that remain **not ready** are either not wired at all, or `WIRED` with the
+artifact they consume authored per job. `KEEP / REVIEW / CORRECT decision` is the clearest
+case: the decision runs, and the picture is now executed and verified, but no measurement
+tool ships, so a human or Codex authors `picture/measurements.json` for every job.
 
-No executor ships for picture execution, typography execution, audio rendering or
-assembly. Each is an **explicit adapter gate with a published contract**, so the chain is
-reproducible but not completable without a job-specific adapter.
-
-That is the honest headline. The run stops and names who must act; it does not pretend.
+The current completion claim, and the runtime proof behind it, are in
+[Phase 6](#phase-6--real-execution-closure) below.
 
 ## Every artifact has a producer
 
@@ -90,7 +90,7 @@ PRODUCER**, and that is asserted by test.
 
 | Artifact | Producer | Type |
 |---|---|---|
-| `source_inventory.json` | `job_foundation.initialize_filter_job` | CODEX |
+| `source_inventory.json` | `job_foundation.initialize_job` (generic) | CODEX |
 | `shots/placements.json` | placement author | CODEX |
 | `edit/timeline_ranges.json` | edit planner | CODEX |
 | `picture/measurements.json` | picture measurement adapter | ADAPTER |
@@ -106,6 +106,21 @@ A `CODEX` or `HUMAN` producer is legitimate. The goal of this work is reproducib
 not autonomy. **Hidden manual reconstruction is what is not allowed**: every gate names
 its input contract, output contract, procedure, evidence requirement, checkpoint and
 ledger obligation.
+
+**The initialization contract is generic.** `source_inventory.json` is produced by
+`job_foundation.initialize_job`, which requires only a job id, a product identity and a
+directory of source media, and discovers whatever supported media is there. It assumes no
+file count and no product. The historical `initialize_filter_job` — exactly sixteen MP4
+files, Faucet Filter identity — is kept unchanged for compatibility and is **not** the
+Third-SKU contract:
+
+```sh
+python3 -m src.ai_autocut.job_foundation --job-id <ID> --product-name '<PRODUCT>' \
+    --source-root <DIR> --workspace <DIR>
+```
+
+Zero discoverable media is a controlled error. One source and four hundred sources take
+the same path.
 
 ## Execution contracts
 

@@ -119,17 +119,23 @@ PRODUCERS = (
         artifact="source_inventory.json",
         stage="PREPARE",
         producer_type="CODEX",
-        producer_id="job_foundation.initialize_filter_job",
+        producer_id="job_foundation.initialize_job",
         required_inputs=(),
         output_contract="source_inventory.v1",
         validated_by="job_foundation.verify_source_immutability",
-        evidence=("per-file sha256", "size_bytes", "mtime_ns"),
+        evidence=(
+            "per-file sha256, size_bytes and mtime_ns for every discovered source",
+            "the product identity the job states",
+        ),
         intervention_kind="SUPERVISOR_DECISIONS",
         resume_condition="source_inventory.json exists and every listed file still matches its sha256",
         procedure=(
-            "python3 -m src.ai_autocut.job_foundation --job-id <ID> --source-root <P> "
-            "--workspace <P> --staging-root <P> --media-root <P> --davinci-path <P>. "
-            "The CLI already refuses an uninitialized workspace and records PREPARE."
+            "python3 -m src.ai_autocut.job_foundation --job-id <ID> --product-name "
+            "'<PRODUCT>' --source-root <DIR> --workspace <DIR>. This is the GENERIC "
+            "initializer: it discovers supported media in the directory and assumes no "
+            "file count and no product. Zero discoverable media is a controlled error. "
+            "The historical Filter path remains available behind --filter and is not the "
+            "Third-SKU contract."
         ),
     ),
     _p(

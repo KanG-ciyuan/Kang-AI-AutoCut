@@ -354,22 +354,26 @@ class TimebaseAdapter:
         duration_seconds: float,
         analysis_fps: int | None = None,
     ) -> dict[str, object]:
-        """Map a **measured** source time window onto the analysis grid.
+        """Map a **measured** source window onto the CFR ANALYSIS grid.
 
-        This is the fix for the mismatch the inspector found. Validating a measured PTS
-        and then selecting frames with the producer's original frame index would be
-        cosmetic: the validated coordinate would not be the one used. So this does not
-        check a declared index — it *derives* the decoded frame range from the measured
-        timestamps, and returns the range the analysis must use.
+        The three domains are distinct, and conflating the middle two is the defect this
+        fixes:
 
-            SOURCE        = the measured PTS timestamp the caller states
-            ANALYSIS GRID = decoded frame indices resolved from that PTS, plus the
-                            explicit CFR frame count covering the same window
-            TIMELINE      = CFR frame grid
+            SOURCE DOMAIN   = measured PTS timestamp
+            ANALYSIS DOMAIN = explicit CFR analysis grid (the engine decodes at a forced
+                              ``fps``, so analysis frame N is the content at N/fps)
+            TIMELINE DOMAIN = CFR timeline grid
 
-        The returned ``source_in`` / ``source_out_exclusive`` are the authoritative
-        selection coordinates. A caller that selects with anything else is selecting
-        with an assumed frame rate.
+        For a variable frame rate source a raw decoded source ordinal is **not** an
+        analysis frame. A source whose first second runs at 10 fps and whose second runs
+        at 30 fps has its 1.0 s content at raw index 10, but at analysis frame 30. Feeding
+        the raw ordinal into the forced-CFR analysis stream would analyse the content at
+        0.333 s instead of 1.0 s.
+
+        So the returned ``source_in`` / ``source_out_exclusive`` are **analysis-grid**
+        coordinates derived from the measured timestamp and the declared analysis rate.
+        The raw decoded ordinals are returned alongside, for provenance only, and are
+        never the coordinates the analysis runs on.
         """
 
         timing = self.timing(source)
@@ -390,64 +394,78 @@ class TimebaseAdapter:
                 f"{timing.timestamps[-1]:.6f}s"
             )
 
+        # ---- measured-PTS validation (kept) -----------------------------------
         epsilon = 1e-6
-        source_in = next(
-            (i for i, ts in enumerate(timing.timestamps) if ts >= t_in - epsilon),
-            None,
+        raw_in = next(
+            (i for i, ts in enumerate(timing.timestamps) if ts >= t_in - epsilon), None
         )
-        source_out_exclusive = next(
+        if raw_in is None:
+            raise TimebaseAdapterError(
+                f"placement {placement_id!r} starts at {t_in:.6f}s, past the measured "
+                f"end of {source}"
+            )
+        measured_t_in = round(timing.timestamp_of(raw_in), 6)
+        if abs(measured_t_in - t_in) > frame_span:
+            raise TimebaseAdapterError(
+                f"placement {placement_id!r} declares t_in_seconds={t_in:.6f} but the "
+                f"nearest measured frame is at {measured_t_in:.6f}s"
+            )
+        raw_out = next(
             (
                 i
                 for i, ts in enumerate(timing.timestamps)
-                if ts >= t_out - epsilon and i > (source_in if source_in is not None else 0)
+                if ts >= t_out - epsilon and i > raw_in
             ),
             None,
         )
-        if source_out_exclusive is None and source_in is not None:
-            # A window that ends at (or within one frame of) the end of the source has
-            # no frame *starting* at t_out. The exclusive bound is then the end of the
-            # decoded stream, which is the honest answer rather than a refusal.
+        if raw_out is None:
             if t_out <= timing.timestamps[-1] + frame_span + 1e-6:
-                source_out_exclusive = len(timing.timestamps)
-        if source_in is None or source_out_exclusive is None:
+                raw_out = len(timing.timestamps)
+            else:
+                raise TimebaseAdapterError(
+                    f"placement {placement_id!r} window [{t_in:.6f}, {t_out:.6f}) does "
+                    f"not contain a decodable frame range in {source}"
+                )
+
+        # ---- ANALYSIS DOMAIN: the CFR grid, derived from measured time --------
+        analysis_start = int(round(t_in * fps))
+        analysis_frames = int(round(float(duration_seconds) * fps))
+        if analysis_frames <= 0:
             raise TimebaseAdapterError(
-                f"placement {placement_id!r} window [{t_in:.6f}, {t_out:.6f}) does not "
-                f"contain a decodable frame range in {source}"
-            )
-        if source_out_exclusive <= source_in:
-            raise TimebaseAdapterError(
-                f"placement {placement_id!r} window [{t_in:.6f}, {t_out:.6f}) resolves "
-                "to an empty decoded frame range"
+                f"placement {placement_id!r} resolves to an empty analysis window"
             )
 
-        measured_in = round(timing.timestamp_of(source_in), 6)
-        if source_out_exclusive < timing.frame_count:
-            measured_out = round(timing.timestamp_of(source_out_exclusive), 6)
-        else:
-            step = timing.timestamps[-1] - timing.timestamps[-2]
-            measured_out = round(timing.timestamps[-1] + step, 6)
-        measured_duration = round(measured_out - measured_in, 6)
-        decoded_frames = source_out_exclusive - source_in
-        # The CFR frame count covering the same measured window. This is the analysis
-        # grid, and it is derived from measured time — never from index/fps.
-        analysis_frames = int(round(float(duration_seconds) * fps))
+        measured_out = (
+            round(timing.timestamp_of(raw_out), 6)
+            if raw_out < timing.frame_count
+            else round(timing.timestamps[-1] + (timing.timestamps[-1] - timing.timestamps[-2]), 6)
+        )
+        measured_duration = round(measured_out - measured_t_in, 6)
+        decoded_frames = raw_out - raw_in
         assumed_duration = round(decoded_frames / fps, 6)
         return {
             "placement_id": placement_id,
             "source": source,
             "coordinate_system": COORDINATE_SYSTEM,
             "analysis_grid": "CFR_DERIVED_FROM_MEASURED_PTS",
-            "source_in": source_in,
-            "source_out_exclusive": source_out_exclusive,
-            "decoded_frames": decoded_frames,
-            "analysis_frames_cfr": analysis_frames,
             "analysis_fps": fps,
-            "measured_t_in_seconds": measured_in,
+            # Authoritative: coordinates in the analysis (CFR) domain.
+            "source_in": analysis_start,
+            "source_out_exclusive": analysis_start + analysis_frames,
+            "analysis_start_frame": analysis_start,
+            "analysis_frames_cfr": analysis_frames,
+            # Provenance only: positions in the raw decoded source domain. Never used
+            # as analysis coordinates.
+            "raw_source_in": raw_in,
+            "raw_source_out_exclusive": raw_out,
+            "raw_decoded_frames": decoded_frames,
+            "measured_t_in_seconds": measured_t_in,
             "measured_t_out_seconds": measured_out,
             "measured_duration_seconds": measured_duration,
             "assumed_cfr_duration_seconds": assumed_duration,
             "duration_delta_seconds": round(measured_duration - assumed_duration, 6),
             "variable_frame_rate": timing.is_variable_frame_rate,
+            "raw_index_differs_from_analysis": raw_in != analysis_start,
         }
 
     # ---- execution -------------------------------------------------------------

@@ -36,7 +36,7 @@
     {
       "stage": "PREPARE",
       "capability": "source ingestion and immutability",
-      "implementation": "src/ai_autocut/job_foundation.py:verify_source_immutability",
+      "implementation": "src/ai_autocut/job_foundation.py:initialize_job",
       "git_tracked": true,
       "production_caller": "src/ai_autocut/fast_path.py:_stage_prepare",
       "wiring_status": "WIRED",
@@ -51,7 +51,7 @@
         "END_TO_END_REACHABLE": true
       },
       "third_sku_ready": true,
-      "notes": "build_source_inventory still hardcodes exactly 16 MP4 files for the Filter job; a non-Filter SKU is initialized by the job_foundation CLI, which is the registered CODEX producer."
+      "notes": "Generic producer contract. Requires a job id, a product identity and a source directory; discovers supported media and assumes no file count and no product. The historical Filter-only initializer (exactly 16 MP4 files, Faucet Filter identity) is kept unchanged for compatibility and is not the Third-SKU contract. Zero discoverable media is a controlled error."
     },
     {
       "stage": "PREPARE",
@@ -111,7 +111,7 @@
         "END_TO_END_REACHABLE": true
       },
       "third_sku_ready": true,
-      "notes": "frozen Batch 1 engine. Works in decoded frame indices, legitimate for segmentation; its duration field is NOT used as a production time coordinate. KL-01 and KL-02 remain open."
+      "notes": "frozen Batch 1 engine, run on the CFR analysis grid. The engine decodes at a forced fps, so analysis frame N is the content at N/fps; the placement window is derived from measured PTS into THAT grid, never from a raw decoded ordinal. Proven against a real VFR source (10 fps then 30 fps): the 1.0 s window maps to analysis frame 30, and the analysed content is the 1.0 s region. KL-01 and KL-02 remain open."
     },
     {
       "stage": "UNDERSTAND SHOTS",
@@ -211,7 +211,7 @@
         "END_TO_END_REACHABLE": true
       },
       "third_sku_ready": true,
-      "notes": "P0 and global. assert_range_coverage fails when a declared unit was executed without passing through the adapter. The invariant now also governs placement coordinates in UNDERSTAND SHOTS."
+      "notes": "P0 and global. SOURCE = measured PTS; ANALYSIS GRID = CFR derived from measured PTS; TIMELINE = CFR. A raw decoded ordinal is never used as an analysis coordinate. assert_range_coverage fails when a declared unit was executed without passing through the adapter."
     },
     {
       "stage": "FINISH THE PICTURE",
