@@ -173,8 +173,8 @@ PRODUCERS = (
     _p(
         artifact="picture/measurements.json",
         stage="FINISH THE PICTURE",
-        producer_type="ADAPTER",
-        producer_id="picture-measurement-adapter",
+        producer_type="CODEX",
+        producer_id="picture-measurement-author",
         required_inputs=("edit/editing_plan.json",),
         output_contract="picture_measurements.v1 (shots[] with measurement + contains_product + optional protection)",
         validated_by="picture_measurement.ShotMeasurement",
@@ -262,6 +262,93 @@ PRODUCERS = (
         ),
     ),
     _p(
+        artifact="picture/picture_request.json",
+        stage="FINISH THE PICTURE",
+        producer_type="ADAPTER",
+        producer_id="picture-execution-adapter",
+        required_inputs=("edit/editing_plan.json",),
+        output_contract=(
+            "picture_request.v1 (source, units[unit_id,t_in_seconds|source_frame_index,frames], "
+            "width, height, fps)"
+        ),
+        validated_by="execution_adapters.execute_picture",
+        evidence=(
+            "every unit resolved from a measured timestamp and executed through the timebase adapter",
+            "a real video file with measured frame count, geometry and sha256",
+        ),
+        intervention_kind="SUPERVISOR_DECISIONS",
+        resume_condition="the picture adapter produced a real video artifact whose measurements were taken from the file",
+        procedure=(
+            "python3 -m src.ai_autocut.execution_adapters --job-root <PATH> --boundary picture. "
+            "The adapter reads this job's own request file and writes picture/picture_master.mp4; "
+            "it is job-scoped and ships no default geometry or art direction."
+        ),
+    ),
+    _p(
+        artifact="typography/typography_request.json",
+        stage="PLAN THE WORDS",
+        producer_type="ADAPTER",
+        producer_id="typography-executor",
+        required_inputs=("copy/narration_coverage.json",),
+        output_contract=(
+            "typography_request.v1 (master, out, events[lines,start_frame,end_frame_exclusive], "
+            "layout, font_stack, width, height, fps, frame_count)"
+        ),
+        validated_by="execution_adapters.execute_typography",
+        evidence=(
+            "this job's own layout and font stack, with no defaults",
+            "a real rendered video file with measured frame count and sha256",
+        ),
+        intervention_kind="SUPERVISOR_DECISIONS",
+        resume_condition="the typography executor produced a real rendered artifact",
+        procedure=(
+            "python3 -m src.ai_autocut.execution_adapters --job-root <PATH> --boundary typography. "
+            "layout and font_stack are required fields: there is no default layout or font, because "
+            "a default would be one job's art direction applied to another."
+        ),
+    ),
+    _p(
+        artifact="audio/audio_request.json",
+        stage="BUILD THE AUDIO",
+        producer_type="ADAPTER",
+        producer_id="audio-render-adapter",
+        required_inputs=("copy/narration_coverage.json",),
+        output_contract=(
+            "audio_request.v1 (assets[path,gain_db,start_seconds], out, duration_seconds, "
+            "target_lufs, true_peak_ceiling_dbtp)"
+        ),
+        validated_by="execution_adapters.execute_audio",
+        evidence=(
+            "a real mixed audio file with measured integrated loudness, true peak and sample peak",
+            "an explicit no-clipping result",
+        ),
+        intervention_kind="VO_GENERATIONS",
+        resume_condition="the audio adapter produced a real mix whose loudness and peak were measured from the file",
+        procedure=(
+            "python3 -m src.ai_autocut.execution_adapters --job-root <PATH> --boundary audio. "
+            "Assets are this job's own local files; this adapter makes no provider call."
+        ),
+    ),
+    _p(
+        artifact="assemble/assemble_request.json",
+        stage="ASSEMBLE & MASTER",
+        producer_type="ADAPTER",
+        producer_id="packaging-adapter",
+        required_inputs=("typography/typography_execution.json", "audio/audio_execution.json"),
+        output_contract="assemble_request.v1 (picture, audio, out, method: REMUX|RE_ENCODE)",
+        validated_by="execution_adapters.assemble_master",
+        evidence=(
+            "a real delivery master at final/master.mp4",
+            "measured assembly evidence written to assemble/assembly_evidence.json",
+        ),
+        intervention_kind="SUPERVISOR_DECISIONS",
+        resume_condition="the packaging adapter produced a real master and its measured evidence",
+        procedure=(
+            "python3 -m src.ai_autocut.execution_adapters --job-root <PATH> --boundary assemble. "
+            "Prefer REMUX when the inputs already meet the delivery specification."
+        ),
+    ),
+    _p(
         artifact="assemble/assembly_evidence.json",
         stage="ASSEMBLE & MASTER",
         producer_type="ADAPTER",
@@ -346,6 +433,7 @@ AUTO_ARTIFACTS = (
     "audio/audio_program.json",
     "review/verdict.json",
     "fast_path_state.json",
+    "intervention_ledger.jsonl",
 )
 
 

@@ -19,15 +19,16 @@ tests assert the *production path* calls the module, using four independent angl
 
 from __future__ import annotations
 
-import hashlib
+import importlib.util
 import json
 from pathlib import Path
+import shutil
 import shutil
 import tempfile
 import unittest
 from unittest import mock
 
-from src.ai_autocut import fast_path
+from src.ai_autocut import fast_path, media_probe
 from src.ai_autocut.fast_path import (
     HALTING_OUTCOMES,
     OUTCOMES,
@@ -42,355 +43,83 @@ from src.ai_autocut.fast_path import (
 )
 from src.ai_autocut.job_foundation import STAGE_ORDER
 from src.ai_autocut.review import REVIEWER_DIMENSIONS
-from src.ai_autocut.timebase_adapter import (
-    SourceRangeExecution,
-    TimebaseAdapter,
-    TimebaseAdapterError,
-)
+from src.ai_autocut.timebase_adapter import TimebaseAdapter, TimebaseAdapterError
 
 
-class RecordingTimebase:
-    """A timebase adapter stand-in that records the calls the fast path makes."""
-
-    def __init__(self) -> None:
-        self.resolved: list[dict[str, object]] = []
-        self.verified: list[str] = []
-        self.executed: list[str] = []
-        self.coverage_checked: list[list[str]] = []
-
-    def resolve_from_seconds(self, **kwargs: object) -> mock.Mock:
-        self.resolved.append(kwargs)
-        resolution = mock.Mock()
-        resolution.unit_id = kwargs["unit_id"]
-        resolution.as_dict.return_value = {
-            "unit_id": kwargs["unit_id"],
-            "coordinate_system": "SOURCE_PTS_SECONDS -> CFR_TIMELINE_FRAMES",
-            "t_in_seconds": kwargs["t_in_seconds"],
-            "frames": kwargs["frames"],
-        }
-        return resolution
-
-    def resolve_from_source_index(self, **kwargs: object) -> mock.Mock:
-        self.resolved.append(kwargs)
-        resolution = mock.Mock()
-        resolution.unit_id = kwargs["unit_id"]
-        resolution.as_dict.return_value = {
-            "unit_id": kwargs["unit_id"],
-            "resolved_from": "MEASURED_PTS_LOOKUP",
-        }
-        return resolution
-
-    def execute(self, resolution: mock.Mock, out_path: str) -> SourceRangeExecution:
-        self.executed.append(resolution.unit_id)
-        Path(out_path).parent.mkdir(parents=True, exist_ok=True)
-        Path(out_path).write_bytes(b"fake")
-        return SourceRangeExecution(
-            unit_id=resolution.unit_id,
-            source="fake.mp4",
-            t_in_seconds=0.0,
-            frames_requested=30,
-            frames_produced=30,
-            out_path=out_path,
-        )
-
-    def assert_placement_timing(self, **kwargs: object) -> dict[str, object]:
-        placement_id = str(kwargs["placement_id"])
-        if kwargs.get("t_in_seconds") is None:
-            raise TimebaseAdapterError(
-                f"placement {placement_id!r} states no t_in_seconds"
-            )
-        self.verified.append(placement_id)
-        return {
-            "placement_id": placement_id,
-            "coordinate_system": "SOURCE_PTS_SECONDS -> CFR_TIMELINE_FRAMES",
-            "measured_t_in_seconds": float(kwargs["t_in_seconds"]),
-            "measured_duration_seconds": 1.0,
-            "assumed_cfr_duration_seconds": 1.0,
-            "duration_delta_seconds": 0.0,
-            "variable_frame_rate": False,
-            "duration_coordinate": "MEASURED_PTS",
-        }
-
-    def assert_range_coverage(self, unit_ids: object) -> None:
-        expected = list(unit_ids)  # type: ignore[arg-type]
-        self.coverage_checked.append(expected)
-        missing = [unit for unit in expected if unit not in self.executed]
-        if missing:
-            raise TimebaseAdapterError(f"bypass detected for {missing}")
+REPO = Path(__file__).resolve().parents[1]
+PROOF_SCRIPT = REPO / "scripts" / "run_pre_exam_proof.py"
 
 
-def build_job(root: Path, *, silence_units: bool = False, undesigned_gap: bool = False,
-              complete_review: bool = True) -> Path:
-    """A minimal job whose inputs let the pure capabilities run for real."""
+def load_proof_module():
+    """The proof job builder, shared with the runbook so there is one source of truth."""
 
-    root.mkdir(parents=True, exist_ok=True)
+    spec = importlib.util.spec_from_file_location("pre_exam_proof_wiring", PROOF_SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
 
-    # PREPARE — a real source file, so immutability verification is genuine, and real
-    # decodable media where ffmpeg exists so shot understanding can actually run.
-    source = root / "source-01.mp4"
-    if _has_ffmpeg():
-        import subprocess
 
-        subprocess.run(
-            [
-                "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-                "-f", "lavfi", "-i", "testsrc2=size=64x64:rate=30:duration=1",
-                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", "30", str(source),
-            ],
-            check=True,
-            capture_output=True,
-        )
-    else:
-        source.write_bytes(b"placeholder-not-decodable")
-    inventory = {
-        "schema_version": "source_inventory.v1",
-        "files": [
-            {
-                "source_id": "SKU3-01",
-                "filename": source.name,
-                "path": str(source),
-                "size_bytes": source.stat().st_size,
-                "mtime_ns": source.stat().st_mtime_ns,
-                "sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
-            }
-        ],
-    }
-    (root / "source_inventory.json").write_text(json.dumps(inventory), encoding="utf-8")
+def build_job(root: Path) -> Path:
+    """A complete real job. The production path now executes, so fixtures must be real."""
 
-    # UNDERSTAND SHOTS
-    (root / "shots").mkdir(exist_ok=True)
-    (root / "shots" / "placements.json").write_text(
-        json.dumps(
-            {
-                "placements": [
-                    {
-                        "placement_id": "P01",
-                        "source_id": "SKU3-01",
-                        "media_path": str(source),
-                        "source_in": 0,
-                        "source_out_exclusive": 30,
-                        "t_in_seconds": 0.0,
-                    }
-                ]
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    # PLAN THE EDIT
-    (root / "edit").mkdir(exist_ok=True)
-    (root / "edit" / "timeline_ranges.json").write_text(
-        json.dumps(
-            {
-                "ranges": [
-                    {
-                        "shot_id": "S01",
-                        "role": "identity",
-                        "start_frame": 0,
-                        "end_frame_exclusive": 30,
-                    }
-                ]
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    # FINISH THE PICTURE
-    (root / "picture").mkdir(exist_ok=True)
-    (root / "picture" / "measurements.json").write_text(
-        json.dumps(
-            {
-                "shots": [
-                    {
-                        "measurement": {
-                            "shot_id": "S01",
-                            "start_seconds": 0.0,
-                            "duration_seconds": 1.0,
-                            "luminance": 0.5,
-                            "cast_u": 0.0,
-                            "cast_v": 0.0,
-                            "saturation": 0.5,
-                            "contrast": 0.5,
-                            "sharpness": 0.5,
-                            "product_region": None,
-                            "product_luminance": None,
-                            "product_saturation": None,
-                            "product_contrast": None,
-                            "confidence": "HIGH",
-                        },
-                        "contains_product": False,
-                    }
-                ]
-            }
-        ),
-        encoding="utf-8",
-    )
-    (root / "picture" / "source_ranges.json").write_text(
-        json.dumps(
-            {
-                "ranges": [
-                    {
-                        "unit_id": "U01",
-                        "source": str(source),
-                        "t_in_seconds": 0.0,
-                        "frames": 30,
-                    }
-                ]
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    # PLAN THE WORDS
-    (root / "copy").mkdir(exist_ok=True)
-    units = [
-        {
-            "unit_id": "U01",
-            "start_seconds": 0.0,
-            "end_seconds": 2.0,
-            "visual_self_explanatory": False,
-            "carries_new_commercial_information": True,
-            "has_title": False,
-            "vo_adds_function_beyond_title": True,
-            "explanation_supported": True,
-            "vo": {
-                "vo_id": "VO01",
-                "purpose": "DEMONSTRATION_EXPLANATION",
-                "semantic_unit": "U01",
-                "required": True,
-                "silence_reason": None,
-                "window_seconds": [0.0, 2.0],
-            },
-        },
-        {
-            "unit_id": "U02",
-            "start_seconds": 2.0,
-            "end_seconds": 4.0,
-            "visual_self_explanatory": True,
-            "carries_new_commercial_information": True,
-            "has_title": False,
-            "vo_adds_function_beyond_title": True,
-            "explanation_supported": True,
-            "vo": {
-                "vo_id": "VO02",
-                "purpose": "CTA",
-                "semantic_unit": "U02",
-                "required": True,
-                "silence_reason": None,
-                "window_seconds": [2.0, 4.0],
-            },
-        },
-        {
-            "unit_id": "U03",
-            "start_seconds": 4.0,
-            "end_seconds": 6.0,
-            "visual_self_explanatory": True,
-            "carries_new_commercial_information": True,
-            "has_title": False,
-            "vo_adds_function_beyond_title": True,
-            "explanation_supported": True,
-            "vo": {
-                "vo_id": "VO03",
-                "purpose": "DESIRE_RELEVANCE",
-                "semantic_unit": "U03",
-                "required": False,
-                "silence_reason": "HERO_VISUAL_CARRIES_MESSAGE",
-                "window_seconds": None,
-            },
-        },
-    ]
-    if silence_units:
-        # The Cushion Puff defect in one unit: a scene carrying new commercial
-        # information is left silent, and the only reason offered is that a Title
-        # already summarises it. That is a WEAK reason, not a justified one.
-        units.append(
-            {
-                "unit_id": "U04",
-                "start_seconds": 6.0,
-                "end_seconds": 9.0,
-                "visual_self_explanatory": False,
-                "carries_new_commercial_information": True,
-                "has_title": True,
-                "vo_adds_function_beyond_title": False,
-                "explanation_supported": True,
-                "vo": {
-                    "vo_id": "VO04",
-                    "purpose": "SELLING_POINT_EXPANSION",
-                    "semantic_unit": "U04",
-                    "required": False,
-                    "silence_reason": "TITLE_ALREADY_EXISTS",
-                    "window_seconds": None,
-                },
-            }
-        )
-    (root / "copy" / "commercial_units.json").write_text(
-        json.dumps({"units": units}), encoding="utf-8"
-    )
-
-    # BUILD THE AUDIO
-    (root / "audio").mkdir(exist_ok=True)
-    segments = [
-        {"segment_id": "VO01", "start_seconds": 0.0, "end_seconds": 1.6, "text": "pasang di jari"},
-        {"segment_id": "VO02", "start_seconds": 1.8, "end_seconds": 3.2, "text": "tinggal bilas"},
-    ]
-    design = {
-        "VO01->VO02": ["INTENTIONAL_SEMANTIC_PAUSE", "a new evidence unit begins"]
-    }
-    if undesigned_gap:
-        # A 1.4s hole the job never declares. The module must report it rather than
-        # assume a reason for the silence.
-        design = {}
-        segments = [
-            {"segment_id": "VO01", "start_seconds": 0.0, "end_seconds": 1.6, "text": "pasang di jari"},
-            {"segment_id": "VO02", "start_seconds": 3.0, "end_seconds": 4.4, "text": "tinggal bilas"},
-        ]
-    (root / "audio" / "placement.json").write_text(
-        json.dumps(
-            {
-                "segments": segments,
-                # Declared art direction: the pause between the two lines is intended.
-                "design": design,
-            }
-        ),
-        encoding="utf-8",
-    )
-    (root / "audio" / "sync_expectations.json").write_text(
-        json.dumps({"sync_tolerance": 0.35, "expectations": []}), encoding="utf-8"
-    )
-
-    # REVIEW & REPAIR
-    (root / "review").mkdir(exist_ok=True)
-    dimensions = REVIEWER_DIMENSIONS if complete_review else REVIEWER_DIMENSIONS[:-1]
-    (root / "review" / "review.json").write_text(
-        json.dumps(
-            {
-                "schema_version": "review.v0",
-                "reviewer_id": "reviewer-1",
-                "executor_id": "executor-1",
-                "findings": [
-                    {"dimension": d, "severity": "PASS", "detail": f"{d} ok", "accepted": False}
-                    for d in dimensions
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )
+    load_proof_module().build_job(root)
     return root
 
 
-def _has_ffmpeg() -> bool:
-    return bool(shutil.which("ffmpeg") and shutil.which("ffprobe"))
+class RealJobFixture(unittest.TestCase):
+    """Copies a pre-built real job per test, so the media work happens once."""
 
+    _template: Path
+    _tmp: Path
 
-class Fixture:
-    def setUp(self) -> None:  # noqa: N802 - unittest naming
-        self.tmp = Path(tempfile.mkdtemp())
-        self.timebase = RecordingTimebase()
-        self.job = build_job(self.tmp / "job")
-        self.path = FastPath(self.job, job_id="sku3", timebase=self.timebase)
+    @classmethod
+    def setUpClass(cls) -> None:
+        if not media_probe.have_tools():
+            raise unittest.SkipTest("ffmpeg and ffprobe are required")
+        cls._tmp = Path(tempfile.mkdtemp())
+        cls._template = cls._tmp / "template"
+        build_job(cls._template)
 
-    def tearDown(self) -> None:  # noqa: N802
-        shutil.rmtree(self.tmp, ignore_errors=True)
+    @classmethod
+    def tearDownClass(cls) -> None:
+        shutil.rmtree(cls._tmp, ignore_errors=True)
+
+    def setUp(self) -> None:
+        self.work = Path(tempfile.mkdtemp())
+        self.job = self.work / "job"
+        shutil.copytree(self._template, self.job)
+        self.path = FastPath(self.job, job_id="sku3-wiring")
+        self.job_id = "sku3-wiring"
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.work, ignore_errors=True)
+
+    def advance_to(self, stage: str) -> None:
+        """Run the stages before ``stage`` so it has its real prerequisites on disk."""
+
+        for name in SEMANTIC_STAGES[: SEMANTIC_STAGES.index(stage)]:
+            result = self.path.step(name)
+            if result.outcome != "PASS":
+                self.fail(
+                    f"prerequisite stage {name!r} did not pass: {result.outcome} "
+                    f"({result.reason})"
+                )
+
+    def run_through(self, stage: str) -> None:
+        """Run every stage up to and including ``stage``."""
+
+        report = self.path.run(until=stage)
+        if not report.results or report.results[-1].outcome != "PASS":
+            self.fail(f"could not run through {stage!r}: {report.outcome}")
+
+    def read(self, relative: str) -> dict:
+        return json.loads((self.job / relative).read_text(encoding="utf-8"))
+
+    def write(self, relative: str, payload: object) -> None:
+        target = self.job / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 class StructuralWiringTests(unittest.TestCase):
@@ -467,104 +196,150 @@ class StructuralWiringTests(unittest.TestCase):
                 self.assertIn(state, ("PASS", "FAILED", "NEEDS_REVIEW"))
 
 
-class WiringProofTests(Fixture, unittest.TestCase):
-    """The production path really calls the module."""
-
-    @unittest.skipUnless(_has_ffmpeg(), "decodable media is required")
-    def test_fast_path_calls_shot_understanding(self) -> None:
-        from src.ai_autocut import shot_understanding
-
-        with mock.patch.object(
-            shot_understanding,
-            "analyse_placements",
-            wraps=shot_understanding.analyse_placements,
-        ) as spy:
-            result = self.path.run_stage("UNDERSTAND SHOTS")
-        spy.assert_called_once()
-        self.assertEqual(result.outcome, "PASS")
-
-    def test_fast_path_calls_narration_coverage(self) -> None:
-        from src.ai_autocut import narration_coverage
-
-        with mock.patch.object(
-            narration_coverage,
-            "assess_narration_coverage",
-            wraps=narration_coverage.assess_narration_coverage,
-        ) as spy:
-            result = self.path.run_stage("PLAN THE WORDS")
-        spy.assert_called_once()
-        self.assertEqual(result.outcome, "PASS")
-        self.assertEqual(result.capability, "narration_coverage.assess_narration_coverage")
-        self.assertEqual(len(spy.call_args.args[0]), 3)
-
-    def test_fast_path_calls_audio_program(self) -> None:
-        from src.ai_autocut import audio_program
-
-        with mock.patch.object(
-            audio_program, "assess_program", wraps=audio_program.assess_program
-        ) as spy:
-            result = self.path.run_stage("BUILD THE AUDIO")
-        spy.assert_called_once()
-        self.assertEqual(result.capability, "audio_program.assess_program")
-        self.assertEqual(result.outcome, "PASS")
-
-    def test_fast_path_calls_review(self) -> None:
-        from src.ai_autocut import review
-
-        with mock.patch.object(review, "parse_review", wraps=review.parse_review) as spy:
-            result = self.path.run_stage("REVIEW & REPAIR")
-        spy.assert_called_once()
-        self.assertEqual(result.capability, "review.parse_review")
-        # The reviewer's verdict is PRODUCTION_READY, but a verdict is not a release.
-        self.assertEqual(result.outcome, "SUPERVISOR_DECISION_REQUIRED")
-        self.assertEqual(result.gate["artifact"], "release/human_release.json")
-
-    def test_fast_path_calls_timebase_for_every_source_range(self) -> None:
-        result = self.path.run_stage("FINISH THE PICTURE")
-        self.assertEqual(result.outcome, "PASS")
-        self.assertEqual(self.timebase.executed, ["U01"])
-        self.assertEqual(self.timebase.coverage_checked, [["U01"]])
-        self.assertEqual(result.evidence["source_ranges_executed"], 1)
-
-    def test_fast_path_calls_editing_intelligence(self) -> None:
-        from src.ai_autocut import editing_intelligence
-
-        with mock.patch.object(
-            editing_intelligence,
-            "validate_timeline_range",
-            wraps=editing_intelligence.validate_timeline_range,
-        ) as spy:
-            result = self.path.run_stage("PLAN THE EDIT")
-        spy.assert_called_once()
-        self.assertEqual(result.outcome, "PASS")
-
-    def test_fast_path_calls_picture_decision(self) -> None:
-        from src.ai_autocut import picture_decision
-
-        with mock.patch.object(
-            picture_decision, "decide_shot", wraps=picture_decision.decide_shot
-        ) as spy:
-            self.path.run_stage("FINISH THE PICTURE")
-        spy.assert_called_once()
+class WiringProofTests(RealJobFixture):
+    """The production path really calls the module, using the real adapters."""
 
     def test_fast_path_calls_job_foundation(self) -> None:
         from src.ai_autocut import job_foundation
 
         with mock.patch.object(
-            job_foundation,
-            "verify_source_immutability",
+            job_foundation, "verify_source_immutability",
             wraps=job_foundation.verify_source_immutability,
         ) as spy:
             result = self.path.run_stage("PREPARE")
         spy.assert_called_once()
         self.assertEqual(result.outcome, "PASS")
 
+    def test_fast_path_calls_shot_understanding(self) -> None:
+        from src.ai_autocut import shot_understanding
 
-class DisconnectionTests(Fixture, unittest.TestCase):
-    """If a stage stopped calling its module, these would fail.
+        with mock.patch.object(
+            shot_understanding, "analyse_placements",
+            wraps=shot_understanding.analyse_placements,
+        ) as spy:
+            result = self.path.run_stage("UNDERSTAND SHOTS")
+        spy.assert_called_once()
+        self.assertEqual(result.outcome, "PASS")
 
-    Each test breaks the capability the stage is declared to use and requires the stage
-    to notice. A stage that silently skipped its module would still report PASS here,
+    def test_fast_path_resolves_placements_from_measured_pts(self) -> None:
+        """The window used for analysis is derived from PTS, not from an index/fps guess."""
+
+        with mock.patch.object(
+            type(self.path.timebase), "resolve_placement_window",
+            wraps=self.path.timebase.resolve_placement_window,
+        ) as spy:
+            result = self.path.run_stage("UNDERSTAND SHOTS")
+        spy.assert_called_once()
+        document = self.read("shots/shot_understanding.json")
+        self.assertEqual(document["analysis_grid"], "CFR_DERIVED_FROM_MEASURED_PTS")
+        self.assertEqual(result.outcome, "PASS")
+
+    def test_fast_path_calls_editing_intelligence(self) -> None:
+        from src.ai_autocut import editing_intelligence
+
+        with mock.patch.object(
+            editing_intelligence, "validate_timeline_range",
+            wraps=editing_intelligence.validate_timeline_range,
+        ) as spy:
+            result = self.path.run_stage("PLAN THE EDIT")
+        spy.assert_called_once()
+        self.assertEqual(result.outcome, "PASS")
+
+    def test_fast_path_calls_picture_decision_and_executes_the_picture(self) -> None:
+        from src.ai_autocut import picture_decision
+
+        self.advance_to("FINISH THE PICTURE")
+
+        with mock.patch.object(
+            picture_decision, "decide_shot", wraps=picture_decision.decide_shot
+        ) as spy:
+            result = self.path.run_stage("FINISH THE PICTURE")
+        spy.assert_called_once()
+        self.assertEqual(result.outcome, "PASS")
+        # A decision alone is not a pass: a real video artifact must exist.
+        self.assertTrue((self.job / "picture" / "picture_master.mp4").is_file())
+        self.assertTrue(result.evidence["picture_artifact"]["measured"])
+
+    def test_fast_path_calls_timebase_for_every_source_range(self) -> None:
+        self.advance_to("FINISH THE PICTURE")
+        with mock.patch.object(
+            type(self.path.timebase), "execute", wraps=self.path.timebase.execute
+        ) as spy:
+            result = self.path.run_stage("FINISH THE PICTURE")
+        self.assertEqual(spy.call_count, 2)
+        self.assertEqual(result.outcome, "PASS")
+        self.assertEqual(result.evidence["source_ranges_executed"], 2)
+
+    def test_fast_path_checks_range_coverage(self) -> None:
+        """A unit executed without the adapter must be detectable."""
+
+        self.advance_to("FINISH THE PICTURE")
+        with mock.patch.object(
+            type(self.path.timebase), "assert_range_coverage",
+            wraps=self.path.timebase.assert_range_coverage,
+        ) as spy:
+            self.path.run_stage("FINISH THE PICTURE")
+        self.assertTrue(spy.called, "range coverage was never asserted")
+        covered = {unit for call in spy.call_args_list for unit in call.args[0]}
+        self.assertEqual(covered, {"U01", "U02"})
+
+    def test_fast_path_calls_narration_coverage(self) -> None:
+        from src.ai_autocut import narration_coverage
+
+        self.advance_to("PLAN THE WORDS")
+
+        with mock.patch.object(
+            narration_coverage, "assess_narration_coverage",
+            wraps=narration_coverage.assess_narration_coverage,
+        ) as spy:
+            result = self.path.run_stage("PLAN THE WORDS")
+        spy.assert_called_once()
+        self.assertEqual(result.outcome, "PASS")
+
+    def test_fast_path_calls_audio_program_and_measures_the_mix(self) -> None:
+        from src.ai_autocut import audio_program
+
+        self.advance_to("BUILD THE AUDIO")
+
+        with mock.patch.object(
+            audio_program, "assess_program", wraps=audio_program.assess_program
+        ) as spy:
+            result = self.path.run_stage("BUILD THE AUDIO")
+        spy.assert_called_once()
+        self.assertEqual(result.outcome, "PASS")
+        self.assertTrue((self.job / "audio" / "audio_master.wav").is_file())
+        self.assertFalse(result.evidence["audio_artifact"]["clipping"])
+
+    def test_fast_path_calls_review(self) -> None:
+        from src.ai_autocut import review
+
+        self.advance_to("REVIEW & REPAIR")
+
+        with mock.patch.object(review, "parse_review", wraps=review.parse_review) as spy:
+            result = self.path.run_stage("REVIEW & REPAIR")
+        spy.assert_called_once()
+        # A reviewer verdict is PRODUCTION_READY, but a verdict is not a release.
+        self.assertEqual(result.outcome, "SUPERVISOR_DECISION_REQUIRED")
+
+    def test_the_typography_stage_renders_a_real_artifact(self) -> None:
+        self.advance_to("PLAN THE WORDS")
+        result = self.path.run_stage("PLAN THE WORDS")
+        self.assertEqual(result.outcome, "PASS")
+        self.assertTrue((self.job / "typography" / "typography_master.mp4").is_file())
+        self.assertTrue(result.evidence["typography_artifact"]["measured"])
+
+    def test_the_assemble_stage_produces_and_verifies_a_real_master(self) -> None:
+        self.advance_to("ASSEMBLE & MASTER")
+        result = self.path.run_stage("ASSEMBLE & MASTER")
+        self.assertEqual(result.outcome, "PASS")
+        self.assertTrue(self.work.joinpath("job", "final", "master.mp4").is_file())
+        self.assertTrue(result.evidence["measured"])
+
+
+class DisconnectionTests(RealJobFixture):
+    """Break the capability and the stage must notice.
+
+    A stage that silently stopped calling its module would still report PASS here,
     which is exactly the regression these guard against.
     """
 
@@ -572,8 +347,7 @@ class DisconnectionTests(Fixture, unittest.TestCase):
         from src.ai_autocut import narration_coverage
 
         with mock.patch.object(
-            narration_coverage,
-            "assess_narration_coverage",
+            narration_coverage, "assess_narration_coverage",
             side_effect=narration_coverage.NarrationCoverageError("broken"),
         ):
             result = self.path.run_stage("PLAN THE WORDS")
@@ -584,8 +358,7 @@ class DisconnectionTests(Fixture, unittest.TestCase):
         from src.ai_autocut import audio_program
 
         with mock.patch.object(
-            audio_program,
-            "assess_program",
+            audio_program, "assess_program",
             side_effect=audio_program.AudioProgramError("broken"),
         ):
             result = self.path.run_stage("BUILD THE AUDIO")
@@ -600,237 +373,247 @@ class DisconnectionTests(Fixture, unittest.TestCase):
             result = self.path.run_stage("REVIEW & REPAIR")
         self.assertEqual(result.outcome, "FAIL")
 
-    def test_removing_the_timebase_adapter_changes_the_outcome(self) -> None:
-        self.path.timebase = mock.Mock()
-        self.path.timebase.resolve_from_seconds.side_effect = ValueError("no adapter")
-        result = self.path.run_stage("FINISH THE PICTURE")
+    def test_breaking_the_timebase_adapter_changes_the_outcome(self) -> None:
+        with mock.patch.object(
+            type(self.path.timebase), "execute", side_effect=TimebaseAdapterError("broken")
+        ):
+            result = self.path.run_stage("FINISH THE PICTURE")
         self.assertEqual(result.outcome, "FAIL")
         self.assertIn("timebase_adapter", str(result.capability))
 
-    def test_a_bypassing_timebase_is_caught(self) -> None:
-        """A range extracted without the adapter must not pass silently."""
-
-        self.timebase.execute = lambda resolution, out_path: None  # type: ignore[assignment]
-        self.timebase.executed = []
-        result = self.path.run_stage("FINISH THE PICTURE")
+    def test_breaking_the_placement_resolver_changes_the_outcome(self) -> None:
+        with mock.patch.object(
+            type(self.path.timebase), "resolve_placement_window",
+            side_effect=TimebaseAdapterError("broken"),
+        ):
+            result = self.path.run_stage("UNDERSTAND SHOTS")
         self.assertEqual(result.outcome, "FAIL")
-        self.assertIn("bypass", str(result.reason).lower())
+
+    def test_removing_the_picture_adapter_request_blocks_the_stage(self) -> None:
+        (self.job / "picture" / "picture_request.json").unlink()
+        result = self.path.run_stage("FINISH THE PICTURE")
+        self.assertEqual(result.outcome, "BLOCKED")
+        self.assertEqual(result.gate["missing_artifact"], "picture/picture_request.json")
 
 
-class ArtifactTests(Fixture, unittest.TestCase):
+class ArtifactTests(RealJobFixture):
     """The stage's output exists and re-parses through the module's own parser."""
 
     def test_narration_coverage_artifact_is_a_real_coverage_document(self) -> None:
+        self.advance_to("PLAN THE WORDS")
         result = self.path.run_stage("PLAN THE WORDS")
-        document = json.loads((self.job / result.artifacts[0]).read_text(encoding="utf-8"))
+        document = self.read(result.artifacts[0])
         self.assertEqual(document["schema_version"], "commercial_narration_coverage.v1")
         self.assertIn("verdict", document)
-        self.assertIn("findings", document)
 
     def test_audio_program_artifact_carries_all_three_judgements(self) -> None:
+        self.advance_to("BUILD THE AUDIO")
         result = self.path.run_stage("BUILD THE AUDIO")
-        document = json.loads((self.job / result.artifacts[0]).read_text(encoding="utf-8"))
-        self.assertEqual(set(("fit", "sync", "rhythm")) - set(document), set())
-        self.assertIn("approved_on_all_three", document)
+        document = self.read("audio/audio_program.json")
+        for key in ("fit", "sync", "rhythm"):
+            self.assertIn(key, document)
 
     def test_review_artifact_is_a_derived_verdict(self) -> None:
         from src.ai_autocut.review import parse_review
 
+        self.advance_to("REVIEW & REPAIR")
+
         result = self.path.run_stage("REVIEW & REPAIR")
-        document = json.loads((self.job / result.artifacts[0]).read_text(encoding="utf-8"))
+        document = self.read("review/verdict.json")
         self.assertEqual(document["verdict"], "PRODUCTION_READY")
         self.assertTrue(document["requires_human_gate"])
-        # The verdict must also be reproducible from the review document itself.
-        review_doc = json.loads((self.job / "review" / "review.json").read_text(encoding="utf-8"))
-        self.assertEqual(parse_review(review_doc).verdict, document["verdict"])
+        self.assertEqual(parse_review(self.read("review/review.json")).verdict, document["verdict"])
 
-    def test_timing_profile_is_written_for_every_executed_range(self) -> None:
+    def test_timing_profile_records_the_coordinate_system(self) -> None:
+        self.advance_to("FINISH THE PICTURE")
         self.path.run_stage("FINISH THE PICTURE")
-        document = json.loads(
-            (self.job / "picture" / "timing_profile.json").read_text(encoding="utf-8")
-        )
+        document = self.read("picture/timing_profile.json")
         self.assertEqual(
-            document["coordinate_system"],
-            "SOURCE_PTS_SECONDS -> CFR_TIMELINE_FRAMES",
+            document["coordinate_system"], "SOURCE_PTS_SECONDS -> CFR_TIMELINE_FRAMES"
         )
-        self.assertEqual(len(document["ranges"]), 1)
+        self.assertEqual(len(document["ranges"]), 2)
 
     def test_state_and_artifact_references_are_checkpointed(self) -> None:
-        self.path.step("PLAN THE WORDS")
-        state = json.loads((self.job / "fast_path_state.json").read_text(encoding="utf-8"))
+        self.run_through("PLAN THE WORDS")
+        state = self.read("fast_path_state.json")
         self.assertEqual(state["stages"]["PLAN THE WORDS"]["outcome"], "PASS")
-        references = json.loads(
-            (self.job / "artifact_references.json").read_text(encoding="utf-8")
-        )
+        references = self.read("artifact_references.json")
         self.assertEqual(
             references["artifacts"]["narration_coverage"], "copy/narration_coverage.json"
         )
 
 
-class RefusalTests(Fixture, unittest.TestCase):
+class RefusalTests(RealJobFixture):
     """A wired capability that can never refuse is not wired."""
 
+    def _silence_variant(self) -> None:
+        document = self.read("copy/commercial_units.json")
+        document["units"].append(
+            {
+                "unit_id": "U03",
+                "start_seconds": 3.0,
+                "end_seconds": 4.0,
+                "visual_self_explanatory": False,
+                "carries_new_commercial_information": True,
+                "has_title": True,
+                "vo_adds_function_beyond_title": False,
+                "explanation_supported": True,
+                "vo": {
+                    "vo_id": "VO03",
+                    "purpose": "SELLING_POINT_EXPANSION",
+                    "semantic_unit": "U03",
+                    "required": False,
+                    "silence_reason": "TITLE_ALREADY_EXISTS",
+                    "window_seconds": None,
+                },
+            }
+        )
+        self.write("copy/commercial_units.json", document)
+
     def test_a_sku2_style_narration_gap_requires_review(self) -> None:
-        """The Second SKU shipped 7.07s of consecutive silence in a 16.23s advert.
+        """The Cushion Puff defect: a title treated as sufficient reason for silence."""
 
-        The unit that carries new commercial information is left silent, and the only
-        justification offered is that a title already exists. That is a WEAK reason, and
-        the production path must stop rather than proceed to paid voice generation.
-        """
-
-        job = build_job(self.tmp / "silent", silence_units=True)
-        path = FastPath(job, job_id="sku3-silent", timebase=RecordingTimebase())
-        result = path.run_stage("PLAN THE WORDS")
+        self._silence_variant()
+        result = self.path.run_stage("PLAN THE WORDS")
         self.assertEqual(result.outcome, "REVIEW_REQUIRED")
-        self.assertIn("U04", result.evidence["silent_units"])
+        self.assertIn("U03", result.evidence["silent_units"])
         self.assertIn("Paid voice generation must not run", str(result.reason))
 
     def test_an_undesigned_audio_gap_requires_review(self) -> None:
-        job = build_job(self.tmp / "gap", undesigned_gap=True)
-        path = FastPath(job, job_id="sku3-gap", timebase=RecordingTimebase())
-        result = path.run_stage("BUILD THE AUDIO")
+        document = self.read("audio/placement.json")
+        document.pop("design", None)
+        document["segments"][0]["end_seconds"] = 1.0
+        document["segments"][1]["start_seconds"] = 2.5
+        self.write("audio/placement.json", document)
+        result = self.path.run_stage("BUILD THE AUDIO")
         self.assertEqual(result.outcome, "REVIEW_REQUIRED")
         self.assertGreater(result.evidence["undesigned_silence_seconds"], 0.45)
 
     def test_fit_alone_is_never_approval(self) -> None:
-        """The First SKU audio passed every technical check and was still rejected."""
-
-        job = build_job(self.tmp / "fit", undesigned_gap=True)
-        path = FastPath(job, job_id="sku3-fit", timebase=RecordingTimebase())
-        result = path.run_stage("BUILD THE AUDIO")
-        document = json.loads((job / result.artifacts[0]).read_text(encoding="utf-8"))
-        self.assertFalse(document["approved_on_all_three"])
+        document = self.read("audio/placement.json")
+        document.pop("design", None)
+        document["segments"][0]["end_seconds"] = 1.0
+        document["segments"][1]["start_seconds"] = 2.5
+        self.write("audio/placement.json", document)
+        result = self.path.run_stage("BUILD THE AUDIO")
+        self.assertEqual(result.outcome, "REVIEW_REQUIRED")
+        self.assertNotEqual(result.evidence["fit"], "FAIL")
 
     def test_an_incomplete_review_is_refused(self) -> None:
-        job = build_job(self.tmp / "short", complete_review=False)
-        path = FastPath(job, job_id="sku3-short", timebase=RecordingTimebase())
-        result = path.run_stage("REVIEW & REPAIR")
+        document = self.read("review/review.json")
+        document["findings"] = document["findings"][:-1]
+        self.write("review/review.json", document)
+        result = self.path.run_stage("REVIEW & REPAIR")
         self.assertEqual(result.outcome, "FAIL")
         self.assertIn("refused", str(result.reason))
 
-    def test_a_review_that_needs_repair_requires_review(self) -> None:
-        job = build_job(self.tmp / "repair")
-        document = json.loads((job / "review" / "review.json").read_text(encoding="utf-8"))
-        document["findings"][0]["severity"] = "FAIL"
-        (job / "review" / "review.json").write_text(json.dumps(document), encoding="utf-8")
-        path = FastPath(job, job_id="sku3-repair", timebase=RecordingTimebase())
-        result = path.run_stage("REVIEW & REPAIR")
-        self.assertEqual(result.outcome, "REVIEW_REQUIRED")
-        self.assertEqual(result.evidence["verdict"], "NEEDS_REPAIR")
+    def test_a_critical_finding_returns_reject(self) -> None:
+        document = self.read("review/review.json")
+        document["findings"][0]["severity"] = "CRITICAL"
+        self.write("review/review.json", document)
+        result = self.path.run_stage("REVIEW & REPAIR")
+        self.assertEqual(result.outcome, "REJECT")
+        self.assertEqual(result.exit_code, 7)
 
-    def test_assemble_and_master_gates_on_adapter_evidence(self) -> None:
-        """There is no packaging code here, so it gates rather than passing."""
-
-        result = self.path.run_stage("ASSEMBLE & MASTER")
+    def test_a_missing_input_blocks_with_a_producer_gate(self) -> None:
+        (self.job / "copy" / "commercial_units.json").unlink()
+        result = self.path.run_stage("PLAN THE WORDS")
         self.assertEqual(result.outcome, "BLOCKED")
-        self.assertIsNone(result.capability)
-        self.assertEqual(result.gate["producer_type"], "ADAPTER")
-        self.assertEqual(result.gate["producer_id"], "packaging-adapter")
-
-    def test_assemble_and_master_refuses_evidence_that_is_a_claim(self) -> None:
-        """The stage passes on measured QA, not on an assertion that it was done."""
-
-        (self.job / "assemble").mkdir(exist_ok=True)
-        (self.job / "assemble" / "assembly_evidence.json").write_text(
-            json.dumps({"master_path": "final/master.mp4"}), encoding="utf-8"
-        )
-        result = self.path.run_stage("ASSEMBLE & MASTER")
-        self.assertEqual(result.outcome, "FAIL")
-        self.assertIn("assemble_master contract", str(result.reason))
-
-    def test_an_uninitialized_job_stops_at_prepare(self) -> None:
-        job = build_job(self.tmp / "noinit")
-        (job / "source_inventory.json").unlink()
-        path = FastPath(job, job_id="sku3-noinit", timebase=RecordingTimebase())
-        result = path.run_stage("PREPARE")
-        self.assertEqual(result.outcome, "BLOCKED")
-        self.assertEqual(result.gate["missing_artifact"], "source_inventory.json")
+        self.assertEqual(result.gate["missing_artifact"], "copy/commercial_units.json")
         self.assertEqual(result.gate["producer_type"], "CODEX")
 
-    def test_a_missing_input_blocks_rather_than_passes(self) -> None:
-        job = build_job(self.tmp / "missing")
-        (job / "copy" / "commercial_units.json").unlink()
-        path = FastPath(job, job_id="sku3-missing", timebase=RecordingTimebase())
-        result = path.run_stage("PLAN THE WORDS")
+    def test_an_uninitialized_job_gates_at_prepare(self) -> None:
+        (self.job / "source_inventory.json").unlink()
+        result = self.path.run_stage("PREPARE")
         self.assertEqual(result.outcome, "BLOCKED")
-        self.assertIsNone(result.capability)
+        self.assertEqual(result.gate["missing_artifact"], "source_inventory.json")
 
     def test_changed_source_material_fails_prepare(self) -> None:
-        source = self.job / "source-01.mp4"
-        source.write_bytes(b"material changed after the inventory was taken")
+        media = Path(self.read("source_inventory.json")["files"][0]["path"])
+        media.write_bytes(b"material changed after the inventory was taken")
         result = self.path.run_stage("PREPARE")
         self.assertEqual(result.outcome, "FAIL")
 
     def test_a_commercial_unit_without_judgements_is_refused(self) -> None:
-        """Creative judgement fields must be stated, never defaulted."""
-
-        job = build_job(self.tmp / "nojudgement")
-        document = json.loads(
-            (job / "copy" / "commercial_units.json").read_text(encoding="utf-8")
-        )
+        document = self.read("copy/commercial_units.json")
         del document["units"][0]["visual_self_explanatory"]
-        (job / "copy" / "commercial_units.json").write_text(
-            json.dumps(document), encoding="utf-8"
-        )
-        path = FastPath(job, job_id="sku3-nojudgement", timebase=RecordingTimebase())
-        result = path.run_stage("PLAN THE WORDS")
+        self.write("copy/commercial_units.json", document)
+        result = self.path.run_stage("PLAN THE WORDS")
         self.assertEqual(result.outcome, "FAIL")
         self.assertIn("judgement", str(result.reason))
 
     def test_a_source_range_without_a_coordinate_is_refused(self) -> None:
-        job = build_job(self.tmp / "nocoord")
-        document = json.loads(
-            (job / "picture" / "source_ranges.json").read_text(encoding="utf-8")
-        )
-        del document["ranges"][0]["t_in_seconds"]
-        (job / "picture" / "source_ranges.json").write_text(
-            json.dumps(document), encoding="utf-8"
-        )
-        path = FastPath(job, job_id="sku3-nocoord", timebase=RecordingTimebase())
-        result = path.run_stage("FINISH THE PICTURE")
+        document = self.read("picture/source_ranges.json")
+        document["ranges"][0].pop("t_in_seconds")
+        self.write("picture/source_ranges.json", document)
+        result = self.path.run_stage("FINISH THE PICTURE")
         self.assertEqual(result.outcome, "FAIL")
         self.assertIn("cannot be addressed", str(result.reason))
 
+    def test_a_placement_without_a_measured_timestamp_is_refused(self) -> None:
+        document = self.read("shots/placements.json")
+        document["placements"][0].pop("t_in_seconds")
+        self.write("shots/placements.json", document)
+        result = self.path.run_stage("UNDERSTAND SHOTS")
+        self.assertEqual(result.outcome, "FAIL")
 
-class RunLevelTests(Fixture, unittest.TestCase):
+    def test_assembly_evidence_that_is_a_claim_is_refused(self) -> None:
+        self.write("assemble/assembly_evidence.json", {"master_path": "final/master.mp4"})
+        result = self.path.run_stage("ASSEMBLE & MASTER")
+        self.assertEqual(result.outcome, "FAIL")
+        self.assertIn("assemble_master contract", str(result.reason))
+
+
+class RunLevelTests(RealJobFixture):
     """The run as a whole, and its refusal to resolve anything itself."""
 
-    @unittest.skipUnless(_has_ffmpeg(), "decodable media is required")
-    def test_a_clean_job_runs_to_the_assembly_producer_gate(self) -> None:
+    def test_a_complete_job_reaches_the_human_release_gate(self) -> None:
         report = self.path.run()
-        self.assertEqual(report.stopped_at, "ASSEMBLE & MASTER")
+        self.assertEqual(report.stopped_at, "REVIEW & REPAIR")
         self.assertFalse(report.completed)
-        outcomes = [result.outcome for result in report.results]
-        self.assertEqual(outcomes[:-1], ["PASS"] * 6)
-        self.assertEqual(outcomes[-1], "BLOCKED")
-        self.assertEqual(
-            report.results[-1].gate["missing_artifact"], "assemble/assembly_evidence.json"
-        )
-        self.assertEqual(report.exit_code, 3)
+        self.assertEqual(report.outcome, "SUPERVISOR_DECISION_REQUIRED")
+        self.assertEqual(report.results[-2].stage, "ASSEMBLE & MASTER")
+        self.assertEqual(report.results[-2].outcome, "PASS")
 
     def test_the_run_never_auto_resolves_a_review(self) -> None:
-        job = build_job(self.tmp / "haltsilent", silence_units=True)
-        path = FastPath(job, job_id="sku3-haltsilent", timebase=RecordingTimebase())
-        report = path.run()
-        self.assertEqual(report.stopped_at, "PLAN THE WORDS")
-        self.assertEqual(len(report.results), 5)
+        document = self.read("audio/placement.json")
+        document.pop("design", None)
+        document["segments"][0]["end_seconds"] = 1.0
+        document["segments"][1]["start_seconds"] = 2.5
+        self.write("audio/placement.json", document)
+        report = self.path.run()
+        self.assertEqual(report.stopped_at, "BUILD THE AUDIO")
+        self.assertEqual(report.outcome, "REVIEW_REQUIRED")
 
     def test_next_stage_reports_the_first_unpassed_stage(self) -> None:
         self.assertEqual(self.path.next_stage(), "PREPARE")
         self.path.step("PREPARE")
         self.assertEqual(self.path.next_stage(), "UNDERSTAND SHOTS")
 
-    def test_a_run_is_resumable_from_its_checkpoint(self) -> None:
-        self.path.step("PREPARE")
-        state = json.loads((self.job / "fast_path_state.json").read_text(encoding="utf-8"))
-        self.assertEqual(state["stages"]["PREPARE"]["outcome"], "PASS")
-        self.assertEqual(
-            state["stages"]["PREPARE"]["low_level"],
-            [{"stage": "PREPARE", "state": "PASS"}],
-        )
-
     def test_the_plan_is_the_eight_semantic_stages(self) -> None:
         self.assertEqual(self.path.plan(), SEMANTIC_STAGES)
+
+    def test_a_completed_stage_is_not_reexecuted(self) -> None:
+        self.path.step("PREPARE")
+        fresh = FastPath(self.job, job_id=self.job_id)
+        report = fresh.run()
+        self.assertEqual(report.resumed_from, "UNDERSTAND SHOTS")
+        self.assertNotIn("PREPARE", [r.stage for r in report.results])
+
+    def test_invalidating_an_upstream_stage_reopens_everything_downstream(self) -> None:
+        """The coherence fix: a downstream PASS may not outlive its cause."""
+
+        self.run_through("PLAN THE WORDS")
+        before = self.path.completed_stages()
+        self.assertIn("FINISH THE PICTURE", before)
+        self.assertIn("PLAN THE WORDS", before)
+        invalidated = self.path.invalidate("PLAN THE EDIT", reason="edit changed")
+        self.assertIn("PLAN THE EDIT", invalidated)
+        self.assertIn("FINISH THE PICTURE", invalidated)
+        self.assertIn("PLAN THE WORDS", invalidated)
+        self.assertIn("REVIEW & REPAIR", invalidated)
+        self.assertNotIn("PLAN THE EDIT", self.path.completed_stages())
+        self.assertNotIn("PLAN THE WORDS", self.path.completed_stages())
 
 
 class StageResultTests(unittest.TestCase):

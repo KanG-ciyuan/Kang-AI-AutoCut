@@ -226,10 +226,19 @@ def execute_local_preview(
     runtime_dir: str | Path,
     preview_path: str | Path,
     *,
+    production_scope: str,
     ffmpeg_binary: str = "ffmpeg",
     ffprobe_binary: str = "ffprobe",
 ) -> LocalPreviewResult:
-    """Validate the frozen chain, render one video-only MP4, then verify it."""
+    """Validate the frozen chain, render one video-only MP4, then verify it.
+
+    ``production_scope`` is a required keyword so every caller states what it is doing.
+    A Third-SKU production caller is refused here, at the executable entry point, rather
+    than by a guard that nobody calls: this function selects source frames by decoded
+    index, which is not a safe source coordinate for a variable frame rate source.
+    """
+
+    assert_third_sku_production_allowed(production_scope)
 
     runtime = Path(runtime_dir)
     output_path = Path(preview_path)

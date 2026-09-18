@@ -121,7 +121,11 @@ class LocalPreviewTests(unittest.TestCase):
 
     def execute(self) -> object:
         return execute_local_preview(
-            self.runtime, self.preview, ffmpeg_binary=FFMPEG, ffprobe_binary=FFPROBE
+            self.runtime,
+            self.preview,
+            production_scope="LOCAL_PREVIEW",
+            ffmpeg_binary=FFMPEG,
+            ffprobe_binary=FFPROBE,
         )
 
     def test_filter_graph_and_derived_preflight_are_deterministic(self) -> None:

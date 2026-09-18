@@ -1,10 +1,10 @@
 {
-  "schema_version": "production_chain_manifest.v2",
+  "schema_version": "production_chain_manifest.v3",
   "generated_at": "2026-09-18",
-  "gate": "G.0 Phase 4",
+  "gate": "G.0 Phase 6",
   "authoritative_lifecycle": "8-stage Production Fast Path (src/ai_autocut/fast_path.py)",
   "low_level_vocabulary": "job_foundation.STAGE_ORDER",
-  "correction_note": "Phase 2B claimed WIRED and third_sku_ready for capabilities whose runtime behaviour did not support it. This revision replaces a single readiness flag with six independent dimensions, so 'implemented' can no longer be read as 'reachable'.",
+  "correction_note": "Phase 2B claimed WIRED and third_sku_ready for capabilities whose runtime behaviour did not support it; Phase 4 added six dimensions; Phase 6 removed the remaining claims that had no runtime proof. Readiness now requires the capability's real execution output to be produced and verified by the chain.",
   "dimensions": {
     "IMPLEMENTED": "the capability's logic exists in this repository",
     "VALIDATOR_WIRED": "a production path calls its validator",
@@ -30,8 +30,8 @@
     "audio_program",
     "review"
   ],
-  "full_chain_completable_today": false,
-  "full_chain_blocker": "No executor ships for picture execution, typography execution, audio rendering or assembly. Each is an explicit adapter gate with a published contract, so the chain is reproducible but not completable without a job-specific adapter.",
+  "full_chain_completable_today": true,
+  "full_chain_blocker": null,
   "capabilities": [
     {
       "stage": "PREPARE",
@@ -221,7 +221,7 @@
       "production_caller": null,
       "wiring_status": "PARTIALLY_WIRED",
       "producer": "picture/measurements.json",
-      "producer_type": "ADAPTER",
+      "producer_type": "CODEX",
       "dimensions": {
         "IMPLEMENTED": true,
         "VALIDATOR_WIRED": true,
@@ -231,7 +231,7 @@
         "END_TO_END_REACHABLE": true
       },
       "third_sku_ready": false,
-      "notes": "the fast path consumes measurements and validates them through ShotMeasurement, but the measurement adapter that produces them does not ship here."
+      "notes": "The fast path consumes and validates measurements through ShotMeasurement, and the measurement producer is a CODEX author because no measurement tool ships here. Reachable but not ready."
     },
     {
       "stage": "FINISH THE PICTURE",
@@ -241,7 +241,7 @@
       "production_caller": null,
       "wiring_status": "PARTIALLY_WIRED",
       "producer": "picture/measurements.json",
-      "producer_type": "ADAPTER",
+      "producer_type": "CODEX",
       "dimensions": {
         "IMPLEMENTED": true,
         "VALIDATOR_WIRED": true,
@@ -251,7 +251,7 @@
         "END_TO_END_REACHABLE": true
       },
       "third_sku_ready": false,
-      "notes": "production exited at UNAVAILABLE 7/7, so the four real tolerance checks have still never executed. The gate is proven to refuse, not to evaluate."
+      "notes": "Reachable, and the stage runs it. Production exited at UNAVAILABLE 7/7 in the only run that reached it, so the four real tolerance checks have still never executed. Not marked ready for that reason."
     },
     {
       "stage": "FINISH THE PICTURE",
@@ -261,7 +261,7 @@
       "production_caller": "src/ai_autocut/fast_path.py:_stage_finish_the_picture",
       "wiring_status": "WIRED",
       "producer": "picture/measurements.json",
-      "producer_type": "ADAPTER",
+      "producer_type": "CODEX",
       "dimensions": {
         "IMPLEMENTED": true,
         "VALIDATOR_WIRED": true,
@@ -271,27 +271,27 @@
         "END_TO_END_REACHABLE": true
       },
       "third_sku_ready": false,
-      "notes": "KEEP and REVIEW are live-proven; the CORRECT branch has never fired in production. The decision is reachable, but the picture execution that would act on a CORRECT is an adapter with a published contract, not shipped code."
+      "notes": "KEEP and REVIEW are live-proven; the CORRECT branch has never fired in production. The stage executes the picture and verifies the real artifact, so a decision alone no longer passes. Not marked ready because the measurement it consumes is authored per job: no measurement tool ships in this repository."
     },
     {
       "stage": "FINISH THE PICTURE",
       "capability": "picture execution",
-      "implementation": null,
-      "git_tracked": false,
-      "production_caller": null,
-      "wiring_status": "JOB_SPECIFIC_ONLY",
-      "producer": null,
+      "implementation": "src/ai_autocut/execution_adapters.py:execute_picture",
+      "git_tracked": true,
+      "production_caller": "src/ai_autocut/fast_path.py:_stage_finish_the_picture",
+      "wiring_status": "WIRED",
+      "producer": "picture/picture_request.json",
       "producer_type": "ADAPTER",
       "dimensions": {
-        "IMPLEMENTED": false,
-        "VALIDATOR_WIRED": false,
-        "PRODUCER_DEFINED": false,
-        "EXECUTOR_AVAILABLE": false,
+        "IMPLEMENTED": true,
+        "VALIDATOR_WIRED": true,
+        "PRODUCER_DEFINED": true,
+        "EXECUTOR_AVAILABLE": true,
         "MANUAL_GATE_DEFINED": true,
-        "END_TO_END_REACHABLE": false
+        "END_TO_END_REACHABLE": true
       },
-      "third_sku_ready": false,
-      "notes": "contract published as execution_contracts 'picture'. DaVinci is NOT globally classified as unable to render: it rendered five full timelines on 2026-09-15/16 with passing pixel validation. The recorded failure is specifically a Fusion Text+ title bake, never diagnosed and never re-tested. Out of scope."
+      "third_sku_ready": true,
+      "notes": "Runtime-proven. Job-scoped and local: it joins the ranges the fast path extracted through the timebase adapter and normalises geometry, then the stage re-measures the real file (frames, geometry, fps, sha256). No universal engine, and no DaVinci research reopened."
     },
     {
       "stage": "PLAN THE WORDS",
@@ -311,7 +311,7 @@
         "END_TO_END_REACHABLE": true
       },
       "third_sku_ready": true,
-      "notes": "P0. Runs before any paid voice generation. The four caller judgements are required fields, so the path cannot answer its own exam."
+      "notes": "P0. Runs before any paid voice generation, and the typography stage now renders a real artifact from this job's own layout. The four caller judgements remain required fields."
     },
     {
       "stage": "PLAN THE WORDS",
@@ -356,22 +356,22 @@
     {
       "stage": "PLAN THE WORDS",
       "capability": "typography execution",
-      "implementation": "src/ai_autocut/typography_adapter.py",
+      "implementation": "src/ai_autocut/execution_adapters.py:execute_typography",
       "git_tracked": true,
-      "production_caller": null,
-      "wiring_status": "JOB_SPECIFIC_ONLY",
-      "producer": null,
+      "production_caller": "src/ai_autocut/fast_path.py:_stage_plan_the_words",
+      "wiring_status": "WIRED",
+      "producer": "typography/typography_request.json",
       "producer_type": "ADAPTER",
       "dimensions": {
         "IMPLEMENTED": true,
-        "VALIDATOR_WIRED": false,
-        "PRODUCER_DEFINED": false,
-        "EXECUTOR_AVAILABLE": false,
+        "VALIDATOR_WIRED": true,
+        "PRODUCER_DEFINED": true,
+        "EXECUTOR_AVAILABLE": true,
         "MANUAL_GATE_DEFINED": true,
-        "END_TO_END_REACHABLE": false
+        "END_TO_END_REACHABLE": true
       },
-      "third_sku_ready": false,
-      "notes": "ADAPTER BOUNDARY ONLY. The generic layer owns the contract; no renderer ships and there are no default layout or font values. Contract published as execution_contracts 'typography'."
+      "third_sku_ready": true,
+      "notes": "Runtime-proven. Pillow rasterises this job's copy and FFmpeg composites it in one pass. layout and font_stack are required fields: the adapter ships no default layout or font, so one job's art direction cannot become another's. This is not a generic typography system."
     },
     {
       "stage": "BUILD THE AUDIO",
@@ -391,7 +391,7 @@
         "END_TO_END_REACHABLE": true
       },
       "third_sku_ready": false,
-      "notes": "P0. No universal sync tolerance: a job that supplies none gets SYNC=REVIEW_REQUIRED. FIT alone is never approval. The placement producer is an adapter that does not ship here; the sync-expectation producer is CODEX."
+      "notes": "P0. No universal sync tolerance; FIT alone is never approval. The stage also mixes and measures a real audio artifact now. Not marked ready because the VO placement it consumes is authored per job: no placement adapter ships."
     },
     {
       "stage": "BUILD THE AUDIO",
@@ -416,42 +416,42 @@
     {
       "stage": "BUILD THE AUDIO",
       "capability": "audio rendering and mixing",
-      "implementation": null,
-      "git_tracked": false,
-      "production_caller": null,
-      "wiring_status": "JOB_SPECIFIC_ONLY",
-      "producer": null,
+      "implementation": "src/ai_autocut/execution_adapters.py:execute_audio",
+      "git_tracked": true,
+      "production_caller": "src/ai_autocut/fast_path.py:_stage_build_the_audio",
+      "wiring_status": "WIRED",
+      "producer": "audio/audio_request.json",
       "producer_type": "ADAPTER",
       "dimensions": {
-        "IMPLEMENTED": false,
-        "VALIDATOR_WIRED": false,
-        "PRODUCER_DEFINED": false,
-        "EXECUTOR_AVAILABLE": false,
+        "IMPLEMENTED": true,
+        "VALIDATOR_WIRED": true,
+        "PRODUCER_DEFINED": true,
+        "EXECUTOR_AVAILABLE": true,
         "MANUAL_GATE_DEFINED": true,
-        "END_TO_END_REACHABLE": false
+        "END_TO_END_REACHABLE": true
       },
-      "third_sku_ready": false,
-      "notes": "no repository code has ever produced an audio file. audio_executor.py measures but never renders. Both SKUs mixed with job-local ffmpeg scripts. Contract published as execution_contracts 'audio'."
+      "third_sku_ready": true,
+      "notes": "Runtime-proven. Mixes this job's own local assets and measures integrated loudness, true peak and sample peak from the file, with an explicit no-clipping result. The stage fails if the adapter reports clipping or produces no artifact. This is not a universal audio system."
     },
     {
       "stage": "ASSEMBLE & MASTER",
       "capability": "packaging, encode/remux, final master",
-      "implementation": "src/ai_autocut/execution_contracts.py:verify_assembly_evidence",
+      "implementation": "src/ai_autocut/execution_adapters.py:assemble_master",
       "git_tracked": true,
       "production_caller": "src/ai_autocut/fast_path.py:_stage_assemble_master",
-      "wiring_status": "PARTIALLY_WIRED",
-      "producer": "assemble/assembly_evidence.json",
+      "wiring_status": "WIRED",
+      "producer": "assemble/assemble_request.json",
       "producer_type": "ADAPTER",
       "dimensions": {
-        "IMPLEMENTED": false,
+        "IMPLEMENTED": true,
         "VALIDATOR_WIRED": true,
         "PRODUCER_DEFINED": true,
-        "EXECUTOR_AVAILABLE": false,
+        "EXECUTOR_AVAILABLE": true,
         "MANUAL_GATE_DEFINED": true,
-        "END_TO_END_REACHABLE": false
+        "END_TO_END_REACHABLE": true
       },
-      "third_sku_ready": false,
-      "notes": "MANUAL ADAPTER REQUIRED. Contract published as execution_contracts 'assemble_master'. The stage gates with a producer gate naming the packaging adapter and never passes on a claim; it validates measured assembly evidence when a job supplies one. No packaging engine ships here, and job A has no delivery manifest at all."
+      "third_sku_ready": true,
+      "notes": "Runtime-proven. Contract published as execution_contracts 'assemble_master'. Produces final/master.mp4, then verification opens the file: it recomputes the sha256, decodes frames, reconciles the count against upstream evidence, detects black frames and freezes, and measures loudness and true peak. A JSON claim can no longer pass — the Phase 5 bypass is closed."
     },
     {
       "stage": "REVIEW & REPAIR",
@@ -540,7 +540,7 @@
       "git_tracked": true,
       "production_caller": "src/ai_autocut/fast_path.py:FastPath._record_gate",
       "wiring_status": "WIRED",
-      "producer": null,
+      "producer": "intervention_ledger.jsonl",
       "producer_type": "AUTO",
       "dimensions": {
         "IMPLEMENTED": true,
@@ -553,5 +553,24 @@
       "third_sku_ready": true,
       "notes": "Artifact intervention_ledger.jsonl is produced automatically (AUTO) by the fast path when a gate halts a run, so the operator is not asked to remember. Append-only and prospective; the SKU#2 baseline stays PARTIALLY_VERIFIED."
     }
-  ]
+  ],
+  "full_chain_note": "Completable with the four job-scoped adapters that now ship in src/ai_autocut/execution_adapters.py. Each reads this job's own request file and holds no default art direction. The chain is reproducible without a previous conversation; it is still not autonomous, and every gate still stops the run.",
+  "runtime_proof": {
+    "command": "python3 scripts/run_pre_exam_proof.py --job-root /tmp/pre-exam-proof",
+    "job_id": "pre-exam-execution-proof-v1",
+    "master_path": "final/master.mp4",
+    "proven": "the production control path produced a real master which was then independently re-measured",
+    "evidence": {
+      "frames": 90,
+      "fps": 30.0,
+      "resolution": "540x960",
+      "video_codec": "h264",
+      "audio_codec": "aac",
+      "black_frames": 0,
+      "duplicate_frames": 0,
+      "integrated_lufs": -16.0,
+      "true_peak_dbtp": -13.5
+    },
+    "note": "The sha256 is recorded in the job itself, not here: a hash written into a tracked document would be a claim, and this manifest only records measurements that a reader can reproduce by running the command above."
+  }
 }

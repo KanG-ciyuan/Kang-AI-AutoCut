@@ -50,6 +50,7 @@ gate continues from the correct stage once that producer has acted.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 import importlib
 import json
 import os
@@ -58,11 +59,13 @@ from typing import Any, Callable, Mapping, Sequence
 
 from . import (
     audio_plan,
+    execution_adapters,
     audio_program,
     editing_intelligence,
     execution_contracts,
     intervention_ledger,
     job_foundation,
+    media_probe,
     narration_coverage,
     picture_decision,
     picture_measurement,
@@ -79,6 +82,7 @@ STATE_FILENAME = "fast_path_state.json"
 ARTIFACT_REFERENCES_FILENAME = "artifact_references.json"
 HUMAN_RELEASE_ARTIFACT = "release/human_release.json"
 ASSEMBLY_EVIDENCE_ARTIFACT = "assemble/assembly_evidence.json"
+ASSEMBLE_REQUEST_ARTIFACT = "assemble/assemble_request.json"
 
 SEMANTIC_STAGES = (
     "PREPARE",
@@ -126,6 +130,10 @@ HALTING_OUTCOMES = tuple(outcome for outcome in OUTCOMES if outcome != "PASS")
 
 #: Human release decisions. A release is a separate act from a review.
 RELEASE_DECISIONS = ("APPROVED", "REJECTED")
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 class FastPathError(ValueError):
@@ -195,12 +203,17 @@ STAGES: tuple[Stage, ...] = (
         name="FINISH THE PICTURE",
         low_level=("DAVINCI_EXECUTION", "PREVIEW"),
         capability="picture_decision.decide_shot",
-        inputs=("picture/measurements.json",),
+        inputs=(
+            "picture/source_ranges.json",
+            "picture/measurements.json",
+            "picture/picture_request.json",
+        ),
         outputs=("picture/picture_finishing.json",),
         note=(
-            "read-only measurement and decision. Every source range is executed through "
-            "the timebase adapter, which refuses a range that is not reproducible. "
-            "Picture execution is an adapter boundary and is not performed here"
+            "source-range execution is REQUIRED, not optional: a production path that "
+            "executes source ranges must go through the timebase adapter, so the ranges "
+            "are a declared input a stage cannot skip. Picture execution itself is an "
+            "adapter boundary with a published contract"
         ),
         invariants=("timebase_adapter.TimebaseAdapter.execute",),
     ),
@@ -208,23 +221,27 @@ STAGES: tuple[Stage, ...] = (
         name="PLAN THE WORDS",
         low_level=("PLAN_THE_WORDS",),
         capability="narration_coverage.assess_narration_coverage",
-        inputs=("copy/commercial_units.json",),
-        outputs=("copy/narration_coverage.json",),
+        inputs=("copy/commercial_units.json", "typography/typography_request.json"),
+        outputs=("copy/narration_coverage.json", "typography/typography_execution.json"),
         note="runs BEFORE any paid voice generation",
     ),
     Stage(
         name="BUILD THE AUDIO",
         low_level=("BUILD_THE_AUDIO",),
         capability="audio_program.assess_program",
-        inputs=("audio/placement.json", "audio/sync_expectations.json"),
-        outputs=("audio/audio_program.json",),
+        inputs=(
+            "audio/placement.json",
+            "audio/sync_expectations.json",
+            "audio/audio_request.json",
+        ),
+        outputs=("audio/audio_program.json", "audio/audio_execution.json"),
         note="runs after VO placement and before the final mix is accepted",
     ),
     Stage(
         name="ASSEMBLE & MASTER",
         low_level=("FINAL",),
         capability="execution_contracts.verify_assembly_evidence",
-        inputs=(ASSEMBLY_EVIDENCE_ARTIFACT,),
+        inputs=(ASSEMBLE_REQUEST_ARTIFACT, ASSEMBLY_EVIDENCE_ARTIFACT),
         outputs=(ASSEMBLY_EVIDENCE_ARTIFACT,),
         note=(
             "gates on the assemble_master execution contract. No packaging engine ships "
@@ -385,7 +402,14 @@ def parse_human_release(document: object) -> dict[str, Any]:
 
     if not isinstance(document, Mapping):
         raise FastPathError("a human release must be a JSON object")
-    required = ("schema_version", "decision", "authority", "review_verdict", "statement")
+    required = (
+        "schema_version",
+        "decision",
+        "authority",
+        "review_verdict",
+        "master_sha256",
+        "statement",
+    )
     missing = [key for key in required if key not in document]
     if missing:
         raise FastPathError(
@@ -401,10 +425,18 @@ def parse_human_release(document: object) -> dict[str, Any]:
         value = document[key]
         if not isinstance(value, str) or not value.strip():
             raise FastPathError(f"human release field {key!r} must be a non-empty string")
+    master_sha = document["master_sha256"]
+    if not isinstance(master_sha, str) or len(master_sha) != 64:
+        raise FastPathError(
+            "a human release must name the verified master by its full 64-character "
+            "sha256; a release that does not say which master it approves is not a "
+            "release of anything in particular"
+        )
     return {
         "decision": decision,
         "authority": document["authority"],
         "review_verdict": document["review_verdict"],
+        "master_sha256": master_sha,
         "statement": document["statement"],
     }
 
@@ -501,30 +533,75 @@ class FastPath:
             name for name in SEMANTIC_STAGES if state["stages"][name]["outcome"] == "PASS"
         )
 
-    def invalidate(self, stage: str, *, reason: str) -> None:
-        """Explicitly re-open a completed stage.
+    def invalidate(self, stage: str, *, reason: str) -> tuple[str, ...]:
+        """Re-open a stage **and everything downstream of it**.
 
-        A stage is only re-executed when it is invalidated. Silently re-running completed
-        work would discard the evidence the run already produced.
+        The semantic stages form a chain: every stage consumes what the one before it
+        produced. Re-opening a stage therefore invalidates every later PASS state, not
+        just its own. Keeping a downstream PASS after its input changed would let the run
+        report a completion that no longer describes the artifacts on disk — the run
+        would resume at the *end* and never re-derive the stages that depended on the
+        change.
+
+        This is not a third state model: it writes the same ``fast_path_state.json`` the
+        run already uses, and the low-level record is reconciled from it.
         """
 
         if stage not in STAGE_BY_NAME:
             raise FastPathError(f"unknown stage {stage!r}")
+        invalidated = SEMANTIC_STAGES[SEMANTIC_STAGES.index(stage):]
         state = self.state()
-        state["stages"][stage] = {
-            "outcome": None,
-            "capability": None,
-            "valid": False,
-            "invalidated": reason,
-        }
-        state["history"].append(
-            {"stage": stage, "outcome": "INVALIDATED", "reason": reason}
-        )
+        for name in invalidated:
+            if state["stages"][name]["outcome"] is None and name != stage:
+                continue
+            state["stages"][name] = {
+                "outcome": None,
+                "capability": None,
+                "valid": False,
+                "invalidated": reason,
+                "invalidated_because": stage,
+            }
+            state["history"].append(
+                {
+                    "stage": name,
+                    "outcome": "INVALIDATED",
+                    "reason": reason,
+                    "caused_by": stage,
+                }
+            )
         self._write(STATE_FILENAME, state)
+
+        # A PASS recorded in the low-level state must not survive its cause either.
+        foundation = job_foundation.ensure_state(self.root, self.job_id)
+        pipeline = foundation.state()
+        affected_low = {
+            low for name in invalidated for low in STAGE_BY_NAME[name].low_level
+        }
+        for low in job_foundation.STAGE_ORDER:
+            if low not in affected_low:
+                continue
+            if pipeline["stages"][low]["state"] == "PENDING":
+                continue
+            pipeline["stages"][low]["state"] = "PENDING"
+            pipeline["stages"][low]["evidence"].append(
+                {"kind": "invalidated_by_fast_path", "stage": stage, "reason": reason}
+            )
+        pipeline["history"].append(
+            {
+                "at": _utc_now(),
+                "stage": stage,
+                "from": "PASS",
+                "to": "PENDING",
+                "evidence": {"kind": "downstream_invalidation", "reason": reason},
+            }
+        )
+        foundation.save_state(pipeline)
+        return tuple(invalidated)
 
     def checkpoint(self, result: StageResult) -> None:
         state = self.state()
         stage = STAGE_BY_NAME[result.stage]
+        previous = state["stages"].get(result.stage)
         state["stages"][result.stage] = {
             "outcome": result.outcome,
             "capability": result.capability,
@@ -552,7 +629,7 @@ class FastPath:
         self._write(ARTIFACT_REFERENCES_FILENAME, references)
 
         self.reconcile_pipeline_state()
-        self._record_gate(result)
+        self._record_gate(result, previous)
 
     def reconcile_pipeline_state(self) -> dict[str, Any]:
         """Mirror achieved low-level states into ``pipeline_state.json``.
@@ -646,53 +723,150 @@ class FastPath:
             )
         )
 
-    def _gate_already_recorded(self, stage: str, artifact: str) -> bool:
-        marker = f"producer gate:{artifact}"
+    #: Producer type -> ledger actor. A CODEX producer is not a human, and an adapter
+    #: is automated execution; recording everything as HUMAN is what this mapping fixes.
+    PRODUCER_ACTOR = {
+        "CODEX": "CODEX_SUPERVISOR",
+        "HUMAN": "HUMAN",
+        "ADAPTER": "AUTOMATED_REPAIR",
+        "AUTO": "AUTOMATED_REPAIR",
+    }
+
+    #: Outcomes that stay open until something resolves them, and so are recorded once.
+    OPEN_OUTCOMES = ("BLOCKED", "REVIEW_REQUIRED", "SUPERVISOR_DECISION_REQUIRED")
+
+    def _already_open(self, stage: str, marker: str) -> bool:
+        """True when this still-open gate was already recorded for this stage.
+
+        A run that halts repeatedly on the same unresolved gate is one intervention, not
+        one per attempt.
+        """
+
         for row in self.ledger.entries():
-            if row.get("stage") == stage and str(row.get("detail", "")).startswith(marker):
+            if row.get("stage") != stage:
+                continue
+            if marker in str(row.get("detail", "")) and row.get("resolved_at") is None:
                 return True
         return False
 
-    def _record_gate(self, result: StageResult) -> None:
-        """Record every gate outcome automatically.
+    def _record_gate(self, result: StageResult, previous: Mapping[str, Any] | None) -> None:
+        """Record every system-known intervention, without asking the operator.
 
-        The operator is not asked to remember: a gate that halted the run is recorded
-        *because* it halted the run. Recording is deduplicated per artifact so a resumed
-        run does not inflate the count of a gate that was already open.
+        A gate that halted the run is recorded because it halted the run. Recording is
+        deduplicated per still-open gate, and the actor is taken from the producer that
+        must act rather than defaulting to HUMAN.
         """
 
         if result.outcome == "PASS":
+            self._record_resolution(result, previous)
             return
+
+        if result.outcome not in self.OPEN_OUTCOMES:
+            # FAIL and REJECT are terminal events, not open gates: record each one.
+            kind = (
+                "CREATIVE_REVIEW_REJECTIONS"
+                if result.outcome == "REJECT"
+                else "SUPERVISOR_DECISIONS"
+            )
+            self.record_intervention(
+                stage=result.stage, kind=kind, actor="CODEX_SUPERVISOR",
+                detail=f"{result.outcome}: {result.reason or 'no reason recorded'}",
+                trigger=result.outcome,
+            )
+            return
+
         if result.gate is not None:
             artifact = str(
                 result.gate.get("missing_artifact") or result.gate.get("artifact") or ""
             )
-            kind = str(result.gate.get("intervention_kind") or "SUPERVISOR_DECISIONS")
-            if artifact and self._gate_already_recorded(result.stage, artifact):
+            producer_type = str(result.gate.get("producer_type") or "CODEX")
+            marker = f"producer gate:{artifact}"
+            if artifact and self._already_open(result.stage, marker):
                 return
             self.record_intervention(
                 stage=result.stage,
-                kind=kind,
-                actor="HUMAN",
+                kind=str(result.gate.get("intervention_kind") or "SUPERVISOR_DECISIONS"),
+                actor=self.PRODUCER_ACTOR.get(producer_type, "CODEX_SUPERVISOR"),
                 detail=(
-                    f"producer gate:{artifact} requires "
-                    f"{result.gate.get('producer_type')} producer "
+                    f"{marker} requires {producer_type} producer "
                     f"{result.gate.get('producer_id')!r}"
                 ),
                 trigger=result.outcome,
+                after_ref=artifact,
             )
             return
-        kind = (
-            "CREATIVE_REVIEW_REJECTIONS"
-            if result.outcome == "REJECT"
-            else "SUPERVISOR_DECISIONS"
-        )
+
+        marker = f"{result.outcome}: {result.reason or ''}"
+        if self._already_open(result.stage, marker):
+            return
         self.record_intervention(
             stage=result.stage,
-            kind=kind,
-            actor="HUMAN",
-            detail=f"{result.outcome}: {result.reason or 'no reason recorded'}",
+            kind=(
+                "CREATIVE_REVIEW_REJECTIONS"
+                if result.outcome == "REVIEW_REQUIRED"
+                else "SUPERVISOR_DECISIONS"
+            ),
+            actor="CODEX_SUPERVISOR",
+            detail=marker,
             trigger=result.outcome,
+        )
+
+    def _record_resolution(
+        self, result: StageResult, previous: Mapping[str, Any] | None
+    ) -> None:
+        """Record that a previously open gate was resolved, and a release when made."""
+
+        if previous and previous.get("outcome") in self.OPEN_OUTCOMES:
+            was = previous.get("outcome")
+            detail = previous.get("gate") or {}
+            artifact = str(
+                detail.get("missing_artifact") or detail.get("artifact") or ""
+            )
+            self.record_intervention(
+                stage=result.stage,
+                kind=str(detail.get("intervention_kind") or "SUPERVISOR_DECISIONS"),
+                actor=self.PRODUCER_ACTOR.get(
+                    str(detail.get("producer_type") or "CODEX"), "CODEX_SUPERVISOR"
+                ),
+                detail=(
+                    f"producer gate resolved:{artifact} — stage {result.stage!r} "
+                    f"advanced past {was}"
+                    if artifact
+                    else f"open gate resolved — stage {result.stage!r} advanced past {was}"
+                ),
+                trigger="PRODUCER_GATE_RESOLVED",
+                before_ref=artifact or None,
+            )
+
+        # A successful final human release is a system-known event.
+        authority = result.evidence.get("release_authority") if result.evidence else None
+        if result.stage == "REVIEW & REPAIR" and authority:
+            master = (self._read(ASSEMBLY_EVIDENCE_ARTIFACT) or {}).get("master_sha256")
+            self.record_intervention(
+                stage=result.stage,
+                kind="SUPERVISOR_DECISIONS",
+                actor="HUMAN",
+                detail=(
+                    f"HUMAN_RELEASE_APPROVED by {authority!r} for master "
+                    f"{str(master)[:16]}..."
+                ),
+                trigger="HUMAN_RELEASE_APPROVED",
+                after_ref=str(master) if master else None,
+            )
+
+    def _record_paid_calls(self, stage: str, execution: Mapping[str, Any]) -> None:
+        """Record paid provider calls when the execution reports them."""
+
+        paid = int(execution.get("paid_api_calls") or 0)
+        if paid <= 0:
+            return
+        self.record_intervention(
+            stage=stage,
+            kind="VO_GENERATIONS",
+            actor="AUTOMATED_REPAIR",
+            detail=f"{paid} paid API call(s) made during {stage!r}",
+            trigger="PAID_API_CALL",
+            paid_api_calls=paid,
         )
 
     # ---- execution -------------------------------------------------------------
@@ -745,6 +919,74 @@ class FastPath:
             completed=completed,
             resumed_from=resumed_from,
         )
+
+    # ---- real artifact verification --------------------------------------------
+
+    def _verify_media_artifact(
+        self, relative: str, *, label: str, expected_frames: int | None = None
+    ) -> dict[str, Any]:
+        """A stage may not PASS on a plan. The file must exist and be measured.
+
+        Every value below is read from the bytes on disk with ffprobe, so a planning
+        document alone can never satisfy a stage that claims to have produced media.
+        """
+
+        target = self.path(relative)
+        if not target.is_file():
+            raise FastPathError(f"{label} produced no artifact at {relative}")
+        measured = media_probe.probe_streams(target)
+        frames = measured["frame_count"]
+        if not frames:
+            raise FastPathError(f"{label} artifact {relative} has no measurable frames")
+        if expected_frames is not None and int(frames) != int(expected_frames):
+            raise FastPathError(
+                f"{label} artifact {relative} holds {frames} frames where "
+                f"{expected_frames} were expected"
+            )
+        if not measured["width"] or not measured["height"]:
+            raise FastPathError(f"{label} artifact {relative} has no measurable geometry")
+        if not measured["fps"]:
+            raise FastPathError(f"{label} artifact {relative} has no measurable frame rate")
+        return {
+            "path": relative,
+            "frame_count": int(frames),
+            "width": int(measured["width"]),
+            "height": int(measured["height"]),
+            "fps": float(measured["fps"]),
+            "duration_seconds": measured["duration_seconds"],
+            "video_codec": measured["video_codec"],
+            "audio_codec": measured["audio_codec"],
+            "has_audio": bool(measured["has_audio"]),
+            "sha256": media_probe.sha256_of_file(target),
+            "measured": True,
+        }
+
+    def _run_adapter(
+        self, stage: Stage, boundary: str, request_artifact: str
+    ) -> tuple[dict[str, Any] | None, StageResult | None]:
+        """Run one job-scoped execution adapter, returning its result or a failure."""
+
+        try:
+            result = execution_adapters.RUNNERS[boundary](
+                self.root,
+                **({"timebase": self.timebase} if boundary == "picture" else {}),
+            )
+        except (
+            execution_adapters.ExecutionAdapterError,
+            timebase_adapter.TimebaseAdapterError,
+            media_probe.MediaProbeError,
+            OSError,
+        ) as exc:
+            return None, StageResult(
+                stage=stage.name,
+                outcome="FAIL",
+                capability=f"execution_adapters.{boundary}",
+                reason=(
+                    f"the {boundary} adapter could not produce a real artifact from "
+                    f"{request_artifact}: {exc}"
+                ),
+            )
+        return dict(result), None
 
     # ---- gate helpers ----------------------------------------------------------
 
@@ -829,31 +1071,43 @@ class FastPath:
                 reason="shots/placements.json carries no placements",
             )
 
-        # The invariant applies to placement coordinates, not only to extraction. A
-        # decoded frame range is legitimate for segmentation; treating its duration as
-        # frames/fps is not, so every placement's declared timestamp is checked against
-        # the measured PTS table before it is used.
+        # The invariant applies to placement coordinates, and it must be the coordinate
+        # that is actually used. Validating a measured timestamp and then selecting
+        # frames with the producer's own frame index would be cosmetic, so the decoded
+        # range is DERIVED here from the measured PTS instead of being taken on trust.
+        #
+        #   SOURCE        = the measured timestamp the producer states
+        #   ANALYSIS GRID = decoded indices resolved from that PTS, plus the CFR count
+        #   TIMELINE      = CFR frame grid
         timing: list[dict[str, Any]] = []
+        resolved: list[dict[str, Any]] = []
         try:
             for item in raw:
-                timing.append(
-                    self.timebase.assert_placement_timing(
-                        placement_id=item["placement_id"],
-                        source=item["media_path"],
-                        source_in=int(item["source_in"]),
-                        source_out_exclusive=int(item["source_out_exclusive"]),
-                        t_in_seconds=(
-                            float(item["t_in_seconds"])
-                            if item.get("t_in_seconds") is not None
-                            else None
-                        ),
-                    )
+                window = self.timebase.resolve_placement_window(
+                    placement_id=item["placement_id"],
+                    source=item["media_path"],
+                    t_in_seconds=(
+                        float(item["t_in_seconds"])
+                        if item.get("t_in_seconds") is not None
+                        else None
+                    ),
+                    duration_seconds=(
+                        float(item["duration_seconds"])
+                        if item.get("duration_seconds") is not None
+                        else None
+                    ),
+                    analysis_fps=self.fps,
                 )
+                timing.append(window)
+                resolved.append({**dict(item), **{
+                    "source_in": window["source_in"],
+                    "source_out_exclusive": window["source_out_exclusive"],
+                }})
         except (KeyError, TypeError, ValueError) as exc:
             return StageResult(
                 stage=stage.name,
                 outcome="FAIL",
-                capability="timebase_adapter.TimebaseAdapter.assert_placement_timing",
+                capability="timebase_adapter.TimebaseAdapter.resolve_placement_window",
                 reason=f"placement coordinates refused: {exc}",
             )
 
@@ -863,13 +1117,14 @@ class FastPath:
                     placement_id=item["placement_id"],
                     source_id=item["source_id"],
                     media_path=item["media_path"],
+                    # Resolved from measured PTS above, not the producer's index.
                     source_in=item["source_in"],
                     source_out_exclusive=item["source_out_exclusive"],
                     timeline_start=item.get("timeline_start", 0),
                     narrative_role=item.get("narrative_role", ""),
                     action_state=item.get("action_state", ""),
                 )
-                for item in raw
+                for item in resolved
             ]
             analyses = shot_understanding.analyse_placements(placements)
         except (KeyError, TypeError, ValueError) as exc:
@@ -883,6 +1138,7 @@ class FastPath:
             "schema_version": "fast_path_shot_understanding.v1",
             "capability": stage.capability,
             "coordinate_system": timebase_adapter.COORDINATE_SYSTEM,
+            "analysis_grid": "CFR_DERIVED_FROM_MEASURED_PTS",
             "placements": [
                 {
                     "placement_id": analysis.placement_id,
@@ -975,61 +1231,60 @@ class FastPath:
             return self._blocked(stage, missing)
 
         timing_profiles: list[dict[str, Any]] = []
-        range_document = self._read("picture/source_ranges.json")
-        if isinstance(range_document, Mapping):
-            ranges = range_document.get("ranges") or []
-            if not isinstance(ranges, list) or not ranges:
-                return StageResult(
-                    stage=stage.name,
-                    outcome="FAIL",
-                    capability=stage.capability,
-                    reason="picture/source_ranges.json declares no ranges",
-                )
-            units = [str(item["unit_id"]) for item in ranges]
-            try:
-                for item in ranges:
-                    if item.get("t_in_seconds") is not None:
-                        resolution = self.timebase.resolve_from_seconds(
-                            unit_id=item["unit_id"],
-                            source=item["source"],
-                            t_in_seconds=float(item["t_in_seconds"]),
-                            frames=int(item["frames"]),
-                        )
-                    elif item.get("source_frame_index") is not None:
-                        resolution = self.timebase.resolve_from_source_index(
-                            unit_id=item["unit_id"],
-                            source=item["source"],
-                            source_frame_index=int(item["source_frame_index"]),
-                            frames=int(item["frames"]),
-                        )
-                    else:
-                        raise FastPathError(
-                            f"unit {item.get('unit_id', '?')!r} states neither "
-                            "t_in_seconds nor source_frame_index; a source range "
-                            "cannot be addressed without one of them"
-                        )
-                    out_path = str(self.path(f"picture/ranges/{resolution.unit_id}.mp4"))
-                    self.timebase.execute(resolution, out_path)
-                    timing_profiles.append(resolution.as_dict())
-                # Bypass detection: every declared unit must have gone through the
-                # adapter. A future refactor that extracts a range another way leaves
-                # the unit unrecorded and this raises instead of the gap passing.
-                self.timebase.assert_range_coverage(units)
-            except (KeyError, TypeError, ValueError) as exc:
-                return StageResult(
-                    stage=stage.name,
-                    outcome="FAIL",
-                    capability="timebase_adapter.TimebaseAdapter.execute",
-                    reason=f"source-range execution refused: {exc}",
-                )
-            self._write(
-                "picture/timing_profile.json",
-                {
-                    "schema_version": "fast_path_timing_profile.v1",
-                    "coordinate_system": timebase_adapter.COORDINATE_SYSTEM,
-                    "ranges": timing_profiles,
-                },
+        range_document = self._read("picture/source_ranges.json") or {}
+        ranges = range_document.get("ranges") or []
+        if not isinstance(ranges, list) or not ranges:
+            return StageResult(
+                stage=stage.name,
+                outcome="FAIL",
+                capability=stage.capability,
+                reason="picture/source_ranges.json declares no ranges",
             )
+        units = [str(item["unit_id"]) for item in ranges]
+        try:
+            for item in ranges:
+                if item.get("t_in_seconds") is not None:
+                    resolution = self.timebase.resolve_from_seconds(
+                        unit_id=item["unit_id"],
+                        source=item["source"],
+                        t_in_seconds=float(item["t_in_seconds"]),
+                        frames=int(item["frames"]),
+                    )
+                elif item.get("source_frame_index") is not None:
+                    resolution = self.timebase.resolve_from_source_index(
+                        unit_id=item["unit_id"],
+                        source=item["source"],
+                        source_frame_index=int(item["source_frame_index"]),
+                        frames=int(item["frames"]),
+                    )
+                else:
+                    raise FastPathError(
+                        f"unit {item.get('unit_id', '?')!r} states neither "
+                        "t_in_seconds nor source_frame_index; a source range "
+                        "cannot be addressed without one of them"
+                    )
+                out_path = str(self.path(f"picture/ranges/{resolution.unit_id}.mp4"))
+                self.timebase.execute(resolution, out_path)
+                timing_profiles.append(resolution.as_dict())
+            # Bypass detection: every declared unit must have gone through the
+            # adapter. A future refactor that extracts a range another way leaves
+            # the unit unrecorded and this raises instead of the gap passing.
+            self.timebase.assert_range_coverage(units)
+        except (KeyError, TypeError, ValueError) as exc:
+            return StageResult(
+                stage=stage.name,
+                outcome="FAIL",
+                capability="timebase_adapter.TimebaseAdapter.execute",
+                reason=f"source-range execution refused: {exc}",
+            )
+        self._write(
+            "picture/timing_profile.json",
+            {
+                "schema_version": "fast_path_timing_profile.v1",
+                "coordinate_system": timebase_adapter.COORDINATE_SYSTEM,
+                "ranges": timing_profiles,
+            },
+        )
 
         payload = self._read("picture/measurements.json") or {}
         raw = payload.get("shots")
@@ -1073,28 +1328,43 @@ class FastPath:
                 capability=stage.capability,
                 reason=f"picture decision refused the measurements: {exc}",
             )
+        picture_execution, failure = self._run_adapter(
+            stage, "picture", "picture/picture_request.json"
+        )
+        if failure is not None:
+            return failure
+        try:
+            measured_picture = self._verify_media_artifact(
+                str(picture_execution["path"]), label="picture execution"
+            )
+        except FastPathError as exc:
+            return StageResult(
+                stage=stage.name, outcome="FAIL",
+                capability="execution_adapters.picture", reason=str(exc),
+            )
         artifact = self._write(
             stage.outputs[0],
             {
                 "schema_version": "fast_path_picture_finishing.v1",
                 "capability": stage.capability,
-                "picture_execution": "ADAPTER_BOUNDARY_NOT_PERFORMED",
+                "picture_execution": picture_execution,
                 "execution_contract": execution_contracts.get_contract("picture").as_dict(),
                 "decisions": decisions,
             },
         )
-        artifacts = (artifact,)
+        artifacts = [artifact, str(picture_execution["path"])]
         if timing_profiles:
-            artifacts = ("picture/timing_profile.json", artifact)
+            artifacts.insert(0, "picture/timing_profile.json")
         return StageResult(
             stage=stage.name,
             outcome="PASS",
             capability=stage.capability,
-            artifacts=artifacts,
+            artifacts=tuple(artifacts),
             evidence={
                 "shots": len(decisions),
                 "source_ranges_executed": len(timing_profiles),
                 "coordinate_system": timebase_adapter.COORDINATE_SYSTEM,
+                "picture_artifact": measured_picture,
             },
         )
 
@@ -1200,12 +1470,32 @@ class FastPath:
                     "blocking": len(report.blocking),
                 },
             )
+        typography_execution, failure = self._run_adapter(
+            stage, "typography", "typography/typography_request.json"
+        )
+        if failure is not None:
+            return failure
+        try:
+            measured_typography = self._verify_media_artifact(
+                str(typography_execution["path"]),
+                label="typography execution",
+                expected_frames=int(typography_execution["frame_count"]),
+            )
+        except FastPathError as exc:
+            return StageResult(
+                stage=stage.name, outcome="FAIL",
+                capability="execution_adapters.typography", reason=str(exc),
+            )
         return StageResult(
             stage=stage.name,
             outcome="PASS",
             capability=stage.capability,
-            artifacts=(artifact,),
-            evidence={"verdict": report.verdict, "units": len(units)},
+            artifacts=(artifact, str(typography_execution["path"])),
+            evidence={
+                "verdict": report.verdict,
+                "units": len(units),
+                "typography_artifact": measured_typography,
+            },
         )
 
     def _stage_build_the_audio(self, stage: Stage) -> StageResult:
@@ -1297,12 +1587,42 @@ class FastPath:
                     "undesigned_silence_seconds": report.undesigned_silence_seconds,
                 },
             )
+        audio_execution, failure = self._run_adapter(
+            stage, "audio", "audio/audio_request.json"
+        )
+        if failure is not None:
+            return failure
+        self._record_paid_calls(stage.name, audio_execution)
+        audio_path = str(audio_execution["path"])
+        if not self.path(audio_path).is_file():
+            return StageResult(
+                stage=stage.name, outcome="FAIL",
+                capability="execution_adapters.audio",
+                reason=f"the audio adapter produced no artifact at {audio_path}",
+            )
+        if audio_execution.get("clipping") is not False:
+            return StageResult(
+                stage=stage.name, outcome="FAIL",
+                capability="execution_adapters.audio",
+                reason="the audio adapter did not report an explicit no-clipping result",
+            )
         return StageResult(
             stage=stage.name,
             outcome="PASS",
             capability=stage.capability,
-            artifacts=(artifact,),
-            evidence={"fit": report.fit, "sync": report.sync, "rhythm": report.rhythm},
+            artifacts=(artifact, audio_path),
+            evidence={
+                "fit": report.fit, "sync": report.sync, "rhythm": report.rhythm,
+                "audio_artifact": {
+                    "path": audio_path,
+                    "duration_seconds": audio_execution.get("duration_seconds"),
+                    "integrated_lufs": audio_execution.get("integrated_lufs"),
+                    "true_peak_dbtp": audio_execution.get("true_peak_dbtp"),
+                    "sample_peak_dbfs": audio_execution.get("sample_peak_dbfs"),
+                    "clipping": False,
+                    "sha256": audio_execution.get("sha256"),
+                },
+            },
         )
 
     def _stage_assemble_master(self, stage: Stage) -> StageResult:
@@ -1313,12 +1633,51 @@ class FastPath:
         Once that evidence is present the run resumes and reaches REVIEW.
         """
 
-        missing = self._missing_inputs(stage)
+        missing = tuple(
+            item for item in stage.inputs if not self.path(item).is_file()
+        )
+        # The evidence is produced by the adapter from the request, so a request
+        # without evidence is the adapter's turn, not a missing producer.
+        missing = tuple(item for item in missing if item != ASSEMBLY_EVIDENCE_ARTIFACT)
         if missing:
             return self._blocked(stage, missing)
+        if not self.path(ASSEMBLY_EVIDENCE_ARTIFACT).is_file():
+            produced, failure = self._run_adapter(
+                stage, "assemble", ASSEMBLE_REQUEST_ARTIFACT
+            )
+            if failure is not None:
+                return failure
         document = self._read(ASSEMBLY_EVIDENCE_ARTIFACT)
+
+        # Reconcile the master against the upstream evidence this run actually produced.
+        # A master whose frame count disagrees with the accepted picture is not this
+        # run's master, however good its own measurements are.
+        expected_frames: int | None = None
+        for candidate in (
+            "typography/typography_execution.json",
+            "picture/picture_execution.json",
+            "picture/picture_finishing.json",
+        ):
+            upstream = self._read(candidate)
+            if isinstance(upstream, Mapping) and upstream.get("frame_count"):
+                expected_frames = int(upstream["frame_count"])
+                break
+        job = self._read("job.json") or {}
+        loudness_target = None
+        if isinstance(job, Mapping):
+            audio_contract = job.get("audio") or {}
+            if isinstance(audio_contract, Mapping):
+                loudness_target = audio_contract.get("target_lufs")
+
         try:
-            verified = execution_contracts.verify_assembly_evidence(document)
+            verified = execution_contracts.verify_assembly_evidence(
+                document,
+                job_root=self.root,
+                expected_frame_count=expected_frames,
+                loudness_target_lufs=(
+                    float(loudness_target) if loudness_target is not None else None
+                ),
+            )
         except execution_contracts.ExecutionContractError as exc:
             return StageResult(
                 stage=stage.name,
@@ -1461,6 +1820,22 @@ class FastPath:
                     f"the human release answers verdict {release['review_verdict']!r} "
                     f"but the review now derives {verdict!r}; the release does not "
                     "describe this review."
+                ),
+            )
+        verified_master = (self._read(ASSEMBLY_EVIDENCE_ARTIFACT) or {}).get(
+            "master_sha256"
+        )
+        if verified_master and release["master_sha256"] != verified_master:
+            return StageResult(
+                stage=stage.name,
+                outcome="FAIL",
+                capability=stage.capability,
+                artifacts=(artifact,),
+                reason=(
+                    "the human release approves master "
+                    f"{release['master_sha256'][:16]}... but this run verified "
+                    f"{str(verified_master)[:16]}...; the release does not describe the "
+                    "master that was assembled"
                 ),
             )
         if release["decision"] == "REJECTED":

@@ -174,3 +174,56 @@ here reconstructs or upgrades them.
 A Third SKU records interventions **prospectively**: the fast path writes a ledger entry
 automatically when a gate halts a run, so the operator is not asked to remember. A count
 that was not recorded when it occurred does not exist.
+
+---
+
+# Phase 6 — real execution closure
+
+## Readiness now requires runtime proof
+
+A capability may only claim `third_sku_ready` when its **real execution output is
+produced and verified by the chain**. The four execution boundaries now ship as
+job-scoped adapters in `src/ai_autocut/execution_adapters.py`, and each is marked
+`Runtime-proven` with a note saying what was measured.
+
+`full_chain_completable_today: true`. That claim is backed by the run below, not by an
+assertion:
+
+```
+python3 scripts/run_pre_exam_proof.py --job-root /tmp/pre-exam-proof
+```
+
+## The proof run
+
+| field | value |
+|---|---|
+| job_id | `pre-exam-execution-proof-v1` |
+| master_path | `final/master.mp4` |
+| frames | 90 |
+| fps | 30.0 |
+| resolution | 540x960 |
+| video codec | h264 |
+| audio codec | aac |
+| black frames | 0 |
+| duplicate/freeze frames | 0 |
+| integrated loudness | -16.0 LUFS |
+| true peak | -13.5 dBTP |
+
+The sha256 is deliberately **not** written into this manifest. A hash recorded in a
+tracked document is a claim; the proof records it in the job, and a reader reproduces it
+by running the command above. `tests/test_real_master_proof.py` asserts that deleting the
+master, or re-encoding it in place, makes verification fail.
+
+## What is still not ready, and why
+
+Ten capabilities remain `third_sku_ready: false`. Four of them —
+`KEEP / REVIEW / CORRECT decision`, `read-only picture measurement`,
+`product authenticity protection` and `audio program verification` — are
+`END_TO_END_REACHABLE` but have no shipped executor for the artifact they consume, so a
+human or Codex authors it for every job. That is a declared producer gate, not a hidden
+one, but it is not automation and is not marked as ready.
+
+`picture/measurements.json` is produced by a **CODEX** author today because no
+measurement tool ships here. The picture stage still runs the real decision logic and
+still requires a real picture artifact, so the chain is honest about which part is
+automated and which part is authored.

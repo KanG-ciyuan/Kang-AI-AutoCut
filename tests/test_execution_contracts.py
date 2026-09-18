@@ -17,9 +17,12 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+import shutil
+import subprocess
+import tempfile
 import unittest
 
-from src.ai_autocut import execution_contracts, fast_path, local_preview
+from src.ai_autocut import execution_contracts, fast_path, local_preview, media_probe
 from src.ai_autocut.execution_contracts import (
     ASSEMBLY_REQUIRED_KEYS,
     CONTRACTS,
@@ -36,6 +39,10 @@ from src.ai_autocut.local_preview import (
     assert_third_sku_production_allowed,
 )
 from src.ai_autocut.timebase_adapter import TimebaseAdapter, TimebaseAdapterError
+
+
+def _has_ffmpeg() -> bool:
+    return media_probe.have_tools()
 
 
 class FakeTiming:
@@ -157,51 +164,141 @@ class ExecutionContractTests(unittest.TestCase):
             )
 
 
+@unittest.skipUnless(_has_ffmpeg(), "real media is required")
 class AssemblyEvidenceTests(unittest.TestCase):
-    def valid(self, **overrides: object) -> dict:
+    """Assembly is verified against the real file, never against a claim.
+
+    The Phase 5 inspection found this accepted a JSON document without opening
+    anything: a nonexistent path, a fabricated SHA256 and a fabricated frame count all
+    passed. Every case below is therefore built from a real master on disk.
+    """
+
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp())
+        self.master = self.tmp / "master.mp4"
+        self._render(self.master, black=False)
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _render(self, path: Path, *, black: bool, seconds: float = 1.0) -> None:
+        source = "color=c=black:size=64x64:rate=30" if black else "testsrc2=size=64x64:rate=30"
+        subprocess.run(
+            [
+                "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                "-f", "lavfi", "-i", f"{source}:duration={seconds}",
+                "-f", "lavfi", "-i", f"sine=frequency=440:duration={seconds}",
+                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", "30",
+                "-c:a", "aac", "-b:a", "128k", "-shortest", str(path),
+            ],
+            check=True,
+            capture_output=True,
+        )
+
+    def evidence(self, **overrides: object) -> dict:
+        measured = media_probe.probe_streams(self.master)
+        loudness = media_probe.measure_loudness(self.master)
         document = {
-            "master_path": "final/master.mp4",
-            "master_sha256": "a" * 64,
-            "frame_count": 487,
+            "master_path": str(self.master),
+            "master_sha256": media_probe.sha256_of_file(self.master),
+            "frame_count": int(measured["frame_count"] or 0),
             "method": "REMUX",
             "black_frames": 0,
-            "audio": {"integrated_lufs": -13.98},
+            "audio": {"integrated_lufs": loudness["integrated_lufs"]},
         }
         document.update(overrides)
         return document
 
-    def test_valid_evidence_passes(self) -> None:
-        verified = verify_assembly_evidence(self.valid())
-        self.assertEqual(verified["frame_count"], 487)
-        self.assertEqual(verified["integrated_lufs"], -13.98)
+    def test_a_real_master_verifies_and_is_measured(self) -> None:
+        verified = verify_assembly_evidence(self.evidence(), job_root=self.tmp)
+        self.assertTrue(verified["measured"])
+        self.assertEqual(verified["master_sha256"], media_probe.sha256_of_file(self.master))
+        self.assertGreater(verified["frame_count"], 0)
+        self.assertEqual(verified["video_codec"], "h264")
+        self.assertEqual(verified["audio_codec"], "aac")
+        self.assertEqual(verified["black_frames"], 0)
 
-    def test_a_claim_without_measurements_is_refused(self) -> None:
+    def test_a_nonexistent_master_is_refused(self) -> None:
         with self.assertRaises(ExecutionContractError) as caught:
-            verify_assembly_evidence({"master_path": "final/master.mp4"})
-        for key in ASSEMBLY_REQUIRED_KEYS:
-            if key != "master_path":
-                self.assertIn(key, str(caught.exception))
+            verify_assembly_evidence(
+                self.evidence(master_path=str(self.tmp / "absent.mp4")), job_root=self.tmp
+            )
+        self.assertIn("does not exist", str(caught.exception))
 
-    def test_black_frames_are_a_defect_not_a_pass(self) -> None:
+    def test_a_fabricated_sha256_is_refused(self) -> None:
         with self.assertRaises(ExecutionContractError) as caught:
-            verify_assembly_evidence(self.valid(black_frames=1))
+            verify_assembly_evidence(self.evidence(master_sha256="a" * 64), job_root=self.tmp)
+        self.assertIn("does not match the file on disk", str(caught.exception))
+
+    def test_a_fabricated_frame_count_is_refused(self) -> None:
+        with self.assertRaises(ExecutionContractError) as caught:
+            verify_assembly_evidence(self.evidence(frame_count=9999), job_root=self.tmp)
+        self.assertIn("does not match the decoded count", str(caught.exception))
+
+    def test_a_frame_count_that_disagrees_with_upstream_is_refused(self) -> None:
+        with self.assertRaises(ExecutionContractError) as caught:
+            verify_assembly_evidence(
+                self.evidence(), job_root=self.tmp, expected_frame_count=9999
+            )
+        self.assertIn("upstream evidence", str(caught.exception))
+
+    def test_fabricated_audio_measurements_are_refused(self) -> None:
+        with self.assertRaises(ExecutionContractError) as caught:
+            verify_assembly_evidence(
+                self.evidence(audio={"integrated_lufs": -3.0}), job_root=self.tmp
+            )
+        self.assertIn("does not match the measured", str(caught.exception))
+
+    def test_a_black_master_is_refused(self) -> None:
+        black = self.tmp / "black.mp4"
+        self._render(black, black=True, seconds=2.0)
+        with self.assertRaises(ExecutionContractError) as caught:
+            verify_assembly_evidence(
+                self.evidence(
+                    master_path=str(black),
+                    master_sha256=media_probe.sha256_of_file(black),
+                    frame_count=int(media_probe.probe_streams(black)["frame_count"] or 0),
+                ),
+                job_root=self.tmp,
+            )
         self.assertIn("black frame", str(caught.exception))
 
     def test_an_unknown_method_is_refused(self) -> None:
         with self.assertRaises(ExecutionContractError):
-            verify_assembly_evidence(self.valid(method="MAGIC"))
+            verify_assembly_evidence(self.evidence(method="MAGIC"), job_root=self.tmp)
 
-    def test_a_short_sha_is_refused(self) -> None:
-        with self.assertRaises(ExecutionContractError):
-            verify_assembly_evidence(self.valid(master_sha256="abc"))
+    def test_a_master_without_audio_is_refused(self) -> None:
+        silent = self.tmp / "silent.mp4"
+        subprocess.run(
+            [
+                "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                "-f", "lavfi", "-i", "testsrc2=size=64x64:rate=30:duration=1",
+                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-an", str(silent),
+            ],
+            check=True, capture_output=True,
+        )
+        with self.assertRaises(ExecutionContractError) as caught:
+            verify_assembly_evidence(
+                self.evidence(
+                    master_path=str(silent),
+                    master_sha256=media_probe.sha256_of_file(silent),
+                    frame_count=int(media_probe.probe_streams(silent)["frame_count"] or 0),
+                ),
+                job_root=self.tmp,
+            )
+        self.assertIn("no audio stream", str(caught.exception))
 
-    def test_missing_audio_measurement_is_refused(self) -> None:
-        with self.assertRaises(ExecutionContractError):
-            verify_assembly_evidence(self.valid(audio={}))
+    def test_a_missing_evidence_field_is_refused(self) -> None:
+        document = self.evidence()
+        del document["frame_count"]
+        with self.assertRaises(ExecutionContractError) as caught:
+            verify_assembly_evidence(document, job_root=self.tmp)
+        self.assertIn("missing required evidence", str(caught.exception))
 
-    def test_a_non_positive_frame_count_is_refused(self) -> None:
-        with self.assertRaises(ExecutionContractError):
-            verify_assembly_evidence(self.valid(frame_count=0))
+    def test_an_evidence_path_outside_the_job_root_is_refused(self) -> None:
+        with self.assertRaises(ExecutionContractError) as caught:
+            verify_assembly_evidence(self.evidence(), job_root=self.tmp / "elsewhere")
+        self.assertIn("outside the job root", str(caught.exception))
 
     def test_a_non_object_is_refused(self) -> None:
         with self.assertRaises(ExecutionContractError):

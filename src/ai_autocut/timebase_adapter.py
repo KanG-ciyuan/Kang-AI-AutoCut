@@ -36,6 +36,7 @@ actually used the timebase" a testable property rather than a claim.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Iterable, Sequence
 
 from .timebase import (
@@ -344,6 +345,111 @@ class TimebaseAdapter:
             "duration_coordinate": "MEASURED_PTS",
         }
 
+    def resolve_placement_window(
+        self,
+        *,
+        placement_id: str,
+        source: str,
+        t_in_seconds: float,
+        duration_seconds: float,
+        analysis_fps: int | None = None,
+    ) -> dict[str, object]:
+        """Map a **measured** source time window onto the analysis grid.
+
+        This is the fix for the mismatch the inspector found. Validating a measured PTS
+        and then selecting frames with the producer's original frame index would be
+        cosmetic: the validated coordinate would not be the one used. So this does not
+        check a declared index — it *derives* the decoded frame range from the measured
+        timestamps, and returns the range the analysis must use.
+
+            SOURCE        = the measured PTS timestamp the caller states
+            ANALYSIS GRID = decoded frame indices resolved from that PTS, plus the
+                            explicit CFR frame count covering the same window
+            TIMELINE      = CFR frame grid
+
+        The returned ``source_in`` / ``source_out_exclusive`` are the authoritative
+        selection coordinates. A caller that selects with anything else is selecting
+        with an assumed frame rate.
+        """
+
+        timing = self.timing(source)
+        fps = int(analysis_fps or self.fps)
+        _non_empty(placement_id, "placement_id")
+        if duration_seconds is None or float(duration_seconds) <= 0:
+            raise TimebaseAdapterError(
+                f"placement {placement_id!r} must state a positive duration"
+            )
+        t_in = float(t_in_seconds)
+        if t_in < 0:
+            raise TimebaseAdapterError(f"placement {placement_id!r} starts before zero")
+        t_out = t_in + float(duration_seconds)
+        frame_span = 1.0 / fps
+        if t_out > timing.timestamps[-1] + frame_span + 1e-6:
+            raise TimebaseAdapterError(
+                f"placement {placement_id!r} ends at {t_out:.6f}s but {source} ends at "
+                f"{timing.timestamps[-1]:.6f}s"
+            )
+
+        epsilon = 1e-6
+        source_in = next(
+            (i for i, ts in enumerate(timing.timestamps) if ts >= t_in - epsilon),
+            None,
+        )
+        source_out_exclusive = next(
+            (
+                i
+                for i, ts in enumerate(timing.timestamps)
+                if ts >= t_out - epsilon and i > (source_in if source_in is not None else 0)
+            ),
+            None,
+        )
+        if source_out_exclusive is None and source_in is not None:
+            # A window that ends at (or within one frame of) the end of the source has
+            # no frame *starting* at t_out. The exclusive bound is then the end of the
+            # decoded stream, which is the honest answer rather than a refusal.
+            if t_out <= timing.timestamps[-1] + frame_span + 1e-6:
+                source_out_exclusive = len(timing.timestamps)
+        if source_in is None or source_out_exclusive is None:
+            raise TimebaseAdapterError(
+                f"placement {placement_id!r} window [{t_in:.6f}, {t_out:.6f}) does not "
+                f"contain a decodable frame range in {source}"
+            )
+        if source_out_exclusive <= source_in:
+            raise TimebaseAdapterError(
+                f"placement {placement_id!r} window [{t_in:.6f}, {t_out:.6f}) resolves "
+                "to an empty decoded frame range"
+            )
+
+        measured_in = round(timing.timestamp_of(source_in), 6)
+        if source_out_exclusive < timing.frame_count:
+            measured_out = round(timing.timestamp_of(source_out_exclusive), 6)
+        else:
+            step = timing.timestamps[-1] - timing.timestamps[-2]
+            measured_out = round(timing.timestamps[-1] + step, 6)
+        measured_duration = round(measured_out - measured_in, 6)
+        decoded_frames = source_out_exclusive - source_in
+        # The CFR frame count covering the same measured window. This is the analysis
+        # grid, and it is derived from measured time — never from index/fps.
+        analysis_frames = int(round(float(duration_seconds) * fps))
+        assumed_duration = round(decoded_frames / fps, 6)
+        return {
+            "placement_id": placement_id,
+            "source": source,
+            "coordinate_system": COORDINATE_SYSTEM,
+            "analysis_grid": "CFR_DERIVED_FROM_MEASURED_PTS",
+            "source_in": source_in,
+            "source_out_exclusive": source_out_exclusive,
+            "decoded_frames": decoded_frames,
+            "analysis_frames_cfr": analysis_frames,
+            "analysis_fps": fps,
+            "measured_t_in_seconds": measured_in,
+            "measured_t_out_seconds": measured_out,
+            "measured_duration_seconds": measured_duration,
+            "assumed_cfr_duration_seconds": assumed_duration,
+            "duration_delta_seconds": round(measured_duration - assumed_duration, 6),
+            "variable_frame_rate": timing.is_variable_frame_rate,
+        }
+
     # ---- execution -------------------------------------------------------------
 
     def execute(
@@ -355,6 +461,7 @@ class TimebaseAdapter:
             raise TimebaseAdapterError("resolution must be a SourceRangeResolution")
         _non_empty(out_path, "out_path")
         self.assert_safe(resolution)
+        Path(out_path).parent.mkdir(parents=True, exist_ok=True)
         try:
             produced = extract_timeline_frames(
                 resolution.source,

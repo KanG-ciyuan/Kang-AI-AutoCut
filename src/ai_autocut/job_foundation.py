@@ -213,6 +213,16 @@ class JobFoundation:
                 return stage
         return None
 
+    def save_state(self, state: Mapping[str, Any]) -> None:
+        """Persist a state document this object's owner has already modified.
+
+        The production fast path uses this to reflect an invalidation into the low-level
+        record. It is deliberately a method rather than a module-level private helper so
+        a caller can reconcile state without reaching into internals.
+        """
+
+        _write_json_atomic(self.state_path, state)
+
     def transition(self, stage: str, target: str, *, evidence: Mapping[str, Any] | None = None) -> None:
         if stage not in STAGE_ORDER or target not in STAGE_STATES:
             raise JobFoundationError("unknown stage or state")

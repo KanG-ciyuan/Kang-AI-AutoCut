@@ -21,7 +21,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Mapping
 
+from pathlib import Path
+
 from .intervention_ledger import INTERVENTION_KINDS
+from .media_probe import (
+    MediaProbeError,
+    count_black_frames,
+    count_duplicate_frames,
+    measure_loudness,
+    probe_streams,
+    resolve_media_path,
+    sha256_of_file,
+)
 from .producer_registry import PRODUCER_TYPES
 
 #: The four boundaries this registry governs.
@@ -205,11 +216,31 @@ def get_contract(name: str) -> ExecutionContract:
     return CONTRACT_BY_NAME[name]
 
 
-def verify_assembly_evidence(document: object) -> dict[str, object]:
-    """Check an assembly evidence document against the assemble_master contract.
+def _verify_assembly_evidence(
+    document: object,
+    *,
+    job_root: str | Path | None = None,
+    expected_frame_count: int | None = None,
+    loudness_target_lufs: float | None = None,
+    true_peak_ceiling_dbtp: float | None = None,
+) -> dict[str, object]:
+    """Verify the **actual master file**, not a claim about it.
 
-    A stage must not pass on a claim. This returns what was verified so the stage can
-    record it, and raises with the specific missing evidence otherwise.
+    Independent inspection found that this accepted a JSON document without opening
+    anything: a nonexistent path, a fabricated SHA256, a fabricated frame count and
+    fabricated audio measurements all passed. Every value below is now measured from the
+    bytes on disk, and every supplied value is reconciled against the measurement.
+
+    It refuses, in order:
+
+    * a missing or unreadable master
+    * a supplied ``master_sha256`` that does not match the recomputed digest
+    * a supplied ``frame_count`` that does not match the decoded count
+    * a decoded count that does not match an expected upstream count
+    * any black frame
+    * a freeze: three or more consecutive identical decoded frames
+    * a master with no audio stream, or with unmeasurable loudness
+    * clipping, per the project's accepted contract
     """
 
     if not isinstance(document, Mapping):
@@ -219,39 +250,139 @@ def verify_assembly_evidence(document: object) -> dict[str, object]:
         raise ExecutionContractError(
             "assembly evidence is missing required evidence: " + ", ".join(missing)
         )
+
+    path = resolve_media_path(document["master_path"], job_root=job_root)
+    if not path.is_file():
+        raise ExecutionContractError(f"assembly evidence names a master that does not exist: {path}")
+
+    supplied_sha = document["master_sha256"]
+    if not isinstance(supplied_sha, str) or len(supplied_sha) != 64:
+        raise ExecutionContractError(
+            "assembly evidence must carry a full 64-character sha256 of the master"
+        )
+    measured_sha = sha256_of_file(path)
+    if measured_sha != supplied_sha:
+        raise ExecutionContractError(
+            "the supplied master_sha256 does not match the file on disk "
+            f"(supplied {supplied_sha[:16]}..., measured {measured_sha[:16]}...)"
+        )
+
+    measured = probe_streams(path)
+    if not measured["has_audio"]:
+        raise ExecutionContractError("the master has no audio stream")
+
+    supplied_frames = document["frame_count"]
+    if not isinstance(supplied_frames, int) or isinstance(supplied_frames, bool) or supplied_frames <= 0:
+        raise ExecutionContractError("assembly evidence must state a positive frame count")
+    decoded_frames = measured["frame_count"]
+    if decoded_frames is None:
+        raise ExecutionContractError("the master's frame count could not be measured")
+    if decoded_frames != supplied_frames:
+        raise ExecutionContractError(
+            f"the supplied frame count {supplied_frames} does not match the decoded "
+            f"count {decoded_frames}"
+        )
+    if expected_frame_count is not None and decoded_frames != expected_frame_count:
+        raise ExecutionContractError(
+            f"the master holds {decoded_frames} frames but the upstream evidence "
+            f"expected {expected_frame_count}"
+        )
+
     method = document["method"]
     if method not in ("REMUX", "RE_ENCODE"):
         raise ExecutionContractError(
             f"assembly method {method!r} must be REMUX or RE_ENCODE"
         )
-    frame_count = document["frame_count"]
-    if not isinstance(frame_count, int) or isinstance(frame_count, bool) or frame_count <= 0:
-        raise ExecutionContractError("assembly evidence must state a positive frame count")
-    black = document["black_frames"]
-    if not isinstance(black, int) or isinstance(black, bool) or black < 0:
-        raise ExecutionContractError("assembly evidence must state a black-frame count")
-    if black > 0:
+
+    black_frames = count_black_frames(path)
+    if black_frames > 0:
         raise ExecutionContractError(
-            f"assembly evidence reports {black} black frame(s); a delivery master with a "
-            "black frame is a defect, not a pass"
+            f"the master contains {black_frames} black frame(s); a black frame is a "
+            "defect, not a pass"
         )
-    audio = document["audio"]
-    if not isinstance(audio, Mapping) or "integrated_lufs" not in audio:
+    duplicates = count_duplicate_frames(path)
+    if duplicates > 0:
+        raise ExecutionContractError(
+            f"the master contains {duplicates} frozen frame(s): three or more "
+            "consecutive identical decoded frames"
+        )
+
+    loudness = measure_loudness(path)
+    true_peak = loudness["true_peak_dbtp"]
+    sample_peak = loudness.get("sample_peak_dbfs")
+    if sample_peak is not None and sample_peak >= 0.0:
+        raise ExecutionContractError(
+            f"the master clips: sample peak {sample_peak:.2f} dBFS is at or above full scale"
+        )
+    if true_peak_ceiling_dbtp is not None and true_peak > true_peak_ceiling_dbtp:
+        raise ExecutionContractError(
+            f"true peak {true_peak:.2f} dBTP exceeds the ceiling "
+            f"{true_peak_ceiling_dbtp:.2f} dBTP"
+        )
+
+    claimed_audio = document["audio"]
+    if not isinstance(claimed_audio, Mapping) or "integrated_lufs" not in claimed_audio:
         raise ExecutionContractError(
             "assembly evidence must carry measured audio loudness (integrated_lufs)"
         )
-    sha = document["master_sha256"]
-    if not isinstance(sha, str) or len(sha) != 64:
+    if abs(float(claimed_audio["integrated_lufs"]) - loudness["integrated_lufs"]) > 0.5:
         raise ExecutionContractError(
-            "assembly evidence must carry a full 64-character sha256 of the master"
+            f"the supplied integrated loudness {float(claimed_audio['integrated_lufs']):.2f} "
+            f"does not match the measured {loudness['integrated_lufs']:.2f} LUFS"
         )
+    if loudness_target_lufs is not None and abs(
+        loudness["integrated_lufs"] - loudness_target_lufs
+    ) > 1.0:
+        raise ExecutionContractError(
+            f"measured loudness {loudness['integrated_lufs']:.2f} LUFS is more than 1 LU "
+            f"from the job's target {loudness_target_lufs:.2f} LUFS"
+        )
+
     return {
         "verified_contract": "assemble_master",
-        "frame_count": frame_count,
+        "master_path": str(path),
+        "master_sha256": measured_sha,
+        "frame_count": decoded_frames,
+        "fps": measured["fps"],
+        "width": measured["width"],
+        "height": measured["height"],
+        "duration_seconds": measured["duration_seconds"],
+        "video_codec": measured["video_codec"],
+        "audio_codec": measured["audio_codec"],
         "method": method,
-        "black_frames": black,
-        "integrated_lufs": float(audio["integrated_lufs"]),
+        "black_frames": black_frames,
+        "duplicate_frames": duplicates,
+        "integrated_lufs": loudness["integrated_lufs"],
+        "true_peak_dbtp": true_peak,
+        "sample_peak_dbfs": sample_peak,
+        "measured": True,
     }
+
+
+def verify_assembly_evidence(
+    document: object,
+    *,
+    job_root: str | Path | None = None,
+    expected_frame_count: int | None = None,
+    loudness_target_lufs: float | None = None,
+    true_peak_ceiling_dbtp: float | None = None,
+) -> dict[str, object]:
+    """Verify the actual master, converting any measurement failure into a contract result.
+
+    A missing tool, an unreadable file or a malformed path is a contract failure, not an
+    exception escaping to the caller.
+    """
+
+    try:
+        return _verify_assembly_evidence(
+            document,
+            job_root=job_root,
+            expected_frame_count=expected_frame_count,
+            loudness_target_lufs=loudness_target_lufs,
+            true_peak_ceiling_dbtp=true_peak_ceiling_dbtp,
+        )
+    except MediaProbeError as exc:
+        raise ExecutionContractError(f"the master could not be measured: {exc}") from exc
 
 
 def contracts_document() -> dict[str, object]:

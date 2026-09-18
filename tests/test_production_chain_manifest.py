@@ -51,7 +51,7 @@ class ManifestShapeTests(unittest.TestCase):
         self.assertTrue(MANIFEST_MD.is_file())
 
     def test_the_schema_is_the_corrected_revision(self) -> None:
-        self.assertEqual(self.manifest["schema_version"], "production_chain_manifest.v2")
+        self.assertEqual(self.manifest["schema_version"], "production_chain_manifest.v3")
 
     def test_every_row_carries_the_required_fields(self) -> None:
         required = {
@@ -163,11 +163,28 @@ class ManifestInvariantTests(unittest.TestCase):
                 producer = producer_registry.producer_for(row["producer"])
                 self.assertEqual(producer.producer_type, row["producer_type"])
 
-    def test_the_full_chain_is_not_claimed_completable(self) -> None:
-        """The honest headline: reproducible, but not completable without an adapter."""
+    def test_the_full_chain_claim_is_backed_by_a_runtime_proof(self) -> None:
+        """Completable is claimed only because a real master was produced and measured."""
 
-        self.assertFalse(self.manifest["full_chain_completable_today"])
-        self.assertIn("adapter", self.manifest["full_chain_blocker"])
+        self.assertTrue(self.manifest["full_chain_completable_today"])
+        proof = self.manifest["runtime_proof"]
+        self.assertEqual(proof["master_path"], "final/master.mp4")
+        self.assertIn("run_pre_exam_proof.py", proof["command"])
+        evidence = proof["evidence"]
+        self.assertGreater(evidence["frames"], 0)
+        self.assertEqual(evidence["black_frames"], 0)
+        self.assertEqual(evidence["duplicate_frames"], 0)
+
+    def test_readiness_requires_an_executor_and_reachability(self) -> None:
+        """The Phase 6 rule: no capability is ready on implementation alone."""
+
+        for row in self.rows:
+            if not row["third_sku_ready"]:
+                continue
+            with self.subTest(capability=row["capability"]):
+                self.assertTrue(row["dimensions"]["EXECUTOR_AVAILABLE"])
+                self.assertTrue(row["dimensions"]["END_TO_END_REACHABLE"])
+                self.assertIsNotNone(row["producer"])
 
 
 class ManifestAccuracyTests(unittest.TestCase):
@@ -200,17 +217,35 @@ class ManifestAccuracyTests(unittest.TestCase):
     def test_unbuilt_capabilities_are_not_marked_ready(self) -> None:
         not_ready = {row["capability"] for row in self.rows if not row["third_sku_ready"]}
         for capability in (
-            "packaging, encode/remux, final master",
-            "typography execution",
-            "picture execution",
-            "audio rendering and mixing",
             "automated commercial reviewer",
             "semantic / action grouping",
             "material capacity estimation",
             "spoken duration validation",
+            "typography policy validation",
+            "audio plan contract",
+            "executable timeline contract",
+            "material and candidate identity",
+            "read-only picture measurement",
+            "product authenticity protection",
         ):
             with self.subTest(capability=capability):
                 self.assertIn(capability, not_ready)
+
+    def test_the_four_execution_boundaries_are_ready_and_runtime_proven(self) -> None:
+        """Phase 6: these four are ready because the chain produced and verified output."""
+
+        for capability in (
+            "picture execution",
+            "typography execution",
+            "audio rendering and mixing",
+            "packaging, encode/remux, final master",
+        ):
+            with self.subTest(capability=capability):
+                row = next(r for r in self.rows if r["capability"] == capability)
+                self.assertTrue(row["third_sku_ready"])
+                self.assertTrue(row["dimensions"]["EXECUTOR_AVAILABLE"])
+                self.assertTrue(row["dimensions"]["END_TO_END_REACHABLE"])
+                self.assertIn("Runtime-proven", row["notes"])
 
     def test_implemented_alone_does_not_imply_reachable(self) -> None:
         """The specific Phase 2B error, guarded by construction."""
@@ -236,12 +271,17 @@ class ManifestAccuracyTests(unittest.TestCase):
                 self.assertIn(name, notes)
 
     def test_the_manifest_agrees_with_the_producer_registry(self) -> None:
-        gated = set(producer_registry.REQUIRED_INPUT_ARTIFACTS)
+        known = set(producer_registry.REQUIRED_INPUT_ARTIFACTS) | set(
+            producer_registry.AUTO_ARTIFACTS
+        )
         named = {row["producer"] for row in self.rows if row["producer"]}
         self.assertTrue(
-            named <= gated,
-            f"manifest names producers the registry does not know: {sorted(named - gated)}",
+            named <= known,
+            f"manifest names producers the registry does not know: {sorted(named - known)}",
         )
+        for artifact in named:
+            with self.subTest(artifact=artifact):
+                producer_registry.producer_for(artifact)
 
 
 if __name__ == "__main__":
