@@ -106,15 +106,23 @@ CONTRACTS: tuple[ExecutionContract, ...] = (
         producer_type="ADAPTER",
         producer_id="picture-execution-adapter",
         required_input=("editing plan", "measured picture decisions"),
-        expected_output="a corrected/rebuilt picture pass, or an explicit no-correction decision",
+        expected_output=(
+            "a corrected/rebuilt picture pass, or an explicit no-correction decision; every "
+            "unit carries the geometry it requested and the geometry that was applied"
+        ),
         output_evidence=(
             "the decision per shot (KEEP / REVIEW / CORRECT)",
             "for any CORRECT: the measured before and after, and the product-protection outcome",
+            "per unit: requested geometry mode, applied geometry mode, requested and applied "
+            "crop rectangle, source and output geometry, and the frame count",
         ),
         procedure=(
             "Read-only measurement runs first. A correction is only authorised where product "
             "protection passed and the measured difference crossed the reporting level. Where no "
-            "reliable product region exists, the shot stays KEEP or REVIEW — never CORRECT."
+            "reliable product region exists, the shot stays KEEP or REVIEW — never CORRECT. Each "
+            "unit states its own geometry: FIT scales preserving aspect and pads, CROP takes an "
+            "explicit source rectangle and scales it to the output. A crop is never inferred, "
+            "never adjusted, and never silently replaced by a fit; an invalid one is refused."
         ),
         validation="picture_decision.decide_shot and product_protection.assess_protection",
         resume_condition="a picture pass artifact exists and its decisions were produced by the validators above",

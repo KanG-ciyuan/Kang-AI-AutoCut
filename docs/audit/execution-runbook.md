@@ -46,13 +46,40 @@ job's art direction applied to another.
 ### `picture` — `picture/picture_request.json`
 
 ```json
-{"source": "<path>", "width": 540, "height": 960, "fps": 30,
- "units": [{"unit_id": "U01", "t_in_seconds": 0.0, "frames": 45}]}
+{"source": "<path>", "width": 1080, "height": 1920, "fps": 30,
+ "units": [{"unit_id": "U01", "t_in_seconds": 0.0, "frames": 45,
+            "geometry": {"mode": "FIT"}}]}
 ```
 
 Writes `picture/picture_master.mp4`. If the fast path already extracted a unit to
 `picture/ranges/<unit_id>.mp4`, that unit is reused rather than extracted twice, so there
 is exactly one execution path.
+
+**Per-unit geometry.** Each unit states its own geometry:
+
+```json
+{"unit_id": "U02", "t_in_seconds": 1.966667, "frames": 110,
+ "geometry": {"mode": "CROP",
+              "crop_rect": {"x": 135, "y": 0, "width": 810, "height": 1440},
+              "confidence": "HIGH",
+              "evidence_ref": "job/recon/framing_evidence.json"}}
+```
+
+- `FIT` scales preserving the aspect ratio and pads to `width`/`height`. It is the
+  historical behaviour and remains the behaviour of a unit that declares **no** `geometry`
+  at all, so every earlier request keeps working unchanged.
+- `CROP` takes exactly the stated source rectangle and scales it to `width`/`height`.
+  Nothing is padded, nothing is inferred and nothing is adjusted. `crop_rect` is required;
+  it must be integer, lie inside the measured source frame, have an even width and height,
+  and match the output aspect ratio. An invalid crop is **refused** — a `CROP` is never
+  silently converted into a `FIT`.
+
+`confidence` and `evidence_ref` are optional provenance for a geometry decision. This
+executor **executes** a geometry decision; it never invents one, and it ships no
+automatic framing of any kind.
+
+Every unit's requested and applied geometry is recorded in the returned evidence and in
+`picture/picture_finishing.json`.
 
 ### `typography` — `typography/typography_request.json`
 

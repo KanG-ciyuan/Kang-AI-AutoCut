@@ -104,6 +104,255 @@ def _require_tools() -> None:
 # ---------------------------------------------------------------------------
 
 
+#: The geometry modes a picture unit may request.
+#:
+#: ``FIT``   scale preserving the aspect ratio, then pad to the output geometry. This is
+#:           the historical behaviour and it remains the behaviour of a unit that declares
+#:           no geometry at all, so every pre-existing request behaves exactly as before.
+#: ``CROP``  take an explicitly stated source rectangle and scale it to the output
+#:           geometry. Nothing is padded, nothing is inferred, nothing is adjusted.
+GEOMETRY_MODES = ("FIT", "CROP")
+
+#: How a unit came to have its geometry, recorded so an implicit default can never be
+#: mistaken for a stated decision.
+GEOMETRY_DECLARATIONS = ("EXPLICIT", "ABSENT_DEFAULT_FIT")
+
+
+@dataclass(frozen=True)
+class CropRect:
+    """An explicit source rectangle, in source pixels.
+
+    There is no snapping and no rounding: either the stated rectangle is applied exactly,
+    or the request is refused. A silently adjusted crop is a different shot.
+    """
+
+    x: int
+    y: int
+    width: int
+    height: int
+
+    def __post_init__(self) -> None:
+        for name in ("x", "y", "width", "height"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise ExecutionAdapterError(
+                    f"crop_rect.{name} must be an integer, got {value!r}"
+                )
+        if self.x < 0 or self.y < 0:
+            raise ExecutionAdapterError("crop_rect x and y must not be negative")
+        if self.width < 2 or self.height < 2:
+            raise ExecutionAdapterError(
+                "crop_rect width and height must each be at least 2 pixels"
+            )
+        if self.width % 2 or self.height % 2:
+            raise ExecutionAdapterError(
+                f"crop_rect {self.width}x{self.height} must have an even width and height: "
+                "the delivery pixel format is yuv420p, which is chroma subsampled"
+            )
+
+    def as_dict(self) -> dict[str, int]:
+        return {"x": self.x, "y": self.y, "width": self.width, "height": self.height}
+
+    def geometry_filter(self) -> str:
+        """The crop half of the filter chain. Emitted verbatim, never adjusted."""
+
+        return f"crop={self.width}:{self.height}:{self.x}:{self.y}"
+
+
+def fit_geometry_filter(width: int, height: int) -> str:
+    """The historical FIT chain, byte-for-byte the pre-repair behaviour."""
+
+    return (
+        f"scale={width}:{height}:force_original_aspect_ratio=decrease,"
+        f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2"
+    )
+
+
+@dataclass(frozen=True)
+class UnitGeometry:
+    """What geometry one unit requested, and what was actually applied.
+
+    ``requested`` and ``applied`` are recorded separately on purpose. No path in this
+    module alters a requested rectangle or falls back to a fit, so the two are always
+    equal — and the evidence proves that rather than asserting it.
+    """
+
+    unit_id: str
+    requested_mode: str
+    applied_mode: str
+    requested_crop_rect: Mapping[str, int] | None
+    applied_crop_rect: Mapping[str, int] | None
+    geometry_filter: str
+    declaration: str
+    confidence: str | None = None
+    evidence_ref: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.requested_mode not in GEOMETRY_MODES:
+            raise ExecutionAdapterError(f"unknown requested mode {self.requested_mode!r}")
+        if self.applied_mode not in GEOMETRY_MODES:
+            raise ExecutionAdapterError(f"unknown applied mode {self.applied_mode!r}")
+        if self.declaration not in GEOMETRY_DECLARATIONS:
+            raise ExecutionAdapterError(f"unknown declaration {self.declaration!r}")
+
+    def as_dict(
+        self,
+        *,
+        source_width: int,
+        source_height: int,
+        output_width: int,
+        output_height: int,
+        frame_count: int,
+    ) -> dict[str, Any]:
+        return {
+            "unit_id": self.unit_id,
+            "geometry_declaration": self.declaration,
+            "requested_geometry_mode": self.requested_mode,
+            "applied_geometry_mode": self.applied_mode,
+            "requested_crop_rect": (
+                None if self.requested_crop_rect is None else dict(self.requested_crop_rect)
+            ),
+            "applied_crop_rect": (
+                None if self.applied_crop_rect is None else dict(self.applied_crop_rect)
+            ),
+            "source_width": source_width,
+            "source_height": source_height,
+            "output_width": output_width,
+            "output_height": output_height,
+            "frame_count": frame_count,
+            "geometry_filter": self.geometry_filter,
+            "confidence": self.confidence,
+            "evidence_ref": self.evidence_ref,
+        }
+
+
+def resolve_unit_geometry(
+    unit: Mapping[str, Any],
+    *,
+    unit_id: str,
+    source_width: int,
+    source_height: int,
+    output_width: int,
+    output_height: int,
+) -> UnitGeometry:
+    """Resolve one unit's explicit geometry, or refuse the request.
+
+    The rules, in full:
+
+    * no ``geometry`` key  -> ``FIT``, recorded as ``ABSENT_DEFAULT_FIT``. This is what
+      makes every pre-existing request behave exactly as it did before.
+    * mode ``FIT``         -> ``FIT``. A ``FIT`` unit must not also carry a crop
+      rectangle, because the two statements contradict each other.
+    * mode ``CROP``        -> ``CROP``, and a ``crop_rect`` is required. A crop is never
+      inferred and never guessed.
+    * the rectangle must have integer ``x``, ``y``, ``width``, ``height``, lie entirely
+      inside the measured source frame, and have the same aspect ratio as the output. A
+      mismatched rectangle would be distorted by the scale step, so it is refused
+      instead. **A CROP is never silently turned into a FIT.**
+    """
+
+    declared = unit.get("geometry")
+    if declared is None:
+        return UnitGeometry(
+            unit_id=unit_id,
+            requested_mode="FIT",
+            applied_mode="FIT",
+            requested_crop_rect=None,
+            applied_crop_rect=None,
+            geometry_filter=fit_geometry_filter(output_width, output_height),
+            declaration="ABSENT_DEFAULT_FIT",
+        )
+
+    if not isinstance(declared, Mapping):
+        raise ExecutionAdapterError(
+            f"unit {unit_id!r} geometry must be a JSON object, got {type(declared).__name__}"
+        )
+
+    raw_mode = declared.get("mode")
+    if not isinstance(raw_mode, str) or not raw_mode.strip():
+        raise ExecutionAdapterError(
+            f"unit {unit_id!r} geometry must state a mode; one of: "
+            + ", ".join(GEOMETRY_MODES)
+        )
+    mode = raw_mode.strip().upper()
+    if mode not in GEOMETRY_MODES:
+        raise ExecutionAdapterError(
+            f"unit {unit_id!r} geometry mode {raw_mode!r} is not one of: "
+            + ", ".join(GEOMETRY_MODES)
+        )
+
+    raw_confidence = declared.get("confidence")
+    confidence = None if raw_confidence is None else str(raw_confidence)
+    raw_evidence_ref = declared.get("evidence_ref")
+    evidence_ref = None if raw_evidence_ref is None else str(raw_evidence_ref)
+
+    if mode == "FIT":
+        if declared.get("crop_rect") is not None:
+            raise ExecutionAdapterError(
+                f"unit {unit_id!r} declares mode FIT and also a crop_rect; a FIT unit must "
+                "not carry a crop rectangle. State CROP to crop, or drop the rectangle."
+            )
+        return UnitGeometry(
+            unit_id=unit_id,
+            requested_mode="FIT",
+            applied_mode="FIT",
+            requested_crop_rect=None,
+            applied_crop_rect=None,
+            geometry_filter=fit_geometry_filter(output_width, output_height),
+            declaration="EXPLICIT",
+            confidence=confidence,
+            evidence_ref=evidence_ref,
+        )
+
+    # mode == "CROP"
+    raw_rect = declared.get("crop_rect")
+    if raw_rect is None:
+        raise ExecutionAdapterError(
+            f"unit {unit_id!r} declares mode CROP but carries no crop_rect; a crop "
+            "rectangle cannot be inferred and will not be guessed"
+        )
+    if not isinstance(raw_rect, Mapping):
+        raise ExecutionAdapterError(
+            f"unit {unit_id!r} crop_rect must be a JSON object, got "
+            f"{type(raw_rect).__name__}"
+        )
+    missing = [key for key in ("x", "y", "width", "height") if key not in raw_rect]
+    if missing:
+        raise ExecutionAdapterError(
+            f"unit {unit_id!r} crop_rect is missing: " + ", ".join(missing)
+        )
+
+    requested = {key: raw_rect[key] for key in ("x", "y", "width", "height")}
+    rect = CropRect(**requested)  # type: ignore[arg-type]
+
+    if rect.x + rect.width > source_width or rect.y + rect.height > source_height:
+        raise ExecutionAdapterError(
+            f"unit {unit_id!r} crop_rect {rect.as_dict()} lies outside the measured "
+            f"{source_width}x{source_height} source frame"
+        )
+
+    # Exact integer cross-multiplication: no tolerance and no float drift.
+    if rect.width * output_height != rect.height * output_width:
+        raise ExecutionAdapterError(
+            f"unit {unit_id!r} crop_rect is {rect.width}x{rect.height}, which is not the "
+            f"{output_width}:{output_height} output aspect. A CROP is never silently "
+            "converted to a FIT, and scaling a mismatched rectangle would distort the "
+            "picture. Crop to the output aspect, or request FIT."
+        )
+
+    return UnitGeometry(
+        unit_id=unit_id,
+        requested_mode="CROP",
+        applied_mode="CROP",
+        requested_crop_rect=requested,
+        applied_crop_rect=rect.as_dict(),
+        geometry_filter=rect.geometry_filter() + f",scale={output_width}:{output_height}",
+        declaration="EXPLICIT",
+        confidence=confidence,
+        evidence_ref=evidence_ref,
+    )
+
+
 @dataclass(frozen=True)
 class PictureResult:
     path: str
@@ -115,6 +364,7 @@ class PictureResult:
     units_executed: tuple[str, ...]
     units_reused: tuple[str, ...]
     coordinate_system: str
+    unit_geometry: tuple[Mapping[str, Any], ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -128,6 +378,7 @@ class PictureResult:
             "units_executed": list(self.units_executed),
             "units_reused": list(self.units_reused),
             "coordinate_system": self.coordinate_system,
+            "unit_geometry": [dict(entry) for entry in self.unit_geometry],
             "measured": True,
         }
 
@@ -138,6 +389,12 @@ def execute_picture(job_root: Path | str, *, timebase: TimebaseAdapter | None = 
     Every range is resolved from a **measured timestamp**; a range that addresses the
     source by frame index is resolved through the measured PTS table. Nothing here
     divides a source frame index by a frame rate.
+
+    Each unit's geometry is taken from its own explicit ``geometry`` declaration. A unit
+    that declares nothing is fitted, exactly as before. A unit that declares ``CROP`` is
+    cropped to its stated rectangle and scaled to the output geometry; an invalid crop is
+    refused rather than repaired, so the executor can never quietly substitute a fit for a
+    crop. The resolved geometry of every unit is recorded in the returned evidence.
     """
 
     _require_tools()
@@ -153,6 +410,7 @@ def execute_picture(job_root: Path | str, *, timebase: TimebaseAdapter | None = 
     pieces: list[Path] = []
     executed: list[str] = []
     reused: list[str] = []
+    geometry_evidence: list[Mapping[str, Any]] = []
     for unit in request["units"]:
         unit_id = str(unit["unit_id"])
         frames = int(unit["frames"])
@@ -182,17 +440,39 @@ def execute_picture(job_root: Path | str, *, timebase: TimebaseAdapter | None = 
             out = work / f"{unit_id}.mp4"
             adapter.execute(resolution, str(out))
             adapter.verify_frames(adapter.ledger[-1])
-        # Normalise geometry so the units can be joined deterministically.
+
+        # The crop rectangle is validated against the MEASURED source geometry of the
+        # file that is actually about to be cropped, never against an assumed one.
+        source_probe = media_probe.probe_streams(out)
+        geometry = resolve_unit_geometry(
+            unit,
+            unit_id=unit_id,
+            source_width=int(source_probe["width"]),
+            source_height=int(source_probe["height"]),
+            output_width=width,
+            output_height=height,
+        )
+
+        # Apply the resolved geometry so the units can be joined deterministically.
         normalised = work / f"{unit_id}-norm.mp4"
         _run(
             [
                 "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(out),
-                "-vf", f"scale={width}:{height}:force_original_aspect_ratio=decrease,"
-                       f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={fps}",
+                "-vf", f"{geometry.geometry_filter},setsar=1,fps={fps}",
                 "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
                 "-pix_fmt", "yuv420p", "-an", str(normalised),
             ],
             f"normalising unit {unit_id}",
+        )
+        produced = media_probe.probe_streams(normalised)
+        geometry_evidence.append(
+            geometry.as_dict(
+                source_width=int(source_probe["width"]),
+                source_height=int(source_probe["height"]),
+                output_width=int(produced["width"]),
+                output_height=int(produced["height"]),
+                frame_count=int(produced["frame_count"] or 0),
+            )
         )
         pieces.append(normalised)
         executed.append(unit_id)
@@ -222,6 +502,7 @@ def execute_picture(job_root: Path | str, *, timebase: TimebaseAdapter | None = 
         units_executed=tuple(executed),
         units_reused=tuple(reused),
         coordinate_system="SOURCE_PTS_SECONDS -> CFR_TIMELINE_FRAMES",
+        unit_geometry=tuple(geometry_evidence),
     ).as_dict()
 
 
@@ -562,14 +843,20 @@ __all__ = [
     "ASSEMBLY_EVIDENCE",
     "AUDIO_REQUEST",
     "BOUNDARIES",
+    "CropRect",
     "ExecutionAdapterError",
+    "GEOMETRY_DECLARATIONS",
+    "GEOMETRY_MODES",
     "PICTURE_REQUEST",
     "PictureResult",
     "RUNNERS",
     "TYPOGRAPHY_REQUEST",
+    "UnitGeometry",
     "assemble_master",
     "execute_audio",
     "execute_picture",
     "execute_typography",
+    "fit_geometry_filter",
     "main",
+    "resolve_unit_geometry",
 ]

@@ -274,13 +274,17 @@ PRODUCERS = (
         producer_id="picture-execution-adapter",
         required_inputs=("edit/editing_plan.json",),
         output_contract=(
-            "picture_request.v1 (source, units[unit_id,t_in_seconds|source_frame_index,frames], "
-            "width, height, fps)"
+            "picture_request.v1 (source, units[unit_id,t_in_seconds|source_frame_index,frames, "
+            "geometry?], width, height, fps); geometry is optional per unit and is "
+            "{mode: FIT} or {mode: CROP, crop_rect:{x,y,width,height}, confidence?, "
+            "evidence_ref?}; an absent geometry means FIT"
         ),
         validated_by="execution_adapters.execute_picture",
         evidence=(
             "every unit resolved from a measured timestamp and executed through the timebase adapter",
             "a real video file with measured frame count, geometry and sha256",
+            "per unit: requested and applied geometry mode, requested and applied crop "
+            "rectangle, source and output geometry, and the frame count",
         ),
         intervention_kind="SUPERVISOR_DECISIONS",
         resume_condition="the picture adapter produced a real video artifact whose measurements were taken from the file",
