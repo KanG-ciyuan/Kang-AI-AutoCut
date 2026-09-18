@@ -168,6 +168,35 @@ def fit_geometry_filter(width: int, height: int) -> str:
     )
 
 
+def picture_output_paths(root: Path | str) -> tuple[Path, Path]:
+    """The two official picture outputs: the master, and the normalised-units directory."""
+
+    picture_dir = Path(root) / "picture"
+    return picture_dir / "picture_master.mp4", picture_dir / "units"
+
+
+def _discard_picture_outputs(root: Path | str) -> tuple[str, ...]:
+    """Withdraw every output a caller could read as a successful picture run.
+
+    Called twice: once before an attempt begins, so an earlier success cannot be mistaken
+    for this run's result, and once if the attempt fails, so a partial attempt leaves
+    nothing behind. ``picture/ranges/`` is deliberately untouched — those are the job's
+    source ranges, the *input* to picture execution, derived from the locked plan and
+    unaffected by a geometry failure.
+    """
+
+    master, units_dir = picture_output_paths(root)
+    removed: list[str] = []
+    if master.is_file():
+        master.unlink()
+        removed.append(str(master))
+    if units_dir.is_dir():
+        for stale in sorted(units_dir.glob("*-norm.mp4")):
+            stale.unlink()
+            removed.append(str(stale))
+    return tuple(removed)
+
+
 @dataclass(frozen=True)
 class UnitGeometry:
     """What geometry one unit requested, and what was actually applied.
@@ -399,106 +428,136 @@ def execute_picture(job_root: Path | str, *, timebase: TimebaseAdapter | None = 
 
     _require_tools()
     root = Path(job_root)
+    picture_dir = root / "picture"
+    work = picture_dir / "units"
+    work.mkdir(parents=True, exist_ok=True)
+
+    # No output from an earlier run may survive into this attempt. A caller that finds
+    # picture_master.mp4 after a failed run would be reading a success this run did not
+    # produce, so the authoritative outputs are withdrawn before anything can fail.
+    _discard_picture_outputs(root)
+
     request = _read(root, PICTURE_REQUEST, "picture request")
     _require(request, ("source", "units", "width", "height", "fps"), "picture request")
 
     adapter = timebase or TimebaseAdapter(fps=int(request["fps"]))
     width, height, fps = int(request["width"]), int(request["height"]), int(request["fps"])
-    work = root / "picture" / "units"
-    work.mkdir(parents=True, exist_ok=True)
+    official_master = picture_dir / "picture_master.mp4"
 
-    pieces: list[Path] = []
-    executed: list[str] = []
-    reused: list[str] = []
-    geometry_evidence: list[Mapping[str, Any]] = []
-    for unit in request["units"]:
-        unit_id = str(unit["unit_id"])
-        frames = int(unit["frames"])
-        # The production fast path extracts each declared source range through the
-        # timebase adapter during its own stage, and asserts coverage. When that has
-        # already happened this adapter reuses the extracted unit rather than
-        # extracting it a second time, so there is exactly one execution path.
-        existing = root / "picture" / "ranges" / f"{unit_id}.mp4"
-        if existing.is_file():
-            out = existing
-            reused.append(unit_id)
-        else:
-            if unit.get("t_in_seconds") is not None:
-                resolution = adapter.resolve_from_seconds(
-                    unit_id=unit_id, source=str(request["source"]),
-                    t_in_seconds=float(unit["t_in_seconds"]), frames=frames,
-                )
-            elif unit.get("source_frame_index") is not None:
-                resolution = adapter.resolve_from_source_index(
-                    unit_id=unit_id, source=str(request["source"]),
-                    source_frame_index=int(unit["source_frame_index"]), frames=frames,
-                )
+    # Units and the master are built in a private staging directory and promoted only
+    # once the WHOLE request has succeeded, so a partial attempt never reaches an
+    # official path. This is deliberately not a transaction framework: one temporary
+    # directory, and four lines of promotion, inside one function.
+    staging = Path(tempfile.mkdtemp(prefix=".staging-", dir=str(picture_dir)))
+    try:
+        pieces: list[Path] = []
+        executed: list[str] = []
+        reused: list[str] = []
+        geometry_evidence: list[Mapping[str, Any]] = []
+        for unit in request["units"]:
+            unit_id = str(unit["unit_id"])
+            frames = int(unit["frames"])
+            # The production fast path extracts each declared source range through the
+            # timebase adapter during its own stage, and asserts coverage. When that has
+            # already happened this adapter reuses the extracted unit rather than
+            # extracting it a second time, so there is exactly one execution path.
+            existing = picture_dir / "ranges" / f"{unit_id}.mp4"
+            if existing.is_file():
+                out = existing
+                reused.append(unit_id)
             else:
-                raise ExecutionAdapterError(
-                    f"unit {unit_id!r} states neither t_in_seconds nor source_frame_index"
-                )
-            out = work / f"{unit_id}.mp4"
-            adapter.execute(resolution, str(out))
-            adapter.verify_frames(adapter.ledger[-1])
+                if unit.get("t_in_seconds") is not None:
+                    resolution = adapter.resolve_from_seconds(
+                        unit_id=unit_id, source=str(request["source"]),
+                        t_in_seconds=float(unit["t_in_seconds"]), frames=frames,
+                    )
+                elif unit.get("source_frame_index") is not None:
+                    resolution = adapter.resolve_from_source_index(
+                        unit_id=unit_id, source=str(request["source"]),
+                        source_frame_index=int(unit["source_frame_index"]), frames=frames,
+                    )
+                else:
+                    raise ExecutionAdapterError(
+                        f"unit {unit_id!r} states neither t_in_seconds nor source_frame_index"
+                    )
+                out = work / f"{unit_id}.mp4"
+                adapter.execute(resolution, str(out))
+                adapter.verify_frames(adapter.ledger[-1])
 
-        # The crop rectangle is validated against the MEASURED source geometry of the
-        # file that is actually about to be cropped, never against an assumed one.
-        source_probe = media_probe.probe_streams(out)
-        geometry = resolve_unit_geometry(
-            unit,
-            unit_id=unit_id,
-            source_width=int(source_probe["width"]),
-            source_height=int(source_probe["height"]),
-            output_width=width,
-            output_height=height,
-        )
-
-        # Apply the resolved geometry so the units can be joined deterministically.
-        normalised = work / f"{unit_id}-norm.mp4"
-        _run(
-            [
-                "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(out),
-                "-vf", f"{geometry.geometry_filter},setsar=1,fps={fps}",
-                "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
-                "-pix_fmt", "yuv420p", "-an", str(normalised),
-            ],
-            f"normalising unit {unit_id}",
-        )
-        produced = media_probe.probe_streams(normalised)
-        geometry_evidence.append(
-            geometry.as_dict(
+            # The crop rectangle is validated against the MEASURED source geometry of the
+            # file that is actually about to be cropped, never against an assumed one.
+            source_probe = media_probe.probe_streams(out)
+            geometry = resolve_unit_geometry(
+                unit,
+                unit_id=unit_id,
                 source_width=int(source_probe["width"]),
                 source_height=int(source_probe["height"]),
-                output_width=int(produced["width"]),
-                output_height=int(produced["height"]),
-                frame_count=int(produced["frame_count"] or 0),
+                output_width=width,
+                output_height=height,
             )
-        )
-        pieces.append(normalised)
-        executed.append(unit_id)
-    adapter.assert_range_coverage(executed)
 
-    listing = work / "concat.txt"
-    listing.write_text(
-        "".join(f"file '{piece.resolve()}'\n" for piece in pieces), encoding="utf-8"
-    )
-    out_path = root / "picture" / "picture_master.mp4"
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    _run(
-        [
-            "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "concat",
-            "-safe", "0", "-i", str(listing), "-c", "copy", str(out_path),
-        ],
-        "joining picture units",
-    )
-    measured = media_probe.probe_streams(out_path)
+            # Apply the resolved geometry so the units can be joined deterministically.
+            normalised = staging / f"{unit_id}-norm.mp4"
+            _run(
+                [
+                    "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(out),
+                    "-vf", f"{geometry.geometry_filter},setsar=1,fps={fps}",
+                    "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+                    "-pix_fmt", "yuv420p", "-an", str(normalised),
+                ],
+                f"normalising unit {unit_id}",
+            )
+            produced = media_probe.probe_streams(normalised)
+            geometry_evidence.append(
+                geometry.as_dict(
+                    source_width=int(source_probe["width"]),
+                    source_height=int(source_probe["height"]),
+                    output_width=int(produced["width"]),
+                    output_height=int(produced["height"]),
+                    frame_count=int(produced["frame_count"] or 0),
+                )
+            )
+            pieces.append(normalised)
+            executed.append(unit_id)
+        adapter.assert_range_coverage(executed)
+
+        listing = staging / "concat.txt"
+        listing.write_text(
+            "".join(f"file '{piece.resolve()}'\n" for piece in pieces), encoding="utf-8"
+        )
+        staged_master = staging / "picture_master.mp4"
+        _run(
+            [
+                "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "concat",
+                "-safe", "0", "-i", str(listing), "-c", "copy", str(staged_master),
+            ],
+            "joining picture units",
+        )
+
+        # Validate the finished artifact BEFORE promoting it, so a master that cannot be
+        # measured never reaches an official path.
+        measured = media_probe.probe_streams(staged_master)
+        digest = media_probe.sha256_of_file(staged_master)
+
+        # Promote. Units first and the master last, so the master's presence implies that
+        # every unit it was built from is already in place.
+        for unit_id in executed:
+            os.replace(staging / f"{unit_id}-norm.mp4", work / f"{unit_id}-norm.mp4")
+        os.replace(staged_master, official_master)
+    except BaseException:
+        # Any failure at all leaves no output readable as this run's success.
+        _discard_picture_outputs(root)
+        raise
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+
     return PictureResult(
-        path=str(out_path.relative_to(root)),
+        path=str(official_master.relative_to(root)),
         frame_count=int(measured["frame_count"] or 0),
         fps=float(measured["fps"]),
         width=int(measured["width"]),
         height=int(measured["height"]),
-        sha256=media_probe.sha256_of_file(out_path),
+        sha256=digest,
         units_executed=tuple(executed),
         units_reused=tuple(reused),
         coordinate_system="SOURCE_PTS_SECONDS -> CFR_TIMELINE_FRAMES",
