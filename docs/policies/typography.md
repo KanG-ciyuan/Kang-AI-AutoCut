@@ -67,10 +67,24 @@ dyed one colour.
 | Policy | **VALIDATED** — `src/ai_autocut/typography.py` |
 | Schema | `schemas/typography/typography_policy.v0.schema.json` |
 | Automatic shot-aware placement | **NOT_IMPLEMENTED** |
+| Execution boundary | **IMPLEMENTED** — `src/ai_autocut/typography_adapter.py` |
+| Job-scoped rendering | **IMPLEMENTED** — `src/ai_autocut/execution_adapters.py` |
 
-`POLICY_VALIDATED_IMPLEMENTATION_PENDING` is the recorded status, and
-`typography.assert_placement_implemented` raises rather than returning
-positions. No module here analyses an image or renders text.
+`POLICY_VALIDATED_IMPLEMENTATION_PENDING` is the recorded status of the policy
+module, and `typography.assert_placement_implemented` raises rather than returning
+positions. `typography.py` itself neither analyses an image nor renders text, and
+that remains true.
+
+What does exist is an explicit execution boundary. `typography_adapter` defines
+`TypographyRequest`, `TypographyResult` and a structural `TypographyExecutor`
+protocol, and `execution_adapters.execute_typography` renders a job's screen copy
+with Pillow and composites it with FFmpeg.
+
+**This is not a generic typography engine, and it does not perform shot-aware
+placement.** The adapter ships no default layout and no default font: `layout` and
+`font_stack` are required fields, so a job that does not state its own art
+direction cannot be rendered, and one job's geometry cannot become another's. There
+is no screen-copy hierarchy planner and no product-obstruction validation.
 
 The policy is the part that survived real review; the solver is future work, and
 the two are kept visibly separate.

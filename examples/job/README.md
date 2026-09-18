@@ -1,20 +1,23 @@
 # Example Job
 
 ```
-EXAMPLE ONLY
-Pipeline Runner: NOT_IMPLEMENTED
+ILLUSTRATIVE SHAPE — NOT CONSUMED BY ANY CODE
 ```
 
-`example_job.json` shows the **shape** of a job request: what a supervisor would
-need to state before production could begin.
+`example_job.json` shows the **shape** of a job request as it was imagined before
+the production control path existed: what a supervisor might state before
+production begins.
 
-**Nothing consumes this file.** There is no stage runner, no job state machine,
-and no command that turns a job manifest into a finished video. Given raw media,
-product information, a platform, a language, and a target duration, this system
-cannot yet produce a final MP4 in one command.
+**Nothing consumes this file.** It is not the job manifest the system writes, and
+no code reads it. The real manifests are `job_manifest.v2` (generic jobs) and
+`filter_job.v1` (the historical Filter job), both written by
+`src/ai_autocut/job_foundation.py` during initialization.
 
-The example exists to define the interface boundary that a future pipeline will
-implement — not to imply that the pipeline is implemented.
+This file is retained as a record of the interface as originally conceived. It is
+**not** the current contract, and it should not be treated as one. For the current
+picture see the production control path in `src/ai_autocut/fast_path.py`, the
+artifact producer registry in `src/ai_autocut/producer_registry.py`, and
+`docs/audit/execution-runbook.md`.
 
 ## What it describes
 
@@ -41,10 +44,14 @@ implement — not to imply that the pipeline is implemented.
 
 | Part | Status |
 |---|---|
-| Job manifest shape | defined by example |
-| `job_manifest.v1` schema | **NOT_YET_A_CONTRACT** |
-| Pipeline runner | **NOT_IMPLEMENTED** |
-| Stage runner, resume/retry, artifact registry, queue | **NOT_IMPLEMENTED** |
+| This example (`job_manifest.draft`) | **ILLUSTRATIVE — not consumed** |
+| `job_manifest.v2` written by `initialize_job` | **IMPLEMENTED** — the generic job manifest |
+| `filter_job.v1` written by `initialize_filter_job` | **IMPLEMENTED** — the historical Filter job |
+| Production stage runner | **IMPLEMENTED** — `src/ai_autocut/fast_path.py` |
+| Resume and downstream invalidation | **IMPLEMENTED** |
+| Artifact registry, job queue | **NOT_IMPLEMENTED** |
 
-The contract is deliberately not frozen yet. Freezing a job schema before the
-runner exists would encode guesses about stages that have not been automated.
+This example file remains an unfrozen sketch and is retained for historical
+context. The job manifests the system actually writes are defined by
+`src/ai_autocut/job_foundation.py`, and the stage runner that consumes a job is
+`src/ai_autocut/fast_path.py`.

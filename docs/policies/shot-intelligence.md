@@ -69,8 +69,20 @@ fail to. Source identity is not the test; the action state at the boundary is.
 |---|---|
 | Policy | Documented here |
 | `candidate_shot.v0` contract | **DRAFT** — `schemas/candidate_shot/` |
-| Automatic extraction from raw media | **NOT_IMPLEMENTED** |
+| Media analysis and visual segmentation | **IMPLEMENTED** — `src/ai_autocut/shot_understanding.py` |
+| Candidate Shot extraction bound to `candidate_shot.v0` | **NOT_IMPLEMENTED** |
 
-No module in this repository currently analyses media to produce a Candidate
-Shot. The policy and a draft contract are recorded; the extractor does not
-exist.
+`shot_understanding.py` does analyse media: it decodes at a forced CFR raster,
+measures per-frame difference, detects internal visual boundaries and splits a
+placement into the visual segments it really contains. It runs as the
+`UNDERSTAND SHOTS` stage of the production control path.
+
+Two limits remain, and they are the reason the second row stays **NOT_IMPLEMENTED**:
+
+- the engine emits its own segmentation document, not a `candidate_shot.v0`
+  document, so the draft contract is still unbound;
+- visual segmentation is not run-aware. It emits a boundary on every frame of
+  sustained motion, which is tracked as the open limitation C-01.
+
+Semantic / action grouping exists in the same module but is not called by the
+control path, because it was structurally inert in the only run that reached it.

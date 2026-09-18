@@ -98,7 +98,30 @@ Creative judgement and loudness delivery are separate gates.
 |---|---|
 | Policy | **VALIDATED** — `src/ai_autocut/audio_plan.py` |
 | Schema | `schemas/audio_plan/audio_plan.v0.schema.json` |
-| Synthesis, mixing, mastering | **NOT_IMPLEMENTED** |
+| Voice / music **synthesis** | **NOT_IMPLEMENTED** |
+| Program verification (FIT / SYNC / RHYTHM) | **IMPLEMENTED** — `src/ai_autocut/audio_program.py` |
+| Job-scoped **mixing and mastering** | **IMPLEMENTED** — `src/ai_autocut/execution_adapters.py` |
 
-Audio provider identity is recorded in `docs/providers/audio-provider.md`. The
-provider was selected by validated work and is not re-selected here.
+The three parts are deliberately listed separately, because they have genuinely
+different status.
+
+**Synthesis does not exist in this repository.** No module calls a voice, music or
+sound-effect provider. Provider identity is recorded in
+`docs/providers/audio-provider.md`; the provider was selected by validated work and
+is not re-selected here.
+
+**Program verification is implemented and wired.** `audio_program.assess_program`
+judges FIT, SYNC and RHYTHM separately and runs in the `BUILD THE AUDIO` stage,
+after placement and before the mix is accepted. FIT alone is never approval, and
+there is no universal sync tolerance: a job that supplies none gets
+`REVIEW_REQUIRED` rather than a borrowed number.
+
+**Mixing and mastering are implemented at job scope.** `execute_audio` mixes a
+job's own local assets with FFmpeg, applies the loudness and true-peak targets the
+job states, and then *measures* the result — integrated loudness, true peak and
+sample peak — refusing a mix whose sample peak reaches full scale. It makes no
+provider call. This is not a universal audio engine: the assets, targets and
+ceilings all come from the job.
+
+Consequently the execution proof demonstrates the mixing and mastering path, not a
+real voice performance. That distinction is recorded in `README.md`.
