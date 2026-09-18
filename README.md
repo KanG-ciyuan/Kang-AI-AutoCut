@@ -5,8 +5,10 @@
 本地优先的 AI 电商广告自动剪辑系统
 
 Kang AI-AutoCut turns authorized product footage into a reviewable commercial edit
-and a validated delivery master. It runs entirely on a local machine, keeps every
-creative judgement explicit, and refuses to report success it cannot measure.
+and a validated delivery master. Its production control path and media processing run
+locally, while approved external AI APIs may be used for selected intelligence or
+generation tasks. Every creative judgement stays explicit, and the system refuses to
+report success it cannot measure.
 
 ## Project Status
 
@@ -191,10 +193,12 @@ Full instructions: [`docs/audit/execution-runbook.md`](docs/audit/execution-runb
 
 ## Local-First Design
 
-Local-first is a requirement, not a temporary state. The system uses Python,
-FFmpeg/FFprobe, the local filesystem, and external AI APIs, with deterministic
-orchestration. Cloud infrastructure — object storage, server platforms, distributed
-workers, dashboards, user accounts — is deliberately absent. See
+Local-first is a requirement, not a temporary state. The production control path and
+all media processing run on the local machine, using Python, FFmpeg/FFprobe and the
+local filesystem, with deterministic orchestration. Approved external AI APIs may be
+used for selected intelligence or generation tasks; they are never the control path.
+Cloud infrastructure — object storage, server platforms, distributed workers,
+dashboards, user accounts — is deliberately absent. See
 [ADR-0007](docs/decisions/ADR-0007-local-first.md).
 
 No machine-bound absolute path appears in this repository. Every runtime location is
@@ -261,10 +265,14 @@ job-authored by design, and the limitation list below is the honest summary.
 
 ## Roadmap
 
-1. Close the remaining job-authored artifacts behind shipped adapters, starting with
-   picture measurement.
-2. Run the Third-SKU blind exam against this frozen baseline.
-3. Decide, on that evidence, which limitations are worth automating next.
+1. **Run the Third-SKU blind exam against `pre-third-sku-blind-v1`.**
+2. Measure final quality, producer-gate frequency, and human intervention.
+3. Use the blind-run evidence to decide which remaining job-authored capabilities are
+   worth automating next.
+
+The frozen baseline is meant to be examined **as frozen**: no pre-exam automation work
+is scheduled ahead of the blind run, so the exam measures the accepted system rather
+than a system still moving under it.
 
 ## Licence
 

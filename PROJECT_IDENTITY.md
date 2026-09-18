@@ -17,7 +17,9 @@ last_verified: 2026-09-18
 
 # Project Identity
 
-AI-AutoCut is the canonical engineering repository for the AI automatic precision-editing system.
+Kang AI-AutoCut (engineering identity: `ai-autocut`) is the canonical engineering repository for the AI automatic precision-editing system.
+
+The public display name and the engineering identity are the same project. `Kang AI-AutoCut` is the public-facing brand; `ai-autocut` remains the internal identifier used by the repository, the package, the environment variables and the runtime roles. Nothing about the display name changes those identifiers.
 
 It is not AdFlow and does not share AdFlow's engineering identity. It is not OpenMontage and does not treat OpenMontage as its source of truth. It may be used as a Pilot Testbed for `kang-agent-collab`, while AI-AutoCut remains an independent real project and `kang-agent-collab` remains an independent collaboration Skill.
 
