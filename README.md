@@ -4,6 +4,8 @@
 
 本地优先的 Agentic AI 视频生产系统
 
+**Languages:** English | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Bahasa Indonesia](README.id.md) | [Deutsch](README.de.md) | [Español](README.es.md)
+
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3-3776AB)](README.md#installation)
 [![FFmpeg](https://img.shields.io/badge/ffmpeg-required-007808)](README.md#installation)
