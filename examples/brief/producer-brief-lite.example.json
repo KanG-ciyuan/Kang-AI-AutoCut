@@ -1,0 +1,24 @@
+{
+  "schema_version": "producer_brief_lite.v1",
+
+  "_comment": [
+    "Producer Brief Lite — the smallest input a SKU needs to start.",
+    "It states intent, not production. Everything the machine can derive from the source",
+    "media, the registry and the locked baselines is derived, not asked for here.",
+    "Only job_id and product.name are required; everything else may be omitted."
+  ],
+
+  "job_id": "example-sku-v1",
+  "product": {
+    "name": "Example Product",
+    "name_localized": "示例产品"
+  },
+
+  "market": "Indonesia",
+  "platform": "TikTok",
+  "language": "id",
+  "cta": "Klik link di bawah",
+  "target_duration_seconds": [30, 40],
+
+  "notes": "Optional free text for the authoring agent. Anything genuinely ambiguous — an unverifiable product fact, a claim that needs a decision, a creative preference — belongs here or at the gate the run stops on, not in this file as an instruction to invent something."
+}
