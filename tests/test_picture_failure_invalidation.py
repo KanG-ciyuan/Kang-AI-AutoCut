@@ -112,6 +112,23 @@ class FailureOutputInvalidationTests(unittest.TestCase):
         _master, units_dir = picture_output_paths(self.job)
         return sorted(units_dir.glob("*-norm.mp4")) if units_dir.is_dir() else []
 
+    def _raw_unit_files(self) -> list[Path]:
+        """Any MP4 in the official units directory that is NOT a normalised unit.
+
+        These are the on-demand extracted raw units, which the executor writes into
+        private staging and never promotes.
+        """
+
+        _master, units_dir = picture_output_paths(self.job)
+        if not units_dir.is_dir():
+            return []
+        return sorted(p for p in units_dir.glob("*.mp4")
+                      if not p.name.endswith("-norm.mp4"))
+
+    def _all_unit_mp4(self) -> list[Path]:
+        _master, units_dir = picture_output_paths(self.job)
+        return sorted(units_dir.glob("*.mp4")) if units_dir.is_dir() else []
+
     def _staging(self) -> list[Path]:
         return sorted((self.job / "picture").glob(".staging-*"))
 
@@ -122,6 +139,8 @@ class FailureOutputInvalidationTests(unittest.TestCase):
                          "a failed run must not leave a normalised unit")
         self.assertEqual(self._staging(), [],
                          "a failed run must not leave a staging directory")
+        self.assertEqual(self._raw_unit_files(), [],
+                         "a failed run must not leave a current-attempt raw unit")
 
     # ---- the exact G.1F scenario -----------------------------------------------
 
@@ -215,6 +234,105 @@ class FailureOutputInvalidationTests(unittest.TestCase):
                 ("B", 25, {"mode": "FIT"}),
             ))
         self._assert_no_output()
+
+    # ---- no pre-existing ranges: the on-demand extraction path (G.1E.2) --------
+
+    def _run_picture_no_ranges(self, units: list[dict]) -> dict:
+        """Execute WITHOUT pre-extracting anything into picture/ranges/.
+
+        This is the path the fast path never takes, because the fast path extracts the
+        locked source ranges itself first. It is still production code, so it must obey
+        the same failure atomicity boundary.
+        """
+
+        self._write(units)
+        return execute_picture(self.job)
+
+    def test_no_ranges_success_promotes_only_normalised_units(self) -> None:
+        """The normal no-ranges SUCCESS path must still work, and expose no raw units."""
+
+        units = self._units(("A", 20, {"mode": "FIT"}),
+                            ("B", 25, {"mode": "CROP", "crop_rect": dict(CROP)}))
+        result = self._run_picture_no_ranges(units)
+
+        self.assertTrue(self._master().is_file())
+        self.assertEqual(result["frame_count"], 45)
+        self.assertEqual([p.stem for p in self._unit_files()], ["A-norm", "B-norm"])
+        self.assertEqual(self._raw_unit_files(), [],
+                         "the raw extracted unit is an intermediate and must not be promoted")
+        self.assertEqual(self._staging(), [])
+
+    def test_no_ranges_partial_failure_leaves_no_current_attempt_output(self) -> None:
+        """The exact G.1E.2 regression.
+
+        No pre-existing ranges -> early units are extracted on demand -> a later unit
+        fails an invalid CROP -> the error propagates -> nothing current-attempt survives.
+        """
+
+        units = self._units(("A", 20, {"mode": "FIT"}),
+                            ("B", 25, {"mode": "CROP", "crop_rect": dict(CROP)}),
+                            ("C", 15, {"mode": "CROP", "crop_rect": dict(OUT_OF_BOUNDS)}))
+        with self.assertRaises(ExecutionAdapterError) as caught:
+            self._run_picture_no_ranges(units)
+        self.assertIn("outside the measured", str(caught.exception))
+
+        self.assertFalse(self._master().is_file(),
+                         "no master may survive a failed run")
+        self.assertEqual(self._unit_files(), [],
+                         "no normalised unit may survive a failed run")
+        self.assertEqual(self._raw_unit_files(), [],
+                         "no current-attempt raw unit may survive a failed run")
+        self.assertEqual(self._all_unit_mp4(), [],
+                         "picture/units must contain no MP4 from the failed attempt")
+        self.assertEqual(self._staging(), [],
+                         "no staging directory may survive a failed run")
+
+    def test_no_ranges_failure_on_the_last_unit_still_cleans_everything(self) -> None:
+        units = self._units(("A", 20, {"mode": "FIT"}),
+                            ("B", 25, {"mode": "FIT"}),
+                            ("C", 15, {"mode": "CROP"}))       # fails on the LAST unit
+        with self.assertRaises(ExecutionAdapterError):
+            self._run_picture_no_ranges(units)
+
+        self.assertEqual(self._all_unit_mp4(), [])
+        self.assertFalse(self._master().is_file())
+        self.assertEqual(self._staging(), [])
+
+    def test_no_ranges_failure_preserves_preexisting_inputs(self) -> None:
+        """A failed attempt must not touch valid pre-existing INPUTS."""
+
+        ranges = self.job / "picture" / "ranges"
+        ranges.mkdir(parents=True, exist_ok=True)
+        unrelated = ranges / "KEEP-ME.mp4"
+        unrelated.write_bytes(b"not really a video, but it must survive")
+        lock = self.job / "picture" / "source_ranges.json"
+        lock.write_text('{"schema_version": "source_ranges.v1", "ranges": []}',
+                        encoding="utf-8")
+
+        with self.assertRaises(ExecutionAdapterError):
+            self._run_picture_no_ranges(
+                self._units(("A", 20, {"mode": "CROP", "crop_rect": dict(OUT_OF_BOUNDS)})))
+
+        self.assertTrue(unrelated.is_file(), "a pre-existing range input must survive")
+        self.assertTrue(lock.is_file(), "the locked source_ranges input must survive")
+        self.assertEqual(self._all_unit_mp4(), [])
+
+    def test_no_ranges_failure_then_corrected_request_succeeds(self) -> None:
+        """Recovery: after a failed attempt a corrected request must produce clean output."""
+
+        with self.assertRaises(ExecutionAdapterError):
+            self._run_picture_no_ranges(
+                self._units(("A", 20, {"mode": "FIT"}),
+                            ("B", 25, {"mode": "CROP", "crop_rect": dict(OUT_OF_BOUNDS)})))
+        self.assertEqual(self._all_unit_mp4(), [])
+
+        result = self._run_picture_no_ranges(
+            self._units(("A", 20, {"mode": "FIT"}),
+                        ("B", 25, {"mode": "CROP", "crop_rect": dict(CROP)})))
+        self.assertTrue(self._master().is_file())
+        self.assertEqual(result["frame_count"], 45)
+        self.assertEqual([p.stem for p in self._unit_files()], ["A-norm", "B-norm"])
+        self.assertEqual(self._raw_unit_files(), [])
 
     # ---- success path is unaffected -------------------------------------------
 

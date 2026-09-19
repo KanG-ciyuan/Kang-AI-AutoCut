@@ -180,9 +180,17 @@ def _discard_picture_outputs(root: Path | str) -> tuple[str, ...]:
 
     Called twice: once before an attempt begins, so an earlier success cannot be mistaken
     for this run's result, and once if the attempt fails, so a partial attempt leaves
-    nothing behind. ``picture/ranges/`` is deliberately untouched — those are the job's
-    source ranges, the *input* to picture execution, derived from the locked plan and
-    unaffected by a geometry failure.
+    nothing behind.
+
+    The official units directory is picture execution's own output area, so every ``.mp4``
+    in it is withdrawn. That covers the normalised units AND any raw unit an earlier
+    build left behind: after this repair the executor never writes a raw unit there at
+    all, and the invariant "this directory holds only what this run promoted" is stated
+    directly rather than relying on which filenames happen to be produced.
+
+    ``picture/ranges/`` is deliberately untouched — those are the job's source ranges, the
+    *input* to picture execution, derived from the locked plan and unaffected by a geometry
+    failure.
     """
 
     master, units_dir = picture_output_paths(root)
@@ -191,7 +199,7 @@ def _discard_picture_outputs(root: Path | str) -> tuple[str, ...]:
         master.unlink()
         removed.append(str(master))
     if units_dir.is_dir():
-        for stale in sorted(units_dir.glob("*-norm.mp4")):
+        for stale in sorted(units_dir.glob("*.mp4")):
             stale.unlink()
             removed.append(str(stale))
     return tuple(removed)
@@ -480,7 +488,12 @@ def execute_picture(job_root: Path | str, *, timebase: TimebaseAdapter | None = 
                     raise ExecutionAdapterError(
                         f"unit {unit_id!r} states neither t_in_seconds nor source_frame_index"
                     )
-                out = work / f"{unit_id}.mp4"
+                # On-demand extraction is attempt-local. It is written into the same
+                # private staging area as the normalised units, never into the official
+                # units directory, so a run that fails part-way leaves no raw unit behind
+                # for a caller to mistake for usable output. The extraction is an
+                # intermediate: only the normalised units are promoted.
+                out = staging / f"{unit_id}.mp4"
                 adapter.execute(resolution, str(out))
                 adapter.verify_frames(adapter.ledger[-1])
 
