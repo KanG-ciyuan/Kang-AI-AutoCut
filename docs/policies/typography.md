@@ -69,6 +69,7 @@ dyed one colour.
 | Automatic shot-aware placement | **NOT_IMPLEMENTED** |
 | Execution boundary | **IMPLEMENTED** — `src/ai_autocut/typography_adapter.py` |
 | Job-scoped rendering | **IMPLEMENTED** — `src/ai_autocut/execution_adapters.py` |
+| Art Direction baseline | **LOCKED** — `src/ai_autocut/typography_art_direction.py` |
 
 `POLICY_VALIDATED_IMPLEMENTATION_PENDING` is the recorded status of the policy
 module, and `typography.assert_placement_implemented` raises rather than returning
@@ -83,8 +84,148 @@ with Pillow and composites it with FFmpeg.
 **This is not a generic typography engine, and it does not perform shot-aware
 placement.** The adapter ships no default layout and no default font: `layout` and
 `font_stack` are required fields, so a job that does not state its own art
-direction cannot be rendered, and one job's geometry cannot become another's. There
-is no screen-copy hierarchy planner and no product-obstruction validation.
+direction cannot be rendered, and one job's geometry cannot become another's. The
+adapter itself contains no screen-copy hierarchy planner and no
+product-obstruction validation.
+
+That capability now exists as a separate layer, and it is deliberately not a
+visual one. `typography_art_direction` defines a closed zone set and a
+role-to-zone planner, and `review_typography` reports named overlap checks for the
+product, hands/actions and result evidence.
+
+**It still does not understand shots.** It receives evidence and obstruction
+regions as input from the job's own reconnaissance, and it never infers a product
+region or discovers one from an image. `Automatic shot-aware placement` therefore
+remains **NOT_IMPLEMENTED**: the planner places text inside zones that an upstream
+stage has already described, and when no zone is free of conflict it refuses to
+place the text at all rather than choosing a position itself.
 
 The policy is the part that survived real review; the solver is future work, and
 the two are kept visibly separate.
+
+---
+
+# Typography Art Direction A v1 — LOCKED BASELINE
+
+The Third SKU's typography was designed by hand three times — V1, an outside
+"Work" revision, and finally a **Premium Minimal A** exploration. The human
+Producer accepted A and locked it as the project's typography baseline.
+
+V1 is the reason A exists. V1 was one flat white Arial Bold, one fixed baseline,
+no stroke, no shadow, no plate, no keyword emphasis and no motion; it read as
+ordinary. A answers that with a condensed heavy grotesque, a warm-white body and
+a desaturated warm-gold emphasis, a light stroke and soft shadow instead of a
+dark plate, and a restrained fade-and-settle.
+
+`src/ai_autocut/typography_art_direction.py` turns that decision into something
+the **next** SKU can reuse. It is a rule set plus a controlled zone system, not a
+renderer: it decides *where text may sit and whether a layout is acceptable*, and
+refuses everything else.
+
+## Rules and parameters are different things
+
+This is the distinction the module exists to keep, and the reason it can be
+reused at all.
+
+**Art Direction Rules** generalise across SKUs. They are the constants in the
+module.
+
+1. Premium minimal.
+2. Consistency first, adaptation only when necessary.
+3. Body selling points use a stable upper typography zone.
+4. Body uses a stable visual anchor and does not drift shot to shot.
+5. Only a real conflict — product, hand/action, result/evidence or platform safe
+   zone — permits a limited fallback zone.
+6. Hook, body and CTA are different narrative roles.
+7. The three roles may carry different visual weight but share one design language.
+8. Hierarchy comes from size, weight and a restrained accent colour.
+9. Large dark information plates are avoided.
+10. Legibility is bought with whitespace, type hierarchy and a light
+    stroke/shadow.
+11. Motion is restrained and serves reading only.
+12. Typography never takes first visual priority from the product or the evidence.
+
+**Adaptive Parameters** do not generalise, and must not become cross-SKU
+defaults: font family and weight, the specific colours, the type scale, the line
+breaks, the exact coordinates and the animation values. A's current values are
+recorded as a **job-scoped profile** in
+`examples/typography/art-direction-a-v1.profile.json`. A future job states its
+own. A parameter promoted to a module default would be one SKU's art direction
+silently applied to another — the same discipline this repository already applies
+to geometry and to audio.
+
+## The zone system
+
+A layout names a **zone** from a closed set. Free positioning is not
+representable: `TypographyEvent` refuses a zone name outside `ZONE_NAMES`, so an
+"AI finds the best spot in the 1080x1920 frame" behaviour cannot be expressed,
+let alone shipped.
+
+```
+HOOK                -> UPPER_LEFT
+BODY_SELLING_POINT  -> UPPER_LEFT      (the stability anchor)
+CTA                 -> UPPER_CENTER
+```
+
+Selection is deterministic and has no search: the role's default zone is used
+whenever it is free, the role's fallback chain is walked in order only when a
+real conflict exists, and if nothing fits, the layout is **refused** rather than
+placed somewhere arbitrary. Evidence is supplied per event, because evidence
+differs from shot to shot and one global set would make a conflict in a single
+shot look like a conflict in all of them.
+
+Body events inherit the anchor the body already established. A body event may
+still take a fallback — but only because *that* event conflicts, and the
+deviation is recorded so a reviewer can tell a justified deviation from drift.
+
+## Review
+
+`review_typography` reports fourteen named checks — text preserved, safe margin,
+platform safe zone, clipping, product overlap, hand/action overlap,
+result/evidence overlap, role hierarchy, body position consistency, CTA
+visibility, background plate restraint, decorative excess, motion restraint and
+mobile readability.
+
+There is deliberately **no score**. "Premium" is not a measurable quantity, and a
+0–100 number would launder a judgement call into a figure. Each check reports a
+severity and its evidence; the human judges.
+
+Text preservation is judged on the **word sequence**, not on line breaks. Line
+breaking is an open visual parameter — A legitimately re-broke the approved lines
+— while changing, adding, dropping or reordering a word is not.
+
+## Status
+
+Two claims are made about this baseline, and only one of them is settled.
+
+```
+ART_DIRECTION_RULES          = LOCKED
+REFERENCE_PIXEL_REPRODUCTION = UNRESOLVED
+```
+
+| Part | Status |
+|---|---|
+| Art direction rules | **LOCKED** — `Typography Art Direction A v1` |
+| Reference pixel reproduction | **UNRESOLVED** — not claimed |
+| Rules + zone system + reviewer | **IMPLEMENTED** — `src/ai_autocut/typography_art_direction.py` |
+| Third SKU A parameters | `examples/typography/art-direction-a-v1.profile.json` |
+| Tests | `tests/test_typography_art_direction.py` |
+| Renderer | **NOT_IMPLEMENTED** — this module places and reviews text; it does not draw it |
+
+The Third SKU's approved artefacts — V1, V2 and the A exploration — are reference
+and approved evidence. None of them is modified by this baseline, and the module
+does not depend on any of them at runtime.
+
+**This baseline does not claim it can reproduce the approved A frames
+pixel-for-pixel.** A's ASS spec and its overlay renderer state different pixel
+sizes for the same events (the renderer is uniformly about 1.12x the ASS), and
+which of the two produced the accepted frames is unknown. The discrepancy is
+recorded rather than guessed.
+
+It does not weaken the rules, which never mention pixel sizes. It does mean a job
+adopting this baseline inherits the **design language** and must state and verify
+its own pixel values — it may not cite this profile as proof that its render
+matches A. That distinction is carried in the profile's `status_semantics` block
+and asserted by `StatusSemanticsTests`, so it cannot quietly collapse back into a
+single "LOCKED".
+

@@ -1,0 +1,105 @@
+{
+  "schema_version": "typography_art_direction_profile.v1",
+  "profile_id": "third-sku-typography-a-v1",
+  "baseline": "Typography Art Direction A v1",
+  "status": "LOCKED",
+  "status_semantics": {
+    "art_direction_rules": "LOCKED",
+    "reference_pixel_reproduction": "UNRESOLVED",
+    "what_is_locked": "the design language and the generalized rules: premium minimal, warm-white body with a desaturated warm-gold emphasis, condensed heavy upper-case, light stroke and soft shadow instead of a dark plate, restrained fade-and-settle, stable upper body zone",
+    "what_is_not_claimed": "this profile does NOT reproduce the approved A frames pixel-for-pixel. The approved artifacts disagree about their own pixel sizes (see known_discrepancy), so no pixel-exact claim can be made from them.",
+    "consequence": "a job adopting this baseline inherits the rules and the design language; it states and verifies its own pixel values, and must not cite this file as proof that its render matches A."
+  },
+  "provenance": {
+    "locked_by": "Human Producer",
+    "sku": "exfoliating-scrub-pad-third-sku-v1",
+    "source_artifacts": [
+      "typography-a/typography_a.ass  (the delivered spec)",
+      "typography-a/render_overlays.py  (the overlay renderer)",
+      "typography-a/frames/a_contact.jpg  (the composited reference)"
+    ],
+    "note": "This file is ONE JOB'S PARAMETERS. It is not a rule and must not be copied into module code as a default. The next SKU states its own."
+  },
+
+  "canvas": { "width": 1080, "height": 1920, "fps": 30, "frames": 906, "duration_seconds": 30.2, "aspect": "9:16" },
+
+  "font": {
+    "family": "Avenir Next Condensed",
+    "weight": "Heavy",
+    "font_stack": ["/System/Library/Fonts/Avenir Next Condensed.ttc"],
+    "font_index": 8,
+    "case": "UPPER",
+    "classification": "ADAPTIVE_PARAMETER",
+    "why_it_works": "a condensed heavy grotesque: narrow enough that long Indonesian selling lines stay one line, heavy enough to hold against busy bathroom footage without a plate"
+  },
+
+  "colours": {
+    "warm_white": [247, 243, 234, 255],
+    "accent": [216, 183, 122, 255],
+    "stroke": [16, 16, 16, 190],
+    "shadow": [0, 0, 0, 150],
+    "classification": "ADAPTIVE_PARAMETER",
+    "notes": "warm white for the body of a line, low-saturation warm gold for the emphasised word. The gold is deliberately desaturated: a saturated yellow would read as discount retail, which the baseline avoids."
+  },
+
+  "type_scale": {
+    "role_base_sizes_px": { "HOOK": 72, "BODY_SELLING_POINT": 58, "CTA": 58 },
+    "sizes_provenance": "taken from the typography_a.ass style defaults, which is only ONE of the two approved artifacts; the overlay renderer states sizes about 1.12x larger. Which one produced the accepted frames is unresolved, so treat these as the design language rather than as verified approved pixels. REFERENCE_PIXEL_REPRODUCTION = UNRESOLVED.",
+    "emphasis_scale": { "min": 1.15, "max": 1.35 },
+    "line_gap_px": 5,
+    "letter_spacing_em": { "body": 1.4, "cta_cta_line": 1.5, "emphasis": 1.8, "cta_line_emphasis": 2.0 },
+    "classification": "ADAPTIVE_PARAMETER",
+    "notes": "role base sizes are the design language; the per-event size is adapted to text length and is carried by the job's own typography request, not by this file"
+  },
+
+  "readability_devices": {
+    "stroke_width_px": 2,
+    "shadow_offset_px": [2, 4],
+    "shadow_blur_px": 3.0,
+    "plate": "NONE",
+    "accent_rule": { "height_px": 5, "radius_px": 2, "width_px_left": 74, "width_px_center": 160 },
+    "classification": "ADAPTIVE_PARAMETER",
+    "notes": "readability is bought with a light stroke, a soft shadow and whitespace - never with a large dark information plate, which rule AD-09 forbids"
+  },
+
+  "motion": {
+    "kind": "FADE_AND_SETTLE",
+    "fade_in_ms": { "HOOK": 160, "BODY_SELLING_POINT": 150, "CTA": 180 },
+    "fade_out_ms": { "HOOK": 120, "BODY_SELLING_POINT": 110, "CTA": 150 },
+    "settle_px": 14,
+    "settle_ms": { "HOOK": 220, "BODY_SELLING_POINT": 210, "CTA": 240 },
+    "blur_at_start_px": 0.5,
+    "classification": "ADAPTIVE_PARAMETER",
+    "notes": "a short fade plus a 14 px upward settle. Motion serves reading only (rule AD-11); nothing bounces, rotates or loops"
+  },
+
+  "zone_usage": {
+    "HOOK": { "zone": "UPPER_LEFT", "alignment": "left" },
+    "BODY_SELLING_POINT": { "zone": "UPPER_LEFT", "alignment": "left" },
+    "CTA": { "zone": "UPPER_CENTER", "alignment": "center", "note": "U08 block only" },
+    "zone_overrides": {},
+    "classification": "RULE_COMPLIANT_USAGE",
+    "notes": "no zone overrides are needed: the shipped zone set already contains A's layout. A's text occupies roughly y 0.096-0.185 of the canvas at x 0.080, which sits inside UPPER_LEFT (x 0.055, y 0.085, w 0.845, h 0.115)."
+  },
+
+  "emphasis_reference": {
+    "note": "which word A emphasised, per event, as an example of the pattern rather than a rule",
+    "U01": { "warm_white": ["KOTORAN KULIT"], "accent": ["TERANGKAT"] },
+    "U02": { "warm_white": ["BENTUK BULAT,"], "accent": ["MUDAH DIGENGGAM"] },
+    "U03": { "warm_white": ["TINGGAL PASANG"], "accent": ["DI JARI"] },
+    "U04": { "warm_white": ["BUSA"], "accent": ["MELIMPAH"] },
+    "U05": { "warm_white": ["BISA UNTUK"], "accent": ["BAGIAN TUBUH LAIN"] },
+    "U06": { "warm_white": ["SETELAH"], "accent": ["DIBILAS"] },
+    "U07": { "warm_white": [], "accent": ["MUDAH DIBERSIHKAN"] },
+    "U08": { "warm_white": ["PAKAI LAGI SAAT MANDI"], "accent": ["KLIK LINK DI BAWAH"] }
+  },
+
+  "known_discrepancy": {
+    "what": "the ASS spec and the overlay renderer state different pixel sizes for the same events",
+    "ass": { "U01": [66, 86], "U02": [54, 64], "U03": [56, 64], "U04": [62, 68], "U05": [52, 61], "U06": [60, 66], "U07": [64], "U08": [50, 72] },
+    "renderer": { "U01": [74, 96], "U02": [60, 72], "U03": [62, 72], "U04": [72], "U05": [58, 68], "U06": [68], "U07": [72], "U08": [56, 82] },
+    "ratio": "the renderer is uniformly about 1.12x the ASS",
+    "status": "UNRESOLVED - recorded, not guessed",
+    "why_it_matters": "only if a future job wants to reproduce A's sizes exactly. It does not affect the rules, which do not mention pixel sizes."
+  }
+}
