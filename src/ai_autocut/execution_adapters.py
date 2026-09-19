@@ -599,6 +599,142 @@ def _load_font(font_stack: Sequence[str], size: int) -> Any:
     )
 
 
+def _execute_typography_with_art_direction(root: Path, request: Mapping[str, Any]) -> dict[str, Any]:
+    """Render this job's events through the locked Typography Art Direction A v1.
+
+    Design values come from the job's art-direction profile and positions come from the
+    project's zone rules. Nothing here carries a particular SKU's coordinates, sizes or
+    words: the request supplies the content and the role, the profile supplies the look, and
+    ``typography_art_direction`` supplies the placement.
+    """
+
+    from . import typography_art_direction as art
+    from . import typography_renderer as renderer
+
+    declaration = request["art_direction"]
+    if not isinstance(declaration, Mapping):
+        raise ExecutionAdapterError("art_direction must be a mapping")
+    profile_path = declaration.get("profile")
+    if not profile_path:
+        raise ExecutionAdapterError("art_direction must name its profile")
+
+    candidate = Path(str(profile_path))
+    profile_file = candidate if candidate.is_absolute() else (root / candidate)
+    profile = renderer.RenderProfile.load(profile_file)
+
+    width, height = int(request["width"]), int(request["height"])
+    if (width, height) != (profile.canvas_width, profile.canvas_height):
+        raise ExecutionAdapterError(
+            f"the profile is authored for {profile.canvas_width}x{profile.canvas_height} "
+            f"but this job is {width}x{height}")
+
+    fps = int(request["fps"])
+    frame_count = int(request["frame_count"])
+    master = (root / str(request["master"])).resolve()
+    if not master.is_file():
+        raise ExecutionAdapterError(f"the accepted picture does not exist: {master}")
+    out_path = root / str(request["out"])
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    evidence: list[art.EvidenceRegion] = []
+    for entry in request.get("evidence_regions") or []:
+        rect = entry.get("rect") or {}
+        evidence.append(art.EvidenceRegion(
+            str(entry["label"]),
+            art.Rect(float(rect["x"]), float(rect["y"]),
+                     float(rect["width"]), float(rect["height"])),
+        ))
+
+    platform = None
+    declared_platform = request.get("platform_safe_zone")
+    if isinstance(declared_platform, Mapping):
+        rail = declared_platform.get("action_rail")
+        platform = art.PlatformSafeZone(
+            top=float(declared_platform.get("top", 0.055)),
+            bottom=float(declared_platform.get("bottom", 0.145)),
+            left=float(declared_platform.get("left", 0.035)),
+            right=float(declared_platform.get("right", 0.035)),
+            action_rail=(art.Rect(float(rail["x"]), float(rail["y"]),
+                                  float(rail["width"]), float(rail["height"]))
+                         if isinstance(rail, Mapping) else None),
+        )
+
+    events: list[art.TypographyEvent] = []
+    windows: list[tuple[int, int]] = []
+    for index, event in enumerate(request["events"]):
+        role = event.get("narrative_role")
+        if not role:
+            raise ExecutionAdapterError(
+                f"typography event {index} declares no narrative_role; the art direction "
+                "cannot choose a size, a motion or a zone without one")
+        start, end = int(event["start_frame"]), int(event["end_frame_exclusive"])
+        if end <= start:
+            raise ExecutionAdapterError(f"typography event {index} is empty")
+        zone = event.get("zone_name") or art.DEFAULT_ZONE_FOR_ROLE[str(role)]
+        events.append(art.TypographyEvent(
+            event_id=str(event.get("event_id") or f"E{index:02d}"),
+            narrative_role=str(role),
+            text_lines=tuple(str(line) for line in event["lines"]),
+            start_seconds=start / fps, end_seconds=end / fps,
+            zone_name=str(zone),
+            emphasis_terms=tuple(str(t) for t in event.get("emphasis_terms") or ()),
+        ))
+        windows.append((start, end))
+
+    overlays = renderer.render_events(events, profile=profile, evidence=tuple(evidence),
+                                      platform=platform)
+    chain, current = renderer.ffmpeg_composite_chain(
+        overlays, start_frame=[w[0] for w in windows],
+        end_frame=[w[1] for w in windows], fps=fps)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmpdir = Path(tmp)
+        pngs: list[Path] = []
+        for overlay in overlays:
+            png = tmpdir / f"{overlay.event_id}.png"
+            overlay.image.save(png)
+            pngs.append(png)
+
+        # Each overlay PNG is looped into a real stream with timestamps. A single-frame
+        # image input makes `fade=alpha=1` fade the ONLY frame to fully transparent and never
+        # reach the fade-in target, so the overlay composites as nothing at all — which is
+        # exactly what a first attempt at this did. Looping gives the fade a timeline to work
+        # over without rendering a PNG per frame.
+        span = frame_count / fps
+        command = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(master)]
+        for png in pngs:
+            command += ["-loop", "1", "-framerate", str(fps), "-t", f"{span:.6f}",
+                        "-i", str(png)]
+        command += [
+            "-filter_complex", chain, "-map", f"[{current}]", "-map", "0:a?",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+            "-pix_fmt", "yuv420p", "-c:a", "copy",
+            "-frames:v", str(frame_count), str(out_path),
+        ]
+        _run(command, "compositing typography with art direction A v1")
+
+    measured_stream = media_probe.probe_streams(out_path)
+    result = {
+        "schema_version": "typography_execution_result.v1",
+        "path": str(out_path.relative_to(root)),
+        "frame_count": int(measured_stream["frame_count"] or 0),
+        "width": int(measured_stream["width"]),
+        "height": int(measured_stream["height"]),
+        "sha256": media_probe.sha256_of_file(out_path),
+        "events_rendered": len(overlays),
+        "art_direction": profile.profile_id,
+        "art_direction_profile": str(profile_file),
+        "art_direction_rules": art.ART_DIRECTION_RULES,
+        "reference_pixel_reproduction": art.REFERENCE_PIXEL_REPRODUCTION,
+        "zones_used": sorted({o.zone for o in overlays}),
+        "placement_evidence_supplied": len(evidence),
+        "measured": True,
+    }
+    (root / "typography" / "typography_execution.json").write_text(
+        json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return result
+
+
 def execute_typography(job_root: Path | str) -> dict[str, Any]:
     """Rasterise this job's screen copy and composite it onto the accepted picture.
 
@@ -613,6 +749,22 @@ def execute_typography(job_root: Path | str) -> dict[str, Any]:
 
     root = Path(job_root)
     request = _read(root, TYPOGRAPHY_REQUEST, "typography request")
+
+    # A job that declares an art-direction profile is rendered through the A v1 renderer,
+    # which implements the locked design rules. A job that does not keeps the original flat
+    # single-colour behaviour, so this is additive and no existing job changes.
+    #
+    # The two paths require different fields on purpose: `layout` states a single colour and
+    # a fixed position, which is exactly what declaring an art direction replaces. Demanding
+    # it anyway would make the art-direction path unusable.
+    if request.get("art_direction"):
+        _require(
+            request,
+            ("master", "out", "events", "font_stack", "width", "height", "fps", "frame_count"),
+            "typography request with art direction",
+        )
+        return _execute_typography_with_art_direction(root, request)
+
     _require(
         request,
         ("master", "out", "events", "layout", "font_stack", "width", "height", "fps", "frame_count"),
