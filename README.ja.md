@@ -1,3 +1,5 @@
+![Kang AI-AutoCut — Local-first Agentic AI Video Production System](assets/showcase/kang-ai-autocut-hero.png)
+
 # Kang AI-AutoCut
 
 **Local-first Agentic AI Video Production System**
@@ -11,7 +13,7 @@
 [![FFmpeg](https://img.shields.io/badge/ffmpeg-required-007808)](README.md#installation)
 [![Local-first](https://img.shields.io/badge/local--first-yes-4c1)](docs/decisions/ADR-0007-local-first.md)
 [![Agent-oriented](https://img.shields.io/badge/agent--oriented-yes-8957e5)](README.md#use-with-an-ai-agent)
-[![Tests](https://img.shields.io/badge/tests-1062%20passing-brightgreen)](README.md#installation)
+[![Tests](https://img.shields.io/badge/tests-1221%20passing-brightgreen)](README.md#installation)
 [![macOS](https://img.shields.io/badge/macOS-tested-000000)](README.md#installation)
 [![Baseline](https://img.shields.io/badge/baseline-pre--third--SKU-orange)](README.md#frozen-baseline)
 
@@ -48,6 +50,81 @@ Final Video
 ```
 
 ---
+
+## できること
+
+**Kang AI-AutoCut に素材フォルダと Producer Brief を渡してください。**
+
+システムは素材を理解し、商業的に異なるバリアントを計画し、編集を組み立て、ローカライズ
+されたコピー・タイポグラフィ・音声を作成し、結果をレビューして、制作可能なマーケティング
+動画へと作業を進めます。
+
+完全自動の動画工場ではありません。2 つの判断は意図的に人に残します。
+
+- **Creative Copy Approval**
+- **Producer Final Review**
+
+---
+
+## 素材からマーケティングバリアントへ
+
+```
+20–50 の素材クリップ
+      ↓
+素材理解
+      ↓
+編集インテリジェンス
+      ↓
+商業ナラティブ
+      ↓
+映像  +  タイポグラフィ  +  音声
+      ↓
+QA  +  修復
+      ↓
+バリアント 01  ·  バリアント 02  ·  バリアント 03  ·  …
+```
+
+1 つのソースプールから**商業的に異なるバリアント**を生み出せます。各バリアントは前の
+タイムラインを継承せず、プール全体を独立に再検討します。
+
+> **商業的に意味のある差異は、人工的な最大多様性より優先される。**
+
+1 つのタイムラインの音楽を差し替えたものではありません。
+
+---
+
+## 制作例
+
+*制作ショーケースは準備中です。*
+
+本リポジトリはまだ制作マスターを公開しておらず、この節を埋めるための創作も行いません。
+
+```
+assets/showcase/
+  kang-ai-autocut-hero.png   ヒーローバナー
+  variant-preview.gif        バリアントプレビュー（将来）
+  contact-sheet.png          コンタクトシート  （将来）
+```
+
+---
+
+## 仕組み
+
+```mermaid
+flowchart TD
+    A[Producer Brief] --> B[素材理解]
+    B --> C[マルチバリアント計画]
+    C --> D[クリエイティブと編集インテリジェンス]
+    D --> E[映像 / タイポグラフィ / 音声]
+    E --> F[レビューと修復]
+    F --> G[Producer Final Review]
+    G --> H[納品]
+```
+
+*製品レベルの流れです。詳細な工程は下の文章にあります。*
+
+---
+
 
 ## Kang AI-AutoCut を選ぶ理由
 
@@ -576,3 +653,34 @@ target commit   b65a73b53040bd1ff5defe25e624a28f623b6847
 機械可読なアイデンティティ記録は
 [PROJECT_IDENTITY.md](PROJECT_IDENTITY.md) にある。Agent のエントリルールは
 [AGENTS.md](AGENTS.md) にある。
+
+---
+
+## Producer の関与
+
+ワークフローは人間の判断を排除するためではなく、実際の判断を中心に設計されています。
+
+```
+Producer Brief
+      ↓
+自律制作
+      ↓
+実際の Producer 判断
+      ↓
+自律制作
+      ↓
+Producer Final Review
+```
+
+現在、実際の権限を持つゲートは 2 つです。
+
+| ゲート | 判断内容 |
+|---|---|
+| **Creative Copy Approval** | コピーと、動画が主張してよい内容 |
+| **Producer Final Review** | リリースするかどうか |
+
+その間の制作はシステムが進めます。これは **Producer-in-the-loop** であり、人的介入ゼロではありません。
+
+## 現在の音声プロバイダ
+
+制作音声は **Doubao / Seed Audio**、検証済みモデル **`seed-audio-1.0`** で生成します。本リポジトリは**プロバイダクライアントを含みません**。MiniMax は**過去**の評価であり、現在のプロバイダでは**ありません**。

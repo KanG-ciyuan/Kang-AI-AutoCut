@@ -1,3 +1,5 @@
+![Kang AI-AutoCut — Local-first Agentic AI Video Production System](assets/showcase/kang-ai-autocut-hero.png)
+
 # Kang AI-AutoCut
 
 **Local-first Agentic AI Video Production System**
@@ -11,7 +13,7 @@
 [![FFmpeg](https://img.shields.io/badge/ffmpeg-required-007808)](README.md#installation)
 [![Local-first](https://img.shields.io/badge/local--first-yes-4c1)](docs/decisions/ADR-0007-local-first.md)
 [![Agent-oriented](https://img.shields.io/badge/agent--oriented-yes-8957e5)](README.md#use-with-an-ai-agent)
-[![Tests](https://img.shields.io/badge/tests-1062%20passing-brightgreen)](README.md#installation)
+[![Tests](https://img.shields.io/badge/tests-1221%20passing-brightgreen)](README.md#installation)
 [![macOS](https://img.shields.io/badge/macOS-tested-000000)](README.md#installation)
 [![Baseline](https://img.shields.io/badge/baseline-pre--third--SKU-orange)](README.md#frozen-baseline)
 
@@ -50,6 +52,82 @@ Final Video
 ```
 
 ---
+
+## Apa yang dilakukannya
+
+**Beri Kang AI-AutoCut sebuah folder materi mentah dan sebuah Producer Brief.**
+
+Sistem dapat memahami materi, merencanakan varian yang berbeda secara komersial, menyusun
+penyuntingan, membuat teks terlokalisasi, tipografi dan audio, meninjau hasilnya, dan
+membawa pekerjaan menuju video pemasaran yang siap produksi.
+
+Ini bukan pabrik video yang sepenuhnya otomatis. Dua keputusan sengaja tetap pada manusia:
+
+- **Creative Copy Approval**
+- **Producer Final Review**
+
+---
+
+## Dari Materi Mentah ke Varian Pemasaran
+
+```
+20–50 KLIP MENTAH
+      ↓
+Pemahaman materi
+      ↓
+Kecerdasan penyuntingan
+      ↓
+Narasi komersial
+      ↓
+Gambar  +  Tipografi  +  Audio
+      ↓
+QA  +  Perbaikan
+      ↓
+Varian 01  ·  Varian 02  ·  Varian 03  ·  …
+```
+
+Satu kumpulan sumber menghasilkan **varian yang berbeda secara komersial**. Setiap varian
+meninjau ulang seluruh kumpulan secara independen, bukan mewarisi timeline sebelumnya.
+
+> **Variasi yang bermakna secara komersial lebih utama daripada keragaman maksimum buatan.**
+
+Ini bukan satu timeline dengan musik berbeda.
+
+---
+
+## Contoh produksi
+
+*Etalase produksi sedang disiapkan.*
+
+Repositori ini belum menerbitkan master produksi apa pun, dan tidak ada yang direkayasa
+untuk mengisi bagian ini.
+
+```
+assets/showcase/
+  kang-ai-autocut-hero.png   banner utama
+  variant-preview.gif        pratinjau varian (nanti)
+  contact-sheet.png          lembar kontak     (nanti)
+```
+
+---
+
+## Cara kerjanya
+
+```mermaid
+flowchart TD
+    A[Producer Brief] --> B[Pemahaman materi]
+    B --> C[Perencanaan multi-varian]
+    C --> D[Kecerdasan kreatif dan penyuntingan]
+    D --> E[Gambar / Tipografi / Audio]
+    E --> F[Tinjauan dan perbaikan]
+    F --> G[Producer Final Review]
+    G --> H[Pengiriman]
+```
+
+*Tingkat produk. Alur rinci ada pada teks di bawah.*
+
+---
+
 
 ## Mengapa Kang AI-AutoCut
 
@@ -599,3 +677,34 @@ tercatat di [LICENSE_DECISION_PENDING.md](LICENSE_DECISION_PENDING.md).
 Catatan identitas yang dapat dibaca mesin ada di
 [PROJECT_IDENTITY.md](PROJECT_IDENTITY.md). Aturan masuk untuk Agent ada di
 [AGENTS.md](AGENTS.md).
+
+---
+
+## Producer dalam Alur Kerja
+
+Alur kerja dirancang di sekitar keputusan manusia yang nyata, bukan untuk menghapusnya.
+
+```
+Producer Brief
+      ↓
+Produksi otonom
+      ↓
+Keputusan Producer yang nyata
+      ↓
+Produksi otonom
+      ↓
+Producer Final Review
+```
+
+Dua gate memiliki wewenang nyata saat ini:
+
+| Gate | Keputusan |
+|---|---|
+| **Creative Copy Approval** | naskah dan klaim yang boleh disampaikan video |
+| **Producer Final Review** | apakah karya dirilis |
+
+Di antara keduanya, produksi berjalan melalui sistem. Ini **Producer-in-the-loop**, bukan tanpa campur tangan manusia.
+
+## Penyedia audio saat ini
+
+Audio produksi dihasilkan melalui **Doubao / Seed Audio**, model tervalidasi **`seed-audio-1.0`**. Repositori ini **tidak menyertakan klien penyedia**. MiniMax adalah evaluasi **masa lalu** dan **bukan** penyedia saat ini.

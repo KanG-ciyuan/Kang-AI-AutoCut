@@ -1,3 +1,5 @@
+![Kang AI-AutoCut — Local-first Agentic AI Video Production System](assets/showcase/kang-ai-autocut-hero.png)
+
 # Kang AI-AutoCut
 
 **Local-first Agentic AI Video Production System**
@@ -38,6 +40,84 @@ Final Video
 ```
 
 ---
+
+## 它能做什么
+
+**把一整个原始素材文件夹和一份 Producer Brief 交给 Kang AI-AutoCut。**
+
+系统可以理解素材、规划在商业上彼此区分的多个版本、完成剪辑、生成本地化文案、排版与音频、
+审阅结果，并把任务推进到可交付的营销视频。
+
+它不是全自动视频工厂。有两个决定按设计留给人：
+
+- **Creative Copy Approval（创意文案审批）**
+- **Producer 终审**
+
+---
+
+## 从原始素材到营销版本
+
+```
+20–50 个原始片段
+      ↓
+素材理解
+      ↓
+剪辑智能
+      ↓
+商业叙事
+      ↓
+画面  +  排版  +  音频
+      ↓
+QA  +  修复
+      ↓
+Variant 01   ·   Variant 02   ·   Variant 03   ·   …
+```
+
+同一个素材池可以产出**在商业上彼此区分的多个版本**。每个版本独立重新考虑整个素材池，
+而不是继承上一个版本的时间线：在商业上成立时可以复用优秀素材，质量相当时优先选择使用
+较少的素材。以往使用情况是**软性多样性信号**，而不是禁止条件。
+
+> **有商业意义的差异，优先于人为的最大化差异。**
+
+这不是"一份时间线换个音乐"。版本是从同一批素材出发的、彼此不同的商业论证。
+
+---
+
+## 生产示例
+
+*生产展示正在准备中。*
+
+本仓库目前不发布任何生产母版，也不会为了填满这一节而虚构内容。这里是留给真实产物的位置：
+
+```
+assets/showcase/
+  kang-ai-autocut-hero.png   主视觉横幅
+  variant-preview.gif        版本预览（未来）
+  contact-sheet.png          镜头联系表（未来）
+```
+
+只有在生产记录进入本仓库之后，才会在这里补充生产数据。在此之前，这一节会保持可见的空缺，
+而不是用示意性内容填充。
+
+---
+
+## 工作原理
+
+```mermaid
+flowchart TD
+    A[Producer Brief] --> B[素材理解]
+    B --> C[多版本规划]
+    C --> D[创意与剪辑智能]
+    D --> E[画面 / 排版 / 音频]
+    E --> F[审阅与修复]
+    F --> G[Producer 终审]
+    G --> H[交付]
+```
+
+*这是产品层面的流程；逐阶段的详细工作流在下方以文字说明。*
+
+---
+
 
 ## 为什么选择 Kang AI-AutoCut
 
@@ -535,3 +615,30 @@ target commit   b65a73b53040bd1ff5defe25e624a28f623b6847
 - 媒体根目录：逻辑角色 `AUTOCUT_MEDIA_ROOT`
 
 机器可读的身份记录见 [PROJECT_IDENTITY.md](PROJECT_IDENTITY.md)。Agent 入口规则见 [AGENTS.md](AGENTS.md)。
+
+---
+
+## Producer 参与环节
+
+工作流围绕真实的人类决策设计，而不是围绕消除它们。
+
+```
+Producer Brief
+      ↓
+自动生产
+      ↓
+真实的 Producer 决策
+      ↓
+自动生产
+      ↓
+Producer 终审
+```
+
+目前有两道真正拥有决定权的门禁：
+
+| 门禁 | Producer 决定什么 |
+|---|---|
+| **Creative Copy Approval（创意文案审批）** | 文案内容，以及视频被允许做出的宣称 |
+| **Producer 终审** | 作品是否发布 |
+
+两者之间的全部环节 —— 素材理解、剪辑规划、画面生产、文字排版、音频生产、母版制作、QA 与修复 —— 都由生产系统推进。这是 **Producer-in-the-loop**，不是零人工干预。

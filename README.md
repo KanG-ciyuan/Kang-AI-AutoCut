@@ -1,56 +1,119 @@
+![Kang AI-AutoCut — Local-first Agentic AI Video Production System](assets/showcase/kang-ai-autocut-hero.png)
+
 # Kang AI-AutoCut
 
 **Local-first Agentic AI Video Production System**
 
-本地优先的 Agentic AI 视频生产系统
+> **Commercial-first, extensible by design.**
+> Commercial advertising is the first production-validated workflow. The architecture
+> is built to expand into broader creator and media workflows.
+
+### 20–50 raw clips → AI production pipeline → multiple marketing variants
+
+[![Local-first](https://img.shields.io/badge/local--first-yes-4c1)](docs/decisions/ADR-0007-local-first.md)
+[![Multi-Variant](https://img.shields.io/badge/multi--variant-yes-0a7ea4)](README.md#multi-variant-production)
+[![Producer-in-the-loop](https://img.shields.io/badge/producer--in--the--loop-yes-orange)](README.md#producer-in-the-loop)
+[![Python](https://img.shields.io/badge/python-3-3776AB)](README.md#installation)
+[![Tests](https://img.shields.io/badge/tests-1221%20passing-brightgreen)](README.md#installation)
+
+*Badges are static. This repository runs no CI workflow, and the badge numbers are not
+live status.*
 
 **Languages:** English | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Bahasa Indonesia](README.id.md) | [Deutsch](README.de.md) | [Español](README.es.md)
 
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3-3776AB)](README.md#installation)
-[![FFmpeg](https://img.shields.io/badge/ffmpeg-required-007808)](README.md#installation)
-[![Local-first](https://img.shields.io/badge/local--first-yes-4c1)](docs/decisions/ADR-0007-local-first.md)
-[![Agent-oriented](https://img.shields.io/badge/agent--oriented-yes-8957e5)](README.md#use-with-an-ai-agent)
-[![Tests](https://img.shields.io/badge/tests-1221%20passing-brightgreen)](README.md#installation)
-[![macOS](https://img.shields.io/badge/macOS-tested-000000)](README.md#installation)
-[![Baseline](https://img.shields.io/badge/baseline-pre--third--SKU-orange)](README.md#frozen-baseline)
+---
 
-*Badges are static and describe the frozen baseline. This repository runs no CI
-workflow, and the badge numbers are not live status.*
+## What it does
 
-Kang AI-AutoCut is an Agent-oriented video production system, not an FFmpeg
-stitching script. It takes authorized raw footage and a stated creative goal, and
-drives the work through **eight production stages** — material understanding,
-editing intelligence, narrative planning, timeline construction, picture
-finishing, typography, audio, mastering, review and repair — with **human approval
-as an explicit gate**.
+**Give Kang AI-AutoCut a folder of raw product footage and a Producer Brief.**
 
-It runs on your own machine. The production control path and media processing are
-local-first; external AI providers may receive only the inputs explicitly required
-for approved intelligence or generation tasks. Every creative decision is recorded,
-and the system refuses to report success it cannot measure.
+The system can understand the material, plan commercially distinct variants, build an
+edit, create localized copy, typography and audio, review the result, and move the job
+toward production-ready marketing videos.
 
-> **Commercial-first, extensible by design.** Commercial advertising is the first
-> production-validated workflow. The architecture is built to expand into broader
-> creator and media workflows.
+It is not a fully autonomous video factory. Two decisions stay with a person, by design:
 
-```
-Raw Footage
-    ↓
-Understand  →  Plan  →  Edit
-    ↓
-Picture  ·  Typography  ·  Audio
-    ↓
-Assemble & Master
-    ↓
-Review  →  Repair  →  Human Approval
-    ↓
-Final Video
-```
+- **Creative Copy Approval**
+- **Producer Final Review**
 
 ---
 
+## From Raw Footage to Marketing Variants
+
+```
+20–50 RAW CLIPS
+      ↓
+Material Understanding
+      ↓
+Editing Intelligence
+      ↓
+Commercial Narrative
+      ↓
+Picture  +  Typography  +  Audio
+      ↓
+QA  +  Repair
+      ↓
+Variant 01   ·   Variant 02   ·   Variant 03   ·   …
+```
+
+One source pool yields **commercially distinct variants**. Each variant independently
+reconsiders the entire pool rather than inheriting the previous variant's timeline:
+
+```
+same source pool
+  → different hooks
+  → different narratives
+  → different shot combinations
+  → different pacing
+  → different VO / BGM / SFX
+  → different commercial emphasis
+```
+
+This is not one timeline duplicated with the music changed. Variants are distinct
+commercial arguments built from the same material.
+
+---
+
+## Production Examples
+
+*Production showcase being prepared.*
+
+This repository publishes no production master yet, and nothing is fabricated to fill
+this section. It is the slot for the real thing:
+
+```
+assets/showcase/
+  kang-ai-autocut-hero.png   hero banner
+  variant-preview.gif        variant preview      (future)
+  contact-sheet.png          shot contact sheet   (future)
+```
+
+Production figures are added here only when a production record lands in this
+repository. Until then this section stays visibly empty rather than illustrative.
+
+---
+
+
 ## Why Kang AI-AutoCut
+
+Most tools in this space do one of four things:
+
+| Approach | What it does |
+|---|---|
+| Automatic trimming | cuts silence, keeps the rest |
+| Fixed-template assembly | drops clips into a preset |
+| Random shot concatenation | joins clips and hopes |
+| Reference-video cloning | copies one video's structure |
+
+Kang AI-AutoCut runs a production decision path instead:
+
+```
+Material Understanding  →  Creative Decision  →  Editing Intelligence
+    →  Commercial Narrative  →  Production  →  Review & Repair
+```
+
+> **AI reasons. Deterministic tools execute. The Producer keeps the genuine creative
+> decisions.**
 
 Most AI video tools produce **one video, once**, inside a chat window. Re-running
 them gives you a different video, and nothing about the process is inspectable.
@@ -92,6 +155,19 @@ already supported, and no content-mode framework exists yet.
 ---
 
 ## How It Works
+
+```mermaid
+flowchart TD
+    A[Producer Brief] --> B[Material Understanding]
+    B --> C[Multi-Variant Planning]
+    C --> D[Creative and Editing Intelligence]
+    D --> E[Picture / Typography / Audio]
+    E --> F[Review and Repair]
+    F --> G[Producer Final Review]
+    G --> H[Delivery]
+```
+
+*Product-level flow. The detailed stage-by-stage workflow is described in prose below.*
 
 ### What you do
 
@@ -180,6 +256,36 @@ previous variant's timeline:
 Variants may differ along the hook, the narrative angle, shot selection, shot
 order, shot boundaries, pacing, voice-over, typography copy, BGM, SFX and
 commercial emphasis. This is not one timeline rendered several ways.
+
+---
+
+## Producer in the Loop
+
+The workflow is designed around genuine human decisions, not around removing them.
+
+```
+Producer Brief
+      ↓
+Autonomous Production
+      ↓
+Genuine Producer Decision
+      ↓
+Autonomous Production
+      ↓
+Final Producer Review
+```
+
+Two gates carry real authority today:
+
+| Gate | What the Producer decides |
+|---|---|
+| **Creative Copy Approval** | the copy and the claims the video is allowed to make |
+| **Producer Final Review** | whether the piece is released |
+
+Everything between them — material understanding, edit planning, picture production,
+typography, audio production, mastering, QA and repair — runs through the production
+system. This is **Producer-in-the-loop**, not zero human intervention: the system stops
+where a decision is genuinely the Producer's, and says exactly what it is waiting for.
 
 ---
 
@@ -393,6 +499,18 @@ python3 scripts/run_pre_exam_proof.py --job-root /tmp/pre-exam-proof
 The proof is deliberately two-phase: it stops at the human release gate, writes
 the release naming the **verified** master, then resumes to completion. It fails
 if the master is deleted or altered.
+
+### Current repository usage vs the target production experience
+
+These are deliberately different things, and the gap between them is the roadmap:
+
+| | |
+|---|---|
+| **Current repository usage** | Initialise a job, run the production control path, and satisfy the Producer gates as they arrive. Some capability is job-authored, as listed under [Known Limitations](#known-limitations). |
+| **Target production experience** | Source folder + Producer Brief Lite + one launch, running until a genuine Producer decision is required, then to final review. |
+
+The commands below are the **current repository usage**. They are the real, supported
+commands in this repository; nothing here is a hypothetical one-command mode.
 
 ### Your first job
 

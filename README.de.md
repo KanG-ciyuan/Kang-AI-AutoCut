@@ -1,3 +1,5 @@
+![Kang AI-AutoCut — Local-first Agentic AI Video Production System](assets/showcase/kang-ai-autocut-hero.png)
+
 # Kang AI-AutoCut
 
 **Local-first Agentic AI Video Production System**
@@ -11,7 +13,7 @@
 [![FFmpeg](https://img.shields.io/badge/ffmpeg-required-007808)](README.md#installation)
 [![Local-first](https://img.shields.io/badge/local--first-yes-4c1)](docs/decisions/ADR-0007-local-first.md)
 [![Agent-oriented](https://img.shields.io/badge/agent--oriented-yes-8957e5)](README.md#use-with-an-ai-agent)
-[![Tests](https://img.shields.io/badge/tests-1062%20passing-brightgreen)](README.md#installation)
+[![Tests](https://img.shields.io/badge/tests-1221%20passing-brightgreen)](README.md#installation)
 [![macOS](https://img.shields.io/badge/macOS-tested-000000)](README.md#installation)
 [![Baseline](https://img.shields.io/badge/baseline-pre--third--SKU-orange)](README.md#frozen-baseline)
 
@@ -51,6 +53,82 @@ Final Video
 ```
 
 ---
+
+## Was es tut
+
+**Geben Sie Kang AI-AutoCut einen Ordner mit Rohmaterial und ein Producer Brief.**
+
+Das System kann das Material verstehen, kommerziell eigenständige Varianten planen, einen
+Schnitt bauen, lokalisierten Text, Typografie und Audio erstellen, das Ergebnis prüfen und
+den Auftrag in Richtung produktionsreifer Marketingvideos führen.
+
+Es ist keine vollautomatische Videofabrik. Zwei Entscheidungen bleiben bewusst beim Menschen:
+
+- **Creative Copy Approval**
+- **Producer Final Review**
+
+---
+
+## Vom Rohmaterial zu Marketing-Varianten
+
+```
+20–50 ROHCLIPS
+      ↓
+Materialverständnis
+      ↓
+Schnitt-Intelligenz
+      ↓
+Kommerzielle Narration
+      ↓
+Bild  +  Typografie  +  Audio
+      ↓
+QA  +  Reparatur
+      ↓
+Variante 01  ·  Variante 02  ·  Variante 03  ·  …
+```
+
+Ein Quellpool ergibt **kommerziell eigenständige Varianten**. Jede Variante erwägt den
+gesamten Pool unabhängig neu, statt die Timeline der vorherigen zu erben.
+
+> **Kommerziell bedeutsame Variation steht über künstlicher Maximal-Diversität.**
+
+Das ist nicht eine Timeline mit anderer Musik.
+
+---
+
+## Produktionsbeispiele
+
+*Die Produktions-Showcase wird vorbereitet.*
+
+Dieses Repository veröffentlicht noch keinen Produktionsmaster, und es wird nichts
+erfunden, um diese Sektion zu füllen.
+
+```
+assets/showcase/
+  kang-ai-autocut-hero.png   Hero-Banner
+  variant-preview.gif        Variantenvorschau (später)
+  contact-sheet.png          Kontaktabzug      (später)
+```
+
+---
+
+## Wie es funktioniert
+
+```mermaid
+flowchart TD
+    A[Producer Brief] --> B[Materialverständnis]
+    B --> C[Multi-Variant-Planung]
+    C --> D[Kreativ- und Schnitt-Intelligenz]
+    D --> E[Bild / Typografie / Audio]
+    E --> F[Review und Reparatur]
+    F --> G[Producer Final Review]
+    G --> H[Auslieferung]
+```
+
+*Produktebene. Der detaillierte Ablauf steht im Prosatext unten.*
+
+---
+
 
 ## Warum Kang AI-AutoCut
 
@@ -618,3 +696,34 @@ spätere Phase offen sind, sind in
 Der maschinenlesbare Identitätsdatensatz ist
 [PROJECT_IDENTITY.md](PROJECT_IDENTITY.md). Die Eintrittsregeln für Agenten stehen
 in [AGENTS.md](AGENTS.md).
+
+---
+
+## Producer im Prozess
+
+Der Workflow ist um echte menschliche Entscheidungen herum gebaut, nicht um deren Entfernung.
+
+```
+Producer Brief
+      ↓
+Autonome Produktion
+      ↓
+Echte Producer-Entscheidung
+      ↓
+Autonome Produktion
+      ↓
+Producer Final Review
+```
+
+Zwei Gates tragen heute echte Autorität:
+
+| Gate | Entscheidung |
+|---|---|
+| **Creative Copy Approval** | der Text und die Aussagen, die das Video treffen darf |
+| **Producer Final Review** | ob das Werk freigegeben wird |
+
+Alles dazwischen läuft durch das System. Das ist **Producer-in-the-loop**, keine Null-Intervention.
+
+## Aktueller Audio-Provider
+
+Produktionsaudio wird über **Doubao / Seed Audio** erzeugt, validiertes Modell **`seed-audio-1.0`** — für Voice-over, BGM und erzeugte SFX / Ambience. Dieser Repository-Teil enthält **keinen Provider-Client**. MiniMax war eine **frühere** Evaluierung und ist **nicht** der aktuelle Provider.
