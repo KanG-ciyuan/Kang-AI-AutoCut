@@ -76,7 +76,13 @@ upstream or downstream, not in the decision.
 |---|---|
 | Policy and reviewer dimensions | Documented here |
 | `editing_plan.v1` | **FROZEN** with implementation and tests |
+| vNext companion contracts (`candidate_evidence.v1`, `hook_decision.v1`, `planning_evidence.v1`) | **CONTRACT_ONLY** — validated shapes, no production writer or reader |
 | Automated Editing Intelligence from a Shot Pool | **NOT_IMPLEMENTED** |
+
+`CONTRACT_ONLY` means the contract exists and is tested, and nothing in the
+production path uses it. The three companion documents are described in
+`docs/contracts/`. Nothing in this repository generates Candidate Evidence,
+generates or selects a Hook, or plans a sequence yet.
 
 The frozen contract preserves decisions that were made. Nothing in this
 repository yet makes them automatically from raw material.

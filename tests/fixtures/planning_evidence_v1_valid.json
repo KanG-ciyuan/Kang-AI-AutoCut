@@ -1,0 +1,118 @@
+{
+  "coverage_summary": {
+    "covered_tokens": [
+      "ACTION_ONSET",
+      "BODY_AREA",
+      "CLAIM_SUPPORT_DIRECT",
+      "OBSERVABLE_RESULT",
+      "PRODUCT_VISIBLE"
+    ],
+    "decision_counts": {
+      "KEEP": 3,
+      "REJECT": 2,
+      "TRIM": 1
+    },
+    "missing_tokens": [],
+    "redundant_keeps": 1
+  },
+  "decisions": [
+    {
+      "adds_coverage": [],
+      "candidate_id": "candv1_51e5977b3c842068a16184c45b406db99e8850d32cb4126ff997d1a27f8c471e",
+      "decision": "REJECT",
+      "duration_cost_frames": 0,
+      "reason_codes": [
+        "ANALYSIS_UNAVAILABLE"
+      ],
+      "redundant_with": [],
+      "sequence_position": null,
+      "why": "no analysis was recorded for this Candidate, so it cannot be judged"
+    },
+    {
+      "adds_coverage": [
+        "BODY_AREA"
+      ],
+      "candidate_id": "candv1_69c84b49c62aa415328984e33139e0c45f6f2827fb8d784c74765d6b4841b3ca",
+      "decision": "TRIM",
+      "duration_cost_frames": 60,
+      "reason_codes": [
+        "FIRST_DIRECT_PROOF"
+      ],
+      "redundant_with": [],
+      "sequence_position": 3,
+      "why": "adds the in-use hand context; the identified interval is longer than the proof needs, so a shorter Candidate Identity is required"
+    },
+    {
+      "adds_coverage": [],
+      "candidate_id": "candv1_7100bd294d8bb6d88792ec6a16b94e86494fe01a1c30fbfb6de0de886de8e4fd",
+      "decision": "REJECT",
+      "duration_cost_frames": 0,
+      "reason_codes": [
+        "NO_NEW_EVIDENCE_DIMENSION",
+        "SEMANTIC_SATURATION"
+      ],
+      "redundant_with": [],
+      "sequence_position": null,
+      "why": "repeats the before-state dimension without adding a new one"
+    },
+    {
+      "adds_coverage": [],
+      "candidate_id": "candv1_784c6d7fc634827e85deffbb7da3108a1150d0cb9e8134079e7b430c736ca0b6",
+      "decision": "KEEP",
+      "duration_cost_frames": 48,
+      "reason_codes": [
+        "ACTION_TO_RESULT_RELATION"
+      ],
+      "redundant_with": [
+        "candv1_7e986643b352d5fd416294b0fd3bdc4c0da220d7ea25fc88243ba5c7fa306511"
+      ],
+      "sequence_position": 4,
+      "why": "second angle of the same cause and effect, kept to make it readable"
+    },
+    {
+      "adds_coverage": [
+        "ACTION_ONSET",
+        "OBSERVABLE_RESULT"
+      ],
+      "candidate_id": "candv1_7e986643b352d5fd416294b0fd3bdc4c0da220d7ea25fc88243ba5c7fa306511",
+      "decision": "KEEP",
+      "duration_cost_frames": 45,
+      "reason_codes": [
+        "FIRST_DIRECT_PROOF"
+      ],
+      "redundant_with": [],
+      "sequence_position": 2,
+      "why": "the only interval that starts on the action and keeps its result"
+    },
+    {
+      "adds_coverage": [
+        "CLAIM_SUPPORT_DIRECT",
+        "PRODUCT_VISIBLE"
+      ],
+      "candidate_id": "candv1_d5f260066505d06226821948b2d00e4234cc8ef6013a4c7a76b46981a3cc8df8",
+      "decision": "KEEP",
+      "duration_cost_frames": 30,
+      "reason_codes": [
+        "FIRST_DIRECT_PROOF"
+      ],
+      "redundant_with": [],
+      "sequence_position": 1,
+      "why": "first frames that show the product and prove the attachment claim"
+    }
+  ],
+  "hook_decision": {
+    "ref": "planning/hook_decision.json",
+    "sha256": "1090648ffb35a6fe59d9dbbebcd269b7eb5420897049b1a013044d3200932be7"
+  },
+  "plan_id": "planv1_3225263e4c294c35a3d079048e396fc6f6384a82e994372e6dacdb6ab260393f",
+  "planner_run_id": "plannerrunv1_fixture",
+  "requirements": [
+    "ACTION_ONSET",
+    "BODY_AREA",
+    "CLAIM_SUPPORT_DIRECT",
+    "OBSERVABLE_RESULT",
+    "PRODUCT_VISIBLE"
+  ],
+  "schema_version": "planning_evidence.v1",
+  "total_duration_frames": 183
+}

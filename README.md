@@ -756,6 +756,10 @@ demonstration of a workflow, not a claim that the system is fully autonomous.
 - **Verified on macOS only.** Windows and Linux are untested.
 - **Tracked, unresolved:** run-aware visual segmentation (C-01) and automatic
   selected-range verification ("needs vision").
+- **Editing Intelligence vNext companion contracts are contract-only.** The
+  `candidate_evidence.v1`, `hook_decision.v1`, and `planning_evidence.v1`
+  documents are defined, validated and tested, and no production path writes or
+  reads them yet. See [`docs/contracts/`](docs/contracts/).
 
 ---
 

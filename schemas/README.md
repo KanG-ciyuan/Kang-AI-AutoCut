@@ -26,6 +26,12 @@ the offline tests actually parse.
 canonical fixture in `tests/fixtures/`. They are deliberately **not** duplicated
 here: a second copy of a frozen contract is a second place for it to drift.
 
+The Editing Intelligence vNext companion contracts — `candidate_evidence.v1`,
+`hook_decision.v1`, and `planning_evidence.v1` — follow the same layout and are
+likewise not duplicated here. They are contracts only: no production path writes
+or reads them yet, so they are documentation of a decided shape, not of a
+shipped capability.
+
 New contracts live in this directory until they earn the same treatment.
 
 ## Implementation status is part of the contract

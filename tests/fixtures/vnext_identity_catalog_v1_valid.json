@@ -1,0 +1,61 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "candv1_51e5977b3c842068a16184c45b406db99e8850d32cb4126ff997d1a27f8c471e",
+      "end_frame_exclusive": 930,
+      "material_id": "matv1_0c598d1b14bac45725ba52a548aa0bf1e58b9c1cf5f556b4748b8319f706e1fa",
+      "start_frame": 900,
+      "stream_index": 0
+    },
+    {
+      "candidate_id": "candv1_69c84b49c62aa415328984e33139e0c45f6f2827fb8d784c74765d6b4841b3ca",
+      "end_frame_exclusive": 690,
+      "material_id": "matv1_0c598d1b14bac45725ba52a548aa0bf1e58b9c1cf5f556b4748b8319f706e1fa",
+      "start_frame": 600,
+      "stream_index": 0
+    },
+    {
+      "candidate_id": "candv1_7100bd294d8bb6d88792ec6a16b94e86494fe01a1c30fbfb6de0de886de8e4fd",
+      "end_frame_exclusive": 860,
+      "material_id": "matv1_0c598d1b14bac45725ba52a548aa0bf1e58b9c1cf5f556b4748b8319f706e1fa",
+      "start_frame": 800,
+      "stream_index": 0
+    },
+    {
+      "candidate_id": "candv1_784c6d7fc634827e85deffbb7da3108a1150d0cb9e8134079e7b430c736ca0b6",
+      "end_frame_exclusive": 548,
+      "material_id": "matv1_1eacf60468c064424f22231cbc57fa8cb228c972ebbfe097f262dc082bb3e203",
+      "start_frame": 500,
+      "stream_index": 0
+    },
+    {
+      "candidate_id": "candv1_7e986643b352d5fd416294b0fd3bdc4c0da220d7ea25fc88243ba5c7fa306511",
+      "end_frame_exclusive": 345,
+      "material_id": "matv1_1eacf60468c064424f22231cbc57fa8cb228c972ebbfe097f262dc082bb3e203",
+      "start_frame": 300,
+      "stream_index": 0
+    },
+    {
+      "candidate_id": "candv1_d5f260066505d06226821948b2d00e4234cc8ef6013a4c7a76b46981a3cc8df8",
+      "end_frame_exclusive": 130,
+      "material_id": "matv1_1eacf60468c064424f22231cbc57fa8cb228c972ebbfe097f262dc082bb3e203",
+      "start_frame": 100,
+      "stream_index": 0
+    }
+  ],
+  "materials": [
+    {
+      "byte_size": 8192,
+      "content_sha256": "0c598d1b14bac45725ba52a548aa0bf1e58b9c1cf5f556b4748b8319f706e1fa",
+      "material_id": "matv1_0c598d1b14bac45725ba52a548aa0bf1e58b9c1cf5f556b4748b8319f706e1fa",
+      "media_kind": "video"
+    },
+    {
+      "byte_size": 4096,
+      "content_sha256": "1eacf60468c064424f22231cbc57fa8cb228c972ebbfe097f262dc082bb3e203",
+      "material_id": "matv1_1eacf60468c064424f22231cbc57fa8cb228c972ebbfe097f262dc082bb3e203",
+      "media_kind": "video"
+    }
+  ],
+  "schema_version": "material_candidate_identity.v1"
+}

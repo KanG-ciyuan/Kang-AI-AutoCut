@@ -1,0 +1,236 @@
+{
+  "analysis_run": {
+    "model": "fixture_model_v1",
+    "prompt_contract_version": "candidate_evidence_prompt.v1",
+    "provider": "fixture_provider",
+    "run_id": "analysisrunv1_fixture"
+  },
+  "candidate_pool_id": "poolv1_87e6cd36c24007ce064cd15b23b412eacc8aa6e2c528e2b36eddab9ecac06fc2",
+  "entries": [
+    {
+      "action_evidence": null,
+      "candidate_id": "candv1_51e5977b3c842068a16184c45b406db99e8850d32cb4126ff997d1a27f8c471e",
+      "claims": null,
+      "confidence": null,
+      "evidence_type": null,
+      "observations": null,
+      "provenance": null,
+      "rationale": "analysis was not run for this Candidate in this fixture",
+      "risks": null,
+      "role_affinities": null,
+      "status": "UNKNOWN"
+    },
+    {
+      "action_evidence": [
+        {
+          "action_completion": 655,
+          "action_onset": 620,
+          "preparation_start": 600,
+          "result_end_exclusive": 690
+        }
+      ],
+      "candidate_id": "candv1_69c84b49c62aa415328984e33139e0c45f6f2827fb8d784c74765d6b4841b3ca",
+      "claims": [
+        {
+          "note": "direction changes are visible but not held long enough to prove",
+          "product_fact_ref": "fact_adjustable_water_direction",
+          "provenance": [],
+          "support": "CONTEXTUAL"
+        }
+      ],
+      "confidence": 0.55,
+      "evidence_type": "CONTEXTUAL_USAGE",
+      "observations": {
+        "body_area": "HANDS",
+        "claim_support_class": "CONTEXTUAL_ONLY",
+        "product_visibility": "PARTIAL",
+        "usage_context": "IN_USE",
+        "visible_action": "both hands rinse a glass under the running water",
+        "visible_result": "the glass is held under the adjustable stream",
+        "visual_usability": "USABLE_WITH_TRIM"
+      },
+      "provenance": [
+        {
+          "end_frame_exclusive": 690,
+          "start_frame": 600
+        }
+      ],
+      "rationale": "usable context, but the identified interval is longer than needed",
+      "risks": [
+        {
+          "code": "FRAME_RANGE_TOO_SHORT",
+          "note": "the proof of direction needs the last third only",
+          "severity": "LOW"
+        }
+      ],
+      "role_affinities": [
+        "identity"
+      ],
+      "status": "ANALYZED"
+    },
+    {
+      "action_evidence": [],
+      "candidate_id": "candv1_7100bd294d8bb6d88792ec6a16b94e86494fe01a1c30fbfb6de0de886de8e4fd",
+      "claims": [],
+      "confidence": 0.4,
+      "evidence_type": "CONTEXTUAL_USAGE",
+      "observations": {
+        "body_area": "NOT_APPLICABLE",
+        "claim_support_class": "NONE",
+        "product_visibility": "NOT_VISIBLE",
+        "usage_context": "LIFESTYLE",
+        "visible_action": "a sink is shown with water running off frame",
+        "visible_result": null,
+        "visual_usability": "USABLE_WITH_TRIM"
+      },
+      "provenance": [
+        {
+          "end_frame_exclusive": 860,
+          "start_frame": 800
+        }
+      ],
+      "rationale": "context only; it repeats a dimension the before state covers",
+      "risks": [
+        {
+          "code": "PRODUCT_NOT_VISIBLE",
+          "note": "no product is identifiable in the interval",
+          "severity": "HIGH"
+        }
+      ],
+      "role_affinities": [
+        "identity"
+      ],
+      "status": "ANALYZED"
+    },
+    {
+      "action_evidence": [
+        {
+          "action_completion": 528,
+          "action_onset": 506,
+          "preparation_start": 500,
+          "result_end_exclusive": 548
+        }
+      ],
+      "candidate_id": "candv1_784c6d7fc634827e85deffbb7da3108a1150d0cb9e8134079e7b430c736ca0b6",
+      "claims": [],
+      "confidence": 0.61,
+      "evidence_type": "DIRECT_DEMONSTRATION",
+      "observations": {
+        "body_area": "HANDS",
+        "claim_support_class": "CONTEXTUAL_ONLY",
+        "product_visibility": "CLEAR",
+        "usage_context": "IN_USE",
+        "visible_action": "a hand turns the filter head while water runs",
+        "visible_result": "the stream bends to the side of the sink",
+        "visual_usability": "USABLE"
+      },
+      "provenance": [
+        {
+          "end_frame_exclusive": 548,
+          "start_frame": 500
+        }
+      ],
+      "rationale": "second angle of the same action to result relation",
+      "risks": [],
+      "role_affinities": [
+        "action",
+        "proof"
+      ],
+      "status": "ANALYZED"
+    },
+    {
+      "action_evidence": [
+        {
+          "action_completion": 330,
+          "action_onset": 305,
+          "preparation_start": 300,
+          "result_end_exclusive": 345
+        }
+      ],
+      "candidate_id": "candv1_7e986643b352d5fd416294b0fd3bdc4c0da220d7ea25fc88243ba5c7fa306511",
+      "claims": [],
+      "confidence": 0.64,
+      "evidence_type": "RESULT_STATE",
+      "observations": {
+        "body_area": "HANDS",
+        "claim_support_class": "NONE",
+        "product_visibility": "PARTIAL",
+        "usage_context": "PRE_USE",
+        "visible_action": "water leaves the faucet before the filter is fitted",
+        "visible_result": "a full stream runs into the sink",
+        "visual_usability": "USABLE"
+      },
+      "provenance": [
+        {
+          "end_frame_exclusive": 345,
+          "start_frame": 300
+        }
+      ],
+      "rationale": "establishes the before state with the result still on screen",
+      "risks": [],
+      "role_affinities": [
+        "action"
+      ],
+      "status": "ANALYZED"
+    },
+    {
+      "action_evidence": [
+        {
+          "action_completion": 124,
+          "action_onset": 108,
+          "preparation_start": 100,
+          "result_end_exclusive": 130
+        }
+      ],
+      "candidate_id": "candv1_d5f260066505d06226821948b2d00e4234cc8ef6013a4c7a76b46981a3cc8df8",
+      "claims": [
+        {
+          "note": "the whole identified interval shows the attachment",
+          "product_fact_ref": "fact_attaches_to_faucet_end",
+          "provenance": [
+            {
+              "end_frame_exclusive": 130,
+              "start_frame": 100
+            }
+          ],
+          "support": "DIRECT"
+        }
+      ],
+      "confidence": 0.72,
+      "evidence_type": "DIRECT_DEMONSTRATION",
+      "observations": {
+        "body_area": "HANDS",
+        "claim_support_class": "DIRECT_DEMONSTRATION",
+        "product_visibility": "CLEAR",
+        "usage_context": "IN_USE",
+        "visible_action": "a hand twists the filter onto the faucet end",
+        "visible_result": "water passes through the transparent cylinder",
+        "visual_usability": "USABLE"
+      },
+      "provenance": [
+        {
+          "end_frame_exclusive": 130,
+          "start_frame": 100
+        }
+      ],
+      "rationale": "one continuous action with its result inside the interval",
+      "risks": [],
+      "role_affinities": [
+        "action",
+        "proof"
+      ],
+      "status": "ANALYZED"
+    }
+  ],
+  "product_facts": {
+    "allowed_fact_refs": [
+      "fact_adjustable_water_direction",
+      "fact_attaches_to_faucet_end",
+      "fact_transparent_cylinder",
+      "fact_water_passes_through"
+    ],
+    "ref": "brief/product_facts.json",
+    "sha256": "6a7782fd43016e6184b46611cb48680c08afeab12b96782de551551d887dbb6c"
+  },
+  "schema_version": "candidate_evidence.v1"
+}

@@ -1,0 +1,121 @@
+{
+  "brief": {
+    "ref": "brief/brief.json",
+    "sha256": "9c4aa417ecde421a9df5c7d206179932c5ede5784c5de8d004a6a51817ab2e66"
+  },
+  "candidate_evidence": {
+    "ref": "analysis/candidate_evidence.json",
+    "sha256": "3e017006ad5e0ad9b59b0b1946ead2cac4ba443341ad114bb62dadf9b0707bce"
+  },
+  "decision_owner": "HUMAN_PRODUCER",
+  "hypotheses": [
+    {
+      "assessment": {
+        "evidence_coverage": "PARTIAL",
+        "fact_safety": "FACT_SAFE",
+        "rejection_codes": [
+          "WEAKER_EVIDENCE"
+        ]
+      },
+      "available_visual_support": [
+        {
+          "candidate_id": "candv1_7e986643b352d5fd416294b0fd3bdc4c0da220d7ea25fc88243ba5c7fa306511",
+          "coverage_token": "ACTION_ONSET",
+          "support": "DIRECT"
+        },
+        {
+          "candidate_id": "candv1_7e986643b352d5fd416294b0fd3bdc4c0da220d7ea25fc88243ba5c7fa306511",
+          "coverage_token": "OBSERVABLE_RESULT",
+          "support": "CONTEXTUAL"
+        }
+      ],
+      "commercial_premise": "the stream bends to the side when the head is turned",
+      "copy_direction": "name only the direction change the footage shows",
+      "expected_opening_structure": "result visible in the first second, cause explained after",
+      "hook_id": "hookv1_306fffebfab59b02b7c96d1f53d1ab8d5e42f5911de21680419f5979093060d1",
+      "hook_type": "RESULT",
+      "required_evidence": [
+        {
+          "coverage_token": "ACTION_ONSET",
+          "description": "the turn has to be on screen before the stream changes"
+        },
+        {
+          "coverage_token": "OBSERVABLE_RESULT",
+          "description": "the changed stream has to stay on screen long enough to read"
+        }
+      ]
+    },
+    {
+      "assessment": {
+        "evidence_coverage": "FULL",
+        "fact_safety": "FACT_SAFE",
+        "rejection_codes": []
+      },
+      "available_visual_support": [
+        {
+          "candidate_id": "candv1_d5f260066505d06226821948b2d00e4234cc8ef6013a4c7a76b46981a3cc8df8",
+          "coverage_token": "CLAIM_SUPPORT_DIRECT",
+          "support": "DIRECT"
+        },
+        {
+          "candidate_id": "candv1_d5f260066505d06226821948b2d00e4234cc8ef6013a4c7a76b46981a3cc8df8",
+          "coverage_token": "PRODUCT_VISIBLE",
+          "support": "DIRECT"
+        }
+      ],
+      "commercial_premise": "the filter attaches to the faucet end and the water passes through a transparent cylinder",
+      "copy_direction": "state the attachment and the visible water path; no filtration or water-quality language",
+      "expected_opening_structure": "product already in hand on frame one, attachment completed inside the first two seconds",
+      "hook_id": "hookv1_931f788f996dd971eca752f000375a079df95205e929bcf76884a333d5257a3c",
+      "hook_type": "PRODUCT_DIRECT",
+      "required_evidence": [
+        {
+          "coverage_token": "CLAIM_SUPPORT_DIRECT",
+          "description": "the attachment claim has to be shown, not asserted"
+        },
+        {
+          "coverage_token": "PRODUCT_VISIBLE",
+          "description": "the product has to be identifiable in the opening frames"
+        }
+      ]
+    },
+    {
+      "assessment": {
+        "evidence_coverage": "PARTIAL",
+        "fact_safety": "FACT_UNSAFE",
+        "rejection_codes": [
+          "UNSUPPORTED_CLAIM"
+        ]
+      },
+      "available_visual_support": [
+        {
+          "candidate_id": "candv1_7100bd294d8bb6d88792ec6a16b94e86494fe01a1c30fbfb6de0de886de8e4fd",
+          "coverage_token": "PRODUCT_VISIBLE",
+          "support": "CONTEXTUAL"
+        }
+      ],
+      "commercial_premise": "tap water that looks cloudy is why rinsing never feels clean",
+      "copy_direction": "describe the visible water only, never water quality",
+      "expected_opening_structure": "problem state first, product inside three seconds",
+      "hook_id": "hookv1_ee9222f328f244753d712a8c0ab4138e25669211c826f5e09657e6a5b2d9f38f",
+      "hook_type": "PAIN",
+      "required_evidence": [
+        {
+          "coverage_token": "BEFORE_STATE",
+          "description": "the problem state has to precede the product"
+        },
+        {
+          "coverage_token": "PRODUCT_VISIBLE",
+          "description": "the product still has to appear in the opening"
+        }
+      ]
+    }
+  ],
+  "schema_version": "hook_decision.v1",
+  "selected_hook_id": "hookv1_931f788f996dd971eca752f000375a079df95205e929bcf76884a333d5257a3c",
+  "selection_reason_codes": [
+    "BRIEF_ALIGNED",
+    "DIRECT_VISUAL_SUPPORT",
+    "FACT_SAFE"
+  ]
+}
