@@ -7,6 +7,7 @@ from src.ai_autocut.paths import (
     ENV_ASCII_STAGING,
     ENV_DAVINCI_PATH,
     ENV_MEDIA_ROOT,
+    ENV_PRODUCTION_ROOT,
     ENV_WORKSPACE,
     PathConfiguration,
     PathConfigurationError,
@@ -48,11 +49,20 @@ class PathConfigurationTestCase(unittest.TestCase):
             "media_root",
             "legacy_workspace",
             "ascii_staging",
+            "production_root",
             "davinci_path",
             "jianying_path",
         ):
             with self.subTest(role=role):
                 self.assertIsNone(config.get(role))
+
+    def test_the_production_root_role_is_read_from_the_environment(self) -> None:
+        config = PathConfiguration.from_environ(
+            {ENV_PRODUCTION_ROOT: "/srv/production-storage"}
+        )
+        self.assertEqual(
+            str(config.require("production_root")), "/srv/production-storage"
+        )
 
     def test_environment_values_are_read(self) -> None:
         config = PathConfiguration.from_environ(

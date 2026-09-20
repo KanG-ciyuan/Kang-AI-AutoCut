@@ -20,7 +20,13 @@ import shutil
 import sys
 from typing import Any, Iterable, Mapping, Sequence
 
-from .paths import assert_ascii_safe
+from .paths import PathConfiguration, assert_ascii_safe
+from .storage_contract import (
+    ProductionStorageBlocked,
+    StorageDecision,
+    StorageProbe,
+    resolve_production_storage,
+)
 
 
 JOB_MANIFEST_FILENAME = "job_manifest.json"
@@ -358,6 +364,37 @@ def build_generic_source_inventory(
     return inventory
 
 
+def _enforce_storage_decision(
+    decision: StorageDecision, workspace: Path, job_id: str
+) -> None:
+    """Refuse a workspace that the storage contract did not resolve.
+
+    Passing a decision in is how a caller proves it asked the production system
+    where to write, rather than choosing a location itself. A decision naming a
+    different job, or naming no workspace at all, is a contract violation and not a
+    warning: the whole point of the storage contract is that the workspace has one
+    authority.
+    """
+
+    if decision.job_id != job_id:
+        raise JobFoundationError(
+            f"storage decision is for job {decision.job_id!r}, not {job_id!r}"
+        )
+    if decision.blocked:
+        raise JobFoundationError(
+            "production storage is blocked "
+            f"({decision.reason}); production must not begin"
+        )
+    resolved = decision.job_workspace
+    if resolved is None:
+        raise JobFoundationError("storage decision resolved no job workspace")
+    if Path(workspace).resolve(strict=False) != Path(resolved).resolve(strict=False):
+        raise JobFoundationError(
+            "workspace must be the storage-contract-resolved job workspace; "
+            "a caller may not substitute its own location for heavy production media"
+        )
+
+
 def initialize_job(
     *,
     job_id: str,
@@ -369,6 +406,7 @@ def initialize_job(
     davinci_path: Path | None = None,
     source_suffixes: Iterable[str] = SUPPORTED_SOURCE_SUFFIXES,
     quota_bytes: int = STAGING_QUOTA_BYTES,
+    storage_decision: StorageDecision | None = None,
 ) -> JobFoundation:
     """Initialize one generic commercial job.
 
@@ -379,6 +417,27 @@ def initialize_job(
     It deliberately does **not** require a fixed file count, a Filter identity, or any
     SKU#1 or SKU#2 value. ``initialize_filter_job`` is kept unchanged for historical
     compatibility, and nothing here changes its behaviour.
+
+    ``workspace`` is the caller's already-decided location, which keeps this function
+    usable by a caller that legitimately holds a workspace. Production callers should
+    use :func:`initialize_production_job` instead and let the storage contract decide.
+    When ``storage_decision`` is supplied, this function enforces that ``workspace``
+    is the location that decision resolved.
+
+    .. note::
+       **Future deprecation candidate — not deprecated in this change.**
+
+       Accepting ``workspace`` from the caller is the last remaining place where a
+       caller can name a production location itself instead of asking the storage
+       contract. It is deliberately retained for now: ``production.ensure_job`` and
+       the offline test suite both depend on it, and breaking either to remove a
+       parameter would trade a storage guarantee for a test-suite regression.
+
+       The intended sequence, when the Producer schedules it, is: (1) route
+       ``production.ensure_job`` through :func:`initialize_production_job`, (2) give
+       the offline suite a storage-resolved temporary root, (3) only then remove the
+       parameter. Until step 3, treat ``workspace`` as a compatibility path and prefer
+       ``initialize_production_job`` for anything that is real production.
     """
 
     if not job_id or any(
@@ -394,6 +453,8 @@ def initialize_job(
         raise JobFoundationError(
             "a generic job must state its product identity; product.name is required"
         )
+    if storage_decision is not None:
+        _enforce_storage_decision(storage_decision, workspace, job_id)
     if workspace.exists():
         raise JobFoundationError(
             "job workspace already exists; refusing to overwrite evidence"
@@ -477,13 +538,82 @@ def initialize_job(
     return foundation
 
 
+def initialize_production_job(
+    *,
+    job_id: str,
+    product: Mapping[str, Any],
+    source_root: Path,
+    config: PathConfiguration | None = None,
+    environ: Mapping[str, str] | None = None,
+    probe: StorageProbe | None = None,
+    required_bytes: int = 0,
+    media_root: Path | None = None,
+    staging_root: Path | None = None,
+    davinci_path: Path | None = None,
+    source_suffixes: Iterable[str] = SUPPORTED_SOURCE_SUFFIXES,
+    quota_bytes: int = STAGING_QUOTA_BYTES,
+) -> JobFoundation:
+    """Initialize one production job at the location the storage contract resolves.
+
+    This is the entry point an Agent uses. The Agent states *what* the job is; the
+    production system decides *where* it produces. That inversion is the whole
+    contract: a Work-produced job, a Codex-produced job and a DSH-produced job reach
+    the same workspace because none of them supplies one.
+
+    When the external production root is unavailable this raises
+    :class:`~src.ai_autocut.storage_contract.ProductionStorageBlocked` and nothing is
+    created. It does not fall back to the internal disk. The exception carries the
+    decision, so the operating Agent can tell the Producer that the production drive
+    must be connected rather than guessing why production stopped.
+    """
+
+    decision = resolve_production_storage(
+        job_id,
+        config=config,
+        environ=environ,
+        probe=probe,
+        required_bytes=required_bytes,
+    )
+    workspace = decision.require_workspace()
+    return initialize_job(
+        job_id=job_id,
+        product=product,
+        source_root=source_root,
+        workspace=workspace,
+        media_root=media_root,
+        staging_root=staging_root,
+        davinci_path=davinci_path,
+        source_suffixes=source_suffixes,
+        quota_bytes=quota_bytes,
+        storage_decision=decision,
+    )
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Initialize one production job (generic by default)"
     )
     parser.add_argument("--job-id", required=True)
     parser.add_argument("--source-root", type=Path, required=True)
-    parser.add_argument("--workspace", type=Path, required=True)
+    parser.add_argument(
+        "--workspace",
+        type=Path,
+        default=None,
+        help=(
+            "explicit job workspace, for a caller that already holds one. "
+            "Production should prefer --production, which resolves the workspace "
+            "from the storage contract instead."
+        ),
+    )
+    parser.add_argument(
+        "--production",
+        action="store_true",
+        help=(
+            "resolve the job workspace from the storage contract (external "
+            "production storage). Blocks instead of falling back to the internal "
+            "disk. Mutually exclusive with --workspace."
+        ),
+    )
     parser.add_argument(
         "--product-name",
         default=None,
@@ -508,7 +638,31 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
-        if args.filter:
+        if args.production and args.workspace is not None:
+            print(
+                "--workspace and --production are mutually exclusive: --production "
+                "resolves the workspace from the storage contract, and passing a "
+                "workspace as well would replace that decision",
+                file=sys.stderr,
+            )
+            return 2
+        if args.production:
+            if not args.product_name:
+                print(
+                    "--product-name is required for a generic job; the product identity "
+                    "is a job input, not a built-in",
+                    file=sys.stderr,
+                )
+                return 2
+            job = initialize_production_job(
+                job_id=args.job_id,
+                product={"name": args.product_name},
+                source_root=args.source_root,
+                media_root=args.media_root,
+                staging_root=args.staging_root,
+                davinci_path=args.davinci_path,
+            )
+        elif args.filter:
             missing = [
                 name
                 for name, value in (
@@ -524,6 +678,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                     file=sys.stderr,
                 )
                 return 2
+            if args.workspace is None:
+                print("--workspace is required unless --production is used", file=sys.stderr)
+                return 2
             job = initialize_filter_job(
                 job_id=args.job_id,
                 source_root=args.source_root,
@@ -537,6 +694,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print(
                     "--product-name is required for a generic job; the product identity "
                     "is a job input, not a built-in",
+                    file=sys.stderr,
+                )
+                return 2
+            if args.workspace is None:
+                print(
+                    "--workspace is required unless --production is used; --production "
+                    "resolves it from the storage contract",
                     file=sys.stderr,
                 )
                 return 2
@@ -563,6 +727,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         )
         return 0
+    except ProductionStorageBlocked as exc:
+        # Machine-readable and on stderr, so a caller branches on the status rather
+        # than parsing English. Nothing was created: the workspace was never resolved.
+        print(json.dumps(exc.decision.as_dict(), ensure_ascii=False, sort_keys=True), file=sys.stderr)
+        return 3
     except JobFoundationError as exc:
         print(f"job foundation error: {exc}", file=sys.stderr)
         return 2

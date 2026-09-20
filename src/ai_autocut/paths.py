@@ -29,6 +29,7 @@ ENV_WORKSPACE = "AUTOCUT_WORKSPACE"
 ENV_MEDIA_ROOT = "AUTOCUT_MEDIA_ROOT"
 ENV_LEGACY_WORKSPACE = "AUTOCUT_LEGACY_WORKSPACE"
 ENV_ASCII_STAGING = "AUTOCUT_ASCII_STAGING"
+ENV_PRODUCTION_ROOT = "AUTOCUT_PRODUCTION_ROOT"
 ENV_DAVINCI_PATH = "DAVINCI_PATH"
 ENV_JIANYING_PATH = "JIANYING_PATH"
 
@@ -37,6 +38,7 @@ ROLE_WORKSPACE = "workspace"
 ROLE_MEDIA_ROOT = "media_root"
 ROLE_LEGACY_WORKSPACE = "legacy_workspace"
 ROLE_ASCII_STAGING = "ascii_staging"
+ROLE_PRODUCTION_ROOT = "production_root"
 ROLE_DAVINCI_PATH = "davinci_path"
 ROLE_JIANYING_PATH = "jianying_path"
 
@@ -45,6 +47,7 @@ _ROLE_ENVIRONMENT = {
     ROLE_MEDIA_ROOT: ENV_MEDIA_ROOT,
     ROLE_LEGACY_WORKSPACE: ENV_LEGACY_WORKSPACE,
     ROLE_ASCII_STAGING: ENV_ASCII_STAGING,
+    ROLE_PRODUCTION_ROOT: ENV_PRODUCTION_ROOT,
     ROLE_DAVINCI_PATH: ENV_DAVINCI_PATH,
     ROLE_JIANYING_PATH: ENV_JIANYING_PATH,
 }
@@ -173,6 +176,7 @@ class PathConfiguration:
     media_root: Path | None = None
     legacy_workspace: Path | None = None
     ascii_staging: Path | None = None
+    production_root: Path | None = None
     davinci_path: Path | None = None
     jianying_path: Path | None = None
 
@@ -188,6 +192,7 @@ class PathConfiguration:
             media_root=_clean(source, ENV_MEDIA_ROOT),
             legacy_workspace=_clean(source, ENV_LEGACY_WORKSPACE),
             ascii_staging=_clean(source, ENV_ASCII_STAGING),
+            production_root=_clean(source, ENV_PRODUCTION_ROOT),
             davinci_path=_clean(source, ENV_DAVINCI_PATH),
             jianying_path=_clean(source, ENV_JIANYING_PATH),
         )
