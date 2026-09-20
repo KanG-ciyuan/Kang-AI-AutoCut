@@ -97,6 +97,9 @@ def _run(command: Sequence[str], label: str) -> None:
 def _require_tools() -> None:
     if not media_probe.have_tools():
         raise ExecutionAdapterError("ffmpeg and ffprobe are required")
+    problem = media_probe.version_problem("ffprobe")
+    if problem:
+        raise ExecutionAdapterError(problem)
 
 
 # ---------------------------------------------------------------------------

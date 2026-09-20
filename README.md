@@ -466,12 +466,33 @@ that is a known documentation gap, not a hidden step.
 | Requirement | Status |
 |---|---|
 | **Python 3** | verified on 3.11.15. The repository declares no minimum version — treat that as a gap. |
-| **FFmpeg and FFprobe** | required. Verified on ffmpeg/ffprobe 9.0.1. |
+| **FFmpeg and FFprobe** | required, **4.4 or later** for the production path; the test suite additionally needs **5.1 or later**. Verified end-to-end on 5.1.2, 6.1.2 and 9.0.1. |
 | **`numpy`** | required by the media-understanding module |
 | **`Pillow`** | required by the typography execution adapter |
 | **macOS** | verified on macOS arm64. Windows and Linux are **not** verified. |
 
-No `pyproject.toml`, `setup.py`, or `requirements.txt` exists, so no version pins
+#### FFmpeg versions: two floors, both measured
+
+Two different boundaries were measured on real media rather than inferred from release
+notes, and they are not the same boundary:
+
+- **Production path: 4.4.2 and later.** FFmpeg 4.4.x answers `frame=pts_time` with an
+  empty value for *every* frame while still exiting 0. The frame-timestamp reader now
+  falls back to `best_effort_timestamp_time`, which was confirmed value-for-value
+  identical to `pts_time` on 4.4.2, 5.0.1, 5.1.2, 6.1.2 and 9.0.1 for CFR and genuinely
+  variable-frame-rate sources. Measured timestamps stay authoritative; only the field
+  name changes, never the clock. A toolchain older than 4.4 is refused up front by name
+  and version.
+- **Test suite: 5.1.2 and later.** `-fps_mode`, which builds the variable-frame-rate
+  fixture, is **absent from 4.4.2 and from 5.0.1** and present from 5.1.2. No single
+  spelling spans that range, so the two VFR classes are reported as **skipped with the
+  version reason** rather than failing inside a filtergraph with
+  `Unrecognized option 'fps_mode'`. `tests/test_tool_version_gate.py` asserts both floors.
+
+A toolchain can therefore run the product and still be unable to run one test fixture;
+that case is reported as a skip, not as a failure.
+
+No `pyproject.toml`, `setup.py`, or `requirements.txt` exists, so no Python version pins
 are claimed here. Read the imports rather than trusting a lockfile that is not
 there.
 

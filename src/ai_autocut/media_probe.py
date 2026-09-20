@@ -28,6 +28,89 @@ def have_tools(ffmpeg: str = "ffmpeg", ffprobe: str = "ffprobe") -> bool:
     return bool(shutil.which(ffmpeg) and shutil.which(ffprobe))
 
 
+#: The oldest FFmpeg/FFprobe the *production path* supports.
+#:
+#: Measured, not assumed. FFmpeg 4.4.x answers ``frame=pts_time`` with an empty value for
+#: every frame, and that is the only version-specific behaviour the production code met;
+#: the frame-timestamp reader falls back to ``best_effort_timestamp_time`` for it, so the
+#: execution path runs on 4.4.x. Everything else the production code passes to
+#: ffmpeg/ffprobe is long-standing. 4.4.2 is the oldest build actually exercised here, so
+#: this floor refuses anything older rather than claiming it.
+MINIMUM_FFMPEG_VERSION = (4, 4)
+
+#: The oldest FFmpeg that can run the repository's own verification suite.
+#:
+#: ``-fps_mode`` builds the variable-frame-rate fixture, and it was measured **absent from
+#: 4.4.2 and from 5.0.1** and present from 5.1.2 onwards. No spelling spans that range, so
+#: the fixture is gated on the version instead of the repository carrying a
+#: version-adaptive option table. This floor is deliberately *above* the production floor:
+#: a toolchain can run the product and still be unable to run one test fixture.
+VFR_FIXTURE_MINIMUM_VERSION = (5, 1)
+
+
+def _format_version(version: Sequence[int]) -> str:
+    return ".".join(str(part) for part in version)
+
+
+def _version_match(binary: str) -> re.Match[str] | None:
+    """The ``major.minor[.patch]`` a tool reports, or ``None`` when it cannot be read."""
+
+    try:
+        stdout = _run([binary, "-version"]).stdout
+    except OSError:
+        # A binary that is absent or not executable is precisely "cannot be read", so it
+        # must answer like an unparseable version rather than raise out of a helper whose
+        # whole job is to report the problem.
+        return None
+    return re.search(r"version\s+(\d+)\.(\d+)(?:\.(\d+))?", stdout)
+
+
+def tool_version(binary: str = "ffprobe") -> tuple[int, int] | None:
+    """The major/minor version a tool reports, or ``None`` when it cannot be read.
+
+    Only major and minor take part in the comparison, so a tool that reports ``5.1.0``
+    and one that reports ``5.1.2`` are both accepted by the same floor.
+    """
+
+    match = _version_match(binary)
+    if not match:
+        return None
+    return (int(match.group(1)), int(match.group(2)))
+
+
+def tool_version_text(binary: str = "ffprobe") -> str | None:
+    """The version exactly as the tool states it, for messages that must be actionable."""
+
+    match = _version_match(binary)
+    return match.group(0) if match else None
+
+
+def version_problem(binary: str = "ffprobe",
+                    minimum: tuple[int, int] = MINIMUM_FFMPEG_VERSION) -> str | None:
+    """``None`` when the tool is usable, otherwise a precise message saying why not."""
+
+    version = tool_version(binary)
+    if version is None:
+        return (f"could not read the version of {binary!r}; "
+                f"FFmpeg {_format_version(minimum)} or later is required")
+    if version < minimum:
+        reported = tool_version_text(binary) or _format_version(version)
+        return (f"{binary} {reported} is not supported; "
+                f"FFmpeg {_format_version(minimum)} or later is required")
+    return None
+
+
+def require_supported_tools(ffmpeg: str = "ffmpeg", ffprobe: str = "ffprobe") -> None:
+    """Fail fast, by name and version, instead of failing later inside a filtergraph."""
+
+    if not have_tools(ffmpeg, ffprobe):
+        raise MediaProbeError("ffmpeg and ffprobe are required")
+    for binary in (ffprobe, ffmpeg):
+        problem = version_problem(binary)
+        if problem:
+            raise MediaProbeError(problem)
+
+
 def _run(command: Sequence[str]) -> subprocess.CompletedProcess:
     return subprocess.run(list(command), capture_output=True, text=True)
 
@@ -258,6 +341,8 @@ def resolve_media_path(document_path: str | Path, *, job_root: str | Path | None
 
 
 __all__ = [
+    "MINIMUM_FFMPEG_VERSION",
+    "VFR_FIXTURE_MINIMUM_VERSION",
     "MediaProbeError",
     "count_black_frames",
     "count_duplicate_frames",
@@ -266,6 +351,10 @@ __all__ = [
     "have_tools",
     "measure_loudness",
     "probe_streams",
+    "require_supported_tools",
     "resolve_media_path",
     "sha256_of_file",
+    "tool_version",
+    "tool_version_text",
+    "version_problem",
 ]

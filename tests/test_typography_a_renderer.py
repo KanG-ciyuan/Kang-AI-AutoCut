@@ -13,6 +13,7 @@ of its own, and that a job without an art direction keeps exactly the behaviour 
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -31,6 +32,29 @@ PROFILE = REPO / "examples" / "typography" / "art-direction-a-v1.profile.json"
 
 def profile() -> tr.RenderProfile:
     return tr.RenderProfile.load(PROFILE)
+
+
+def example_profile_font_available() -> bool:
+    """Whether the shipped A v1 profile's own font can be resolved on this host.
+
+    The profile is one job's locked parameters and it names a macOS font
+    (``/System/Library/Fonts/Avenir Next Condensed.ttc``). Rendering with it needs that
+    exact file: the renderer refuses to substitute a font rather than silently changing
+    the approved look, so on a host without it these classes report the environment gap
+    instead of failing as though the renderer were broken. The design already expects each
+    job to state its own font, so a non-macOS job is not blocked by this - only these
+    macOS-profile fixtures are.
+    """
+
+    try:
+        return os.path.isfile(profile().font_path)
+    except Exception:
+        return False
+
+
+FONT_REQUIREMENT = (
+    "the shipped A v1 profile names a macOS font that is not resolvable on this host"
+)
 
 
 def event(event_id="E01", role="HOOK", lines=("KOTORAN KULIT", "TERANGKAT"),
@@ -113,6 +137,7 @@ class RunSplitTests(unittest.TestCase):
 # ------------------------------------------------------------------ render
 
 
+@unittest.skipUnless(example_profile_font_available(), FONT_REQUIREMENT)
 class RenderTests(unittest.TestCase):
     def setUp(self) -> None:
         self.p = profile()
@@ -206,6 +231,7 @@ class RenderTests(unittest.TestCase):
 # ------------------------------------------------------------------ placement
 
 
+@unittest.skipUnless(example_profile_font_available(), FONT_REQUIREMENT)
 class PlacementTests(unittest.TestCase):
     """Placement stays 'stable zone plus controlled adaptation', never free positioning."""
 
@@ -237,6 +263,7 @@ class PlacementTests(unittest.TestCase):
 # ------------------------------------------------------------------ ffmpeg chain
 
 
+@unittest.skipUnless(example_profile_font_available(), FONT_REQUIREMENT)
 class CompositeChainTests(unittest.TestCase):
     def test_the_chain_fades_settles_and_uses_integer_frame_windows(self) -> None:
         overlays = tr.render_events([event()], profile=profile())
@@ -262,6 +289,7 @@ class CompositeChainTests(unittest.TestCase):
 
 
 @unittest.skipUnless(media_probe.have_tools(), "ffmpeg and ffprobe are required")
+@unittest.skipUnless(example_profile_font_available(), FONT_REQUIREMENT)
 class ExecutorIntegrationTests(unittest.TestCase):
     """The production boundary must actually call the renderer."""
 

@@ -38,6 +38,27 @@ EXPECTED_RAW_INDEX = 10
 EXPECTED_ANALYSIS_FRAME = 30
 
 
+def _ffmpeg_can_build_vfr() -> bool:
+    """Whether this FFmpeg can build the fixture at all.
+
+    ``-fps_mode`` is what preserves the original presentation timestamps, and it was
+    measured absent from FFmpeg 4.4.2 *and* 5.0.1, and present from 5.1.2 onwards. There
+    is no spelling that spans both ends of that range, so the repository states a minimum
+    rather than carrying a version-adaptive option table: an older toolchain is reported
+    as unsupported, by name and version, instead of failing inside a filtergraph.
+    """
+
+    version = media_probe.tool_version("ffmpeg")
+    return bool(version and version >= media_probe.VFR_FIXTURE_MINIMUM_VERSION)
+
+
+VFR_FIXTURE_REQUIREMENT = (
+    "ffmpeg "
+    + ".".join(str(part) for part in media_probe.VFR_FIXTURE_MINIMUM_VERSION)
+    + " or later is required: -fps_mode builds this variable-frame-rate fixture"
+)
+
+
 def _run(command: list[str], label: str) -> None:
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
@@ -107,7 +128,8 @@ def analysis_frame_colour(source: Path, index: int, *, fps: int = ANALYSIS_FPS) 
     )
 
 
-@unittest.skipUnless(media_probe.have_tools(), "ffmpeg and ffprobe are required")
+@unittest.skipUnless(
+    media_probe.have_tools() and _ffmpeg_can_build_vfr(), VFR_FIXTURE_REQUIREMENT)
 class RealVfrAnalysisGridTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -253,7 +275,8 @@ class RealVfrAnalysisGridTests(unittest.TestCase):
             )
 
 
-@unittest.skipUnless(media_probe.have_tools(), "ffmpeg and ffprobe are required")
+@unittest.skipUnless(
+    media_probe.have_tools() and _ffmpeg_can_build_vfr(), VFR_FIXTURE_REQUIREMENT)
 class VfrThroughTheProductionPathTests(unittest.TestCase):
     """The same mapping, exercised through the fast path rather than the adapter alone."""
 

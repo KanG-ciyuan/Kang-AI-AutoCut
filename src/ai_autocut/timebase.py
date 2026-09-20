@@ -85,12 +85,26 @@ class SourceTiming:
                                     sorted(self.deltas.items(), key=lambda x: -x[1])[:4]}}
 
 
-def frame_table(path: str) -> list[float]:
-    """Every frame's PTS in seconds. The authoritative source coordinate."""
+#: Frame timestamp fields to ask FFprobe for, in preference order.
+#:
+#: ``pts_time`` is asked for first, because the source coordinate is the presentation
+#: timestamp and nothing here may substitute a different clock. FFmpeg 4.4.x answers that
+#: field with an empty value for *every* frame instead of failing, which used to make this
+#: module raise on media that is perfectly readable. ``best_effort_timestamp_time`` is the
+#: same measured presentation timestamp - it falls back to a reconstructed value only when
+#: a stream states no PTS at all - and it was measured value-for-value identical to
+#: ``pts_time`` on FFmpeg 4.4.2, 5.1.2, 6.1.2 and 9.0.1 for both CFR and genuinely
+#: variable-frame-rate sources. It is consulted only when the primary field reads nothing,
+#: so a modern FFprobe still executes the exact command it always did.
+FRAME_TIME_FIELDS = ("pts_time", "best_effort_timestamp_time")
+
+
+def _probe_frame_times(path: str, field: str) -> list[float]:
+    """One FFprobe pass over every frame, reading a single timestamp field."""
 
     out = subprocess.run(
         ["ffprobe", "-v", "error", "-select_streams", "v:0",
-         "-show_entries", "frame=pts_time", "-of", "csv=p=0", path],
+         "-show_entries", f"frame={field}", "-of", "csv=p=0", path],
         capture_output=True, text=True).stdout
     values: list[float] = []
     for line in out.splitlines():
@@ -101,9 +115,23 @@ def frame_table(path: str) -> list[float]:
             values.append(float(token))
         except ValueError:
             pass
-    if not values:
-        raise TimebaseError(f"no frame timestamps readable from {path}")
     return values
+
+
+def frame_table(path: str) -> list[float]:
+    """Every frame's PTS in seconds. The authoritative source coordinate.
+
+    Frame order and cadence come from the media, never from ``frame_index / fps``. The
+    fallback field changes which *name* is asked for, never which clock is read: measured
+    presentation timestamps stay authoritative, and variable-frame-rate cadence is
+    preserved because the per-frame values are the source's own.
+    """
+
+    for field in FRAME_TIME_FIELDS:
+        values = _probe_frame_times(path, field)
+        if values:
+            return values
+    raise TimebaseError(f"no frame timestamps readable from {path}")
 
 
 def extract_timeline_frames(source: str, *, t_in: float, frames: int, out_path: str,
