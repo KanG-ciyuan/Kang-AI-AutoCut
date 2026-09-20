@@ -11,7 +11,7 @@
 [![FFmpeg](https://img.shields.io/badge/ffmpeg-required-007808)](README.md#installation)
 [![Local-first](https://img.shields.io/badge/local--first-yes-4c1)](docs/decisions/ADR-0007-local-first.md)
 [![Agent-oriented](https://img.shields.io/badge/agent--oriented-yes-8957e5)](README.md#use-with-an-ai-agent)
-[![Tests](https://img.shields.io/badge/tests-1062%20passing-brightgreen)](README.md#installation)
+[![Tests](https://img.shields.io/badge/tests-1221%20passing-brightgreen)](README.md#installation)
 [![macOS](https://img.shields.io/badge/macOS-tested-000000)](README.md#installation)
 [![Baseline](https://img.shields.io/badge/baseline-pre--third--SKU-orange)](README.md#frozen-baseline)
 
@@ -159,6 +159,79 @@ decision, or to claim work it did not do. Some stages are automated; others
 legitimately need an Agent, a provider adapter, or a person. The language
 "generate or prepare", "Agent supplies", and "job-authored when required" is used
 deliberately throughout this README.
+
+---
+
+## Multi-Variant Production
+
+One source pool can produce **multiple commercially distinct variants**. Each
+variant independently reconsiders the full pool rather than inheriting the
+previous variant's timeline:
+
+- it reconsiders **every** candidate, and does not mechanically inherit the
+  previous variant's timeline
+- it **may** reuse strong footage when that is commercially justified
+- prior usage acts as a **soft diversity signal**, not a prohibition
+- where candidate quality is comparable it prefers less-used footage
+- it **never** sacrifices commercial quality merely to maximise de-duplication
+
+> **Commercially meaningful variation outranks artificial maximum diversity.**
+
+Variants may differ along the hook, the narrative angle, shot selection, shot
+order, shot boundaries, pacing, voice-over, typography copy, BGM, SFX and
+commercial emphasis. This is not one timeline rendered several ways.
+
+---
+
+## Editing Intelligence
+
+```
+Candidate Window
+    ↓  internal visual cut detection
+Visual Segment
+    ↓  semantic / action grouping
+Timeline Shot
+```
+
+**Candidate Boundary ≠ Timeline Boundary**, and **no cut before comprehension**:
+footage is understood before it is cut. The material decides how much narrative it
+can support — a target duration does not force footage to fill a timeline.
+
+> **Content-driven duration.** There is deliberately no universal fixed minimum
+> shot duration.
+
+Full contract: [`docs/policies/editing-intelligence.md`](docs/policies/editing-intelligence.md).
+
+---
+
+## Audio Intelligence
+
+Each audio layer answers a different question:
+
+| Layer | Role |
+|---|---|
+| Visual | Evidence |
+| Title | Selling-point summary |
+| VO | Marketing explanation + sales narrative |
+| BGM | Emotion + rhythm |
+| SFX / ambience | Realism + action emphasis |
+
+Sound is designed as:
+
+```
+Visual Event  →  Sound Event  →  Timing  →  Mix
+```
+
+> **Sound must have visual or narrative justification.**
+
+Water sound is not laid under a piece merely because the scene is a bathroom. Actual
+running or rinsing water on screen may carry matching water sound; a restrained
+scrub texture may accompany visible wet scrubbing; a hero product display with no
+water source in frame should not attract obvious water sound.
+
+Mix priority is **voice > evidence sound > music**.
+
+Full policy: [`docs/policies/audio-intelligence.md`](docs/policies/audio-intelligence.md).
 
 ---
 
@@ -365,9 +438,14 @@ this system, however capable it is at reasoning.
 
 ## Audio & AI Provider Architecture
 
-The current repository performs **local mixing and mastering** on audio assets the
-job supplies. It deliberately does **not** call a voice, music or sound-effect
-provider. Audio synthesis is not implemented here.
+This repository performs **local mixing and mastering** on audio assets the job
+supplies. It ships **no provider client**: synthesis is not implemented here.
+
+**Production audio is generated through an external provider.** The current
+production audio provider is **Doubao / Seed Audio**, validated model
+**`seed-audio-1.0`**, used for Indonesian voice-over, BGM and generated
+SFX / ambience. The client lives outside this repository; the findings below shaped
+the audio policy.
 
 ```
 External Audio Provider   (future Adapter layer — NOT built in)
@@ -388,12 +466,11 @@ result. It refuses a mix whose sample peak reaches full scale.
 one-click voice generation, and this repository contains no provider client.
 
 **Historical context, labelled accurately.** Voice-over was produced through
-**MiniMax `speech-2.8-hd`** during earlier validated production work, and a
-predecessor job manifest records **Doubao Seed Audio 1.0**. Both are
-**historically evaluated experiments**, recorded in
-[`docs/providers/audio-provider.md`](docs/providers/audio-provider.md) — not
-current built-in production integrations. Their findings shaped the audio policy;
-their clients are not part of this repository.
+**MiniMax `speech-2.8-hd`** during earlier validated production work. That is a
+**past** evaluation, recorded in
+[`docs/providers/audio-provider.md`](docs/providers/audio-provider.md); MiniMax is
+**not** the current production provider. macOS `say` is likewise not a production
+provider.
 
 No key, token or credential value appears anywhere in this repository. Credentials
 are referenced by environment variable name only.
@@ -495,28 +572,41 @@ is a logical role resolved from an environment variable; see
 | Frozen baseline | `pre-third-sku-blind-v1` → `b65a73b53040bd1ff5defe25e624a28f623b6847` |
 | Freeze status | `CLOSED_AND_FROZEN` |
 | Exam validity | `PASS_WITH_EXPLICIT_PRODUCER_GATES` |
-| Next planned production phase | Third-SKU blind exam — **not started** |
+| Production-validated scope | Commercial advertising / e-commerce video |
+| Regression suite | 1221 passing, offline, no network required |
 
-A working **gated production control path** exists and has produced a real,
-independently verified delivery master. It is not an unattended one-click editor,
-and it does not claim to be.
+A working **gated production control path** exists and has produced real,
+independently verified delivery masters. It is still not an unattended one-click
+editor, and it does not claim to be — Producer decisions remain part of the
+workflow by design.
+
+**Several commercial video variants have now been produced through the end-to-end
+workflow.** Recent runs demonstrated a shape where human intervention is
+concentrated at creative-copy approval and final producer review, while material
+understanding, edit planning, picture production, typography, audio production,
+mastering, QA and repair proceeded through the production system. That is a
+demonstration of a workflow, not a claim that the system is fully autonomous.
 
 ---
 
 ## Known Limitations
 
-- **Not an unattended one-command editor.** Producer gates stop the run by design,
-  and some need a person or an Agent.
+- **Not an unattended editor.** A single launch now drives a job end to end, but
+  Producer gates still stop the run by design.
 - **No automated commercial reviewer.** The review contract records a judgement; it
   does not produce one.
 - **Picture measurement and product protection are job-authored.** No measurement
   tool ships here, and the protection tolerance checks have not yet run on real
-  data — the gate has been proven to refuse, not to evaluate.
+  data — the gate has been proven to refuse, not to evaluate. Occlusion evidence
+  for typography placement is authored the same way.
 - **The `CORRECT` picture branch has never fired** in a production run.
-- **No built-in audio provider.** Synthesis is not implemented; the pipeline
-  consumes job-local assets.
-- **Typography proves execution, not art direction.** No screen-copy hierarchy
-  planner and no product-obstruction validation; a job supplies its own layout.
+- **No audio provider client ships in this repository.** Production audio is
+  generated through an external provider (see below); the pipeline here consumes
+  job-local assets.
+- **Typography art direction is locked to one baseline.** `Typography Art Direction
+  A v1` defines the design language, a closed zone set and a reviewer; a job selects
+  it rather than inventing a look. Placement evidence is job-authored — the system
+  consumes occlusion evidence, it does not measure occlusion itself.
 - **The execution proof uses generated local audio.** It proves the mixing and
   mastering path, not a real voice performance.
 - **No artifact registry and no job queue.** Large staging data is cleaned up by
@@ -532,14 +622,16 @@ and it does not claim to be.
 
 ## Roadmap
 
-1. **Run the Third-SKU blind exam against `pre-third-sku-blind-v1`.**
-2. Measure final quality, producer-gate frequency, and human intervention.
-3. Use the blind-run evidence to decide which remaining job-authored capabilities
-   are worth automating next.
+1. **Close the remaining job-authored evidence.** Typography placement evidence and
+   picture occlusion evidence are authored per job; the contract can carry them, no
+   producer measures them yet.
+2. **Keep reducing human intervention** where the evidence supports it, without
+   removing the Producer gates that carry real authority.
+3. **Widen the validated scope** beyond commercial advertising once the commercial
+   workflow is stable.
 
-The frozen baseline is meant to be examined **as frozen**: no pre-exam automation
-work is scheduled ahead of the blind run, so the exam measures the accepted system
-rather than a system still moving under it.
+The frozen baseline remains frozen and is examined **as frozen**: it records the
+exact system that was audited and accepted.
 
 ---
 

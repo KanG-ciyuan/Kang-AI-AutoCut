@@ -5,7 +5,24 @@
 The audio provider was selected by validated production work. It is **not
 re-selected here**, and this repository does not re-open that decision.
 
-## What was validated
+## Current production provider
+
+**Doubao / Seed Audio** is the current production audio provider, validated model
+**`seed-audio-1.0`**. It is used for:
+
+- Indonesian voice-over
+- BGM
+- generated SFX / ambience
+
+The provider client lives **outside this repository**, so this repository performs
+local mixing and mastering on job-local assets and ships no synthesis client. The
+production fact and the repository fact are both true and are deliberately not
+merged into one sentence.
+
+**Not current production providers:** MiniMax (a past evaluation, below) and macOS
+`say`. Neither is used for production audio today.
+
+## Earlier validation — MiniMax
 
 Voice-over was produced through **MiniMax `speech-2.8-hd`** (`POST /v1/t2a_v2`).
 
