@@ -760,6 +760,22 @@ demonstration of a workflow, not a claim that the system is fully autonomous.
   `candidate_evidence.v1`, `hook_decision.v1`, and `planning_evidence.v1`
   documents are defined, validated and tested, and no production path writes or
   reads them yet. See [`docs/contracts/`](docs/contracts/).
+- **Candidate extraction and analysis run in shadow only.** A `VNEXT_SHADOW`
+  stage can now build Candidates from measured material, validate their windows,
+  and produce a validated `candidate_evidence.v1` through the authoring seam —
+  with no production wiring, no hook selection, and no sequence planning.
+  Structured analysis is provider-independent: it is validated offline against
+  deterministic and recorded answers, and an opt-in harness
+  (`scripts/phase25_live_validation.py`, never part of the test suite) can hand real
+  sampled frames to a live multimodal analyzer with exact source-frame labels. A run
+  during development reported a model reading those frames and producing valid
+  evidence; **that run's artifacts are not preserved in this repository and have not
+  been independently verified**, so treat the harness as a capability, not as proof
+  of a result. `candidate_evidence.v2` carries structured visual observations —
+  including `NO_ACTION` and `PROBLEM_STATE_VISIBLE` — so a later stage can plan from
+  machine truth rather than prose; commercial claims remain bound to Product Facts,
+  and contract validity is reported separately from the declared pixel checks, which
+  measure one statistic each and never semantic or commercial truth.
 
 ---
 

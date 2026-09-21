@@ -1,0 +1,23 @@
+{
+  "facts": [
+    {
+      "ref": "fact_product_identity_visible",
+      "statement": "the product is identifiable in frame"
+    },
+    {
+      "ref": "fact_surface_contact",
+      "statement": "a surface is contacted by the hand or the product"
+    },
+    {
+      "ref": "fact_surface_result_state",
+      "statement": "the state of the surface after the action is visible"
+    },
+    {
+      "ref": "fact_water_flow_visible",
+      "statement": "water is visibly flowing over the surface"
+    }
+  ],
+  "ref": "brief/claim_envelope.json",
+  "schema_version": "claim_envelope.v1",
+  "sha256": "0ec33dd711b5bafd8b5e7f97d7960c17a21c18f7380262fe29f9b9d0ecdbc20e"
+}

@@ -32,6 +32,16 @@ likewise not duplicated here. They are contracts only: no production path writes
 or reads them yet, so they are documentation of a decided shape, not of a
 shipped capability.
 
+`candidate_evidence.v2` succeeded `candidate_evidence.v1` in Phase 2.6 to carry
+structured visual observations. Version 1 is still parsed and validated, and is
+described in `docs/contracts/candidate-evidence-v1.md`.
+
+Candidate extraction and analysis add pipeline artifacts under the
+`VNEXT_SHADOW` mode (`analysis/candidate_*.json`), described in
+`docs/contracts/candidate-extraction-and-analysis-v1.md`. There is now an
+implementation that produces `candidate_evidence.v1` from measured material in
+shadow; the production fast path still neither writes nor requires any of them.
+
 New contracts live in this directory until they earn the same treatment.
 
 ## Implementation status is part of the contract

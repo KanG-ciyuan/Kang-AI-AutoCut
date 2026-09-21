@@ -1,0 +1,186 @@
+{
+  "proposals": [
+    {
+      "action_evidence": null,
+      "end_frame_exclusive": 30,
+      "material_id": "matv1_06894234a7e21e7e9c7faa6b8fd3d6a67d602f06978a576b3ae8d5ae83a8d940",
+      "parent_segment_indices": [],
+      "proposal_id": "wpropv1_arm_scrub",
+      "rationale": "one complete visual segment in which a forearm works a surface",
+      "rule": "SINGLE_SEGMENT",
+      "segment_indices": [
+        0
+      ],
+      "start_frame": 0,
+      "stream_index": 0
+    },
+    {
+      "action_evidence": {
+        "action_completion": 58,
+        "action_onset": 40,
+        "preparation_start": 34,
+        "result_end_exclusive": 70
+      },
+      "end_frame_exclusive": 75,
+      "material_id": "matv1_06894234a7e21e7e9c7faa6b8fd3d6a67d602f06978a576b3ae8d5ae83a8d940",
+      "parent_segment_indices": [],
+      "proposal_id": "wpropv1_leg_scrub",
+      "rationale": "one leg action continues across the cut between these two segments",
+      "rule": "ADJACENT_MERGE",
+      "segment_indices": [
+        1,
+        2
+      ],
+      "start_frame": 30,
+      "stream_index": 0
+    },
+    {
+      "action_evidence": null,
+      "end_frame_exclusive": 120,
+      "material_id": "matv1_06894234a7e21e7e9c7faa6b8fd3d6a67d602f06978a576b3ae8d5ae83a8d940",
+      "parent_segment_indices": [],
+      "proposal_id": "wpropv1_rinse",
+      "rationale": "one complete visual segment of a full rinse",
+      "rule": "SINGLE_SEGMENT",
+      "segment_indices": [
+        3
+      ],
+      "start_frame": 75,
+      "stream_index": 0
+    },
+    {
+      "action_evidence": {
+        "action_completion": 108,
+        "action_onset": 88,
+        "preparation_start": 80,
+        "result_end_exclusive": 118
+      },
+      "end_frame_exclusive": 120,
+      "material_id": "matv1_06894234a7e21e7e9c7faa6b8fd3d6a67d602f06978a576b3ae8d5ae83a8d940",
+      "parent_segment_indices": [
+        3
+      ],
+      "proposal_id": "wpropv1_rinse_short",
+      "rationale": "the rinse reads completely from the onset; the earlier frames are setup",
+      "rule": "SHORTER_ACTION_WINDOW",
+      "segment_indices": [],
+      "start_frame": 86,
+      "stream_index": 0
+    },
+    {
+      "action_evidence": {
+        "action_completion": 108,
+        "action_onset": 88,
+        "preparation_start": 80,
+        "result_end_exclusive": 118
+      },
+      "end_frame_exclusive": 118,
+      "material_id": "matv1_06894234a7e21e7e9c7faa6b8fd3d6a67d602f06978a576b3ae8d5ae83a8d940",
+      "parent_segment_indices": [],
+      "proposal_id": "wpropv1_rinse_safe",
+      "rationale": "shortest window that still keeps the rinse and its result",
+      "rule": "ACTION_SAFE_WINDOW",
+      "segment_indices": [],
+      "start_frame": 88,
+      "stream_index": 0
+    },
+    {
+      "action_evidence": null,
+      "end_frame_exclusive": 50,
+      "material_id": "matv1_853ca038ef09a514d6e12fcaa289555b0ba39253b20b4ec8198fcfaf3abf1c86",
+      "parent_segment_indices": [],
+      "proposal_id": "wpropv1_beauty",
+      "rationale": "a product shot with no action; described, not credited",
+      "rule": "SINGLE_SEGMENT",
+      "segment_indices": [
+        1
+      ],
+      "start_frame": 10,
+      "stream_index": 0
+    },
+    {
+      "action_evidence": {
+        "action_completion": 108,
+        "action_onset": 88,
+        "preparation_start": 80,
+        "result_end_exclusive": 118
+      },
+      "end_frame_exclusive": 112,
+      "material_id": "matv1_06894234a7e21e7e9c7faa6b8fd3d6a67d602f06978a576b3ae8d5ae83a8d940",
+      "parent_segment_indices": [],
+      "proposal_id": "wpropv1_bad_truncate",
+      "rationale": "a safe window that would cut the rinse result short",
+      "rule": "ACTION_SAFE_WINDOW",
+      "segment_indices": [],
+      "start_frame": 88,
+      "stream_index": 0
+    },
+    {
+      "action_evidence": {
+        "action_completion": 58,
+        "action_onset": 40,
+        "preparation_start": 34,
+        "result_end_exclusive": 70
+      },
+      "end_frame_exclusive": 75,
+      "material_id": "matv1_06894234a7e21e7e9c7faa6b8fd3d6a67d602f06978a576b3ae8d5ae83a8d940",
+      "parent_segment_indices": [],
+      "proposal_id": "wpropv1_bad_merge",
+      "rationale": "a merge proposed because the window 'looks useful'",
+      "rule": "ADJACENT_MERGE",
+      "segment_indices": [
+        0,
+        1,
+        2
+      ],
+      "start_frame": 0,
+      "stream_index": 0
+    },
+    {
+      "action_evidence": null,
+      "end_frame_exclusive": 130,
+      "material_id": "matv1_06894234a7e21e7e9c7faa6b8fd3d6a67d602f06978a576b3ae8d5ae83a8d940",
+      "parent_segment_indices": [],
+      "proposal_id": "wpropv1_bad_bounds",
+      "rationale": "a window past the measured end of the material",
+      "rule": "SINGLE_SEGMENT",
+      "segment_indices": [
+        0
+      ],
+      "start_frame": 0,
+      "stream_index": 0
+    },
+    {
+      "action_evidence": {
+        "action_completion": 108,
+        "action_onset": 88,
+        "preparation_start": 80,
+        "result_end_exclusive": 118
+      },
+      "end_frame_exclusive": 118,
+      "material_id": "matv1_06894234a7e21e7e9c7faa6b8fd3d6a67d602f06978a576b3ae8d5ae83a8d940",
+      "parent_segment_indices": [],
+      "proposal_id": "wpropv1_zz_duplicate",
+      "rationale": "the same window as the window already proposed above it",
+      "rule": "ACTION_SAFE_WINDOW",
+      "segment_indices": [],
+      "start_frame": 88,
+      "stream_index": 0
+    },
+    {
+      "action_evidence": null,
+      "end_frame_exclusive": 30,
+      "material_id": "matv1_d72aa3403ef75857e709398ea03819b34d66619113f6c21958ef7865da7dd8dd",
+      "parent_segment_indices": [],
+      "proposal_id": "wpropv1_bad_material",
+      "rationale": "a material that was never registered",
+      "rule": "SINGLE_SEGMENT",
+      "segment_indices": [
+        0
+      ],
+      "start_frame": 0,
+      "stream_index": 0
+    }
+  ],
+  "schema_version": "candidate_window_proposal.v1"
+}

@@ -1,0 +1,281 @@
+{
+  "candidate_pool_id": "poolv1_56996538a32a37c9cdd58049bae5a139cac44c8882d529eb717350588e112d50",
+  "entries": [
+    {
+      "action_evidence": [
+        {
+          "action_completion": 20,
+          "action_onset": 6,
+          "preparation_start": 2,
+          "result_end_exclusive": 28
+        }
+      ],
+      "candidate_id": "candv1_8c79d1f86cffe325346b68efbe292243e5c4e643de25ceac6807e88088c41dd2",
+      "claims": [
+        {
+          "note": "contact and travel are visible across the action",
+          "product_fact_ref": "fact_surface_contact",
+          "provenance": [
+            {
+              "end_frame_exclusive": 28,
+              "start_frame": 6
+            }
+          ],
+          "support": "DIRECT"
+        },
+        {
+          "note": "the before and after states of the surface are both in frame",
+          "product_fact_ref": "fact_surface_result_state",
+          "provenance": [
+            {
+              "end_frame_exclusive": 30,
+              "start_frame": 0
+            }
+          ],
+          "support": "DIRECT"
+        }
+      ],
+      "confidence": 0.71,
+      "evidence_type": "DIRECT_DEMONSTRATION",
+      "observations": {
+        "body_area": "HANDS",
+        "claim_support_class": "DIRECT_DEMONSTRATION",
+        "product_visibility": "PARTIAL",
+        "usage_context": "IN_USE",
+        "visible_action": "a forearm works a cloth across a flat surface",
+        "visible_result": "the surface is left clear of the residue it started with",
+        "visual_usability": "USABLE"
+      },
+      "provenance": [
+        {
+          "end_frame_exclusive": 30,
+          "start_frame": 0
+        }
+      ],
+      "rationale": "one continuous action whose result stays on screen",
+      "risks": [],
+      "role_affinities": [
+        "action",
+        "proof"
+      ],
+      "status": "ANALYZED"
+    },
+    {
+      "action_evidence": [
+        {
+          "action_completion": 58,
+          "action_onset": 40,
+          "preparation_start": 34,
+          "result_end_exclusive": 70
+        }
+      ],
+      "candidate_id": "candv1_10dd49bd050d5505478404578892db28bdd09f147e494b6ef770d02133a577e8",
+      "claims": [
+        {
+          "note": "contact is consistent with the action but the surface is not fully visible",
+          "product_fact_ref": "fact_surface_contact",
+          "provenance": [],
+          "support": "CONTEXTUAL"
+        },
+        {
+          "note": "the end state is inferred from posture, not seen",
+          "product_fact_ref": "fact_surface_result_state",
+          "provenance": [],
+          "support": "INFERRED"
+        }
+      ],
+      "confidence": 0.58,
+      "evidence_type": "CONTEXTUAL_USAGE",
+      "observations": {
+        "body_area": "BODY",
+        "claim_support_class": "CONTEXTUAL_ONLY",
+        "product_visibility": "NOT_VISIBLE",
+        "usage_context": "IN_USE",
+        "visible_action": "a leg moves across a surface while water runs",
+        "visible_result": "the surface is partly obscured at the end of the action",
+        "visual_usability": "USABLE"
+      },
+      "provenance": [
+        {
+          "end_frame_exclusive": 75,
+          "start_frame": 30
+        }
+      ],
+      "rationale": "the action continues across the cut; the result is only partly readable",
+      "risks": [
+        {
+          "code": "PRODUCT_NOT_VISIBLE",
+          "note": "no product is identifiable in this window",
+          "severity": "MEDIUM"
+        }
+      ],
+      "role_affinities": [
+        "action"
+      ],
+      "status": "ANALYZED"
+    },
+    {
+      "action_evidence": [
+        {
+          "action_completion": 108,
+          "action_onset": 88,
+          "preparation_start": 80,
+          "result_end_exclusive": 118
+        }
+      ],
+      "candidate_id": "candv1_f5ff2060c23ac60c81392dc85154bf628c2b91afb6907362c9773b876b5d86d0",
+      "claims": [
+        {
+          "note": "flow is visible throughout the rinse",
+          "product_fact_ref": "fact_water_flow_visible",
+          "provenance": [
+            {
+              "end_frame_exclusive": 118,
+              "start_frame": 88
+            }
+          ],
+          "support": "DIRECT"
+        },
+        {
+          "note": "the surface reads as cleaner but the start state is not in this window",
+          "product_fact_ref": "fact_surface_result_state",
+          "provenance": [],
+          "support": "CONTEXTUAL"
+        }
+      ],
+      "confidence": 0.66,
+      "evidence_type": "DIRECT_DEMONSTRATION",
+      "observations": {
+        "body_area": "HANDS",
+        "claim_support_class": "DIRECT_DEMONSTRATION",
+        "product_visibility": "PARTIAL",
+        "usage_context": "IN_USE",
+        "visible_action": "a hand passes a surface under a running stream",
+        "visible_result": "the stream carries residue off the surface",
+        "visual_usability": "USABLE"
+      },
+      "provenance": [
+        {
+          "end_frame_exclusive": 120,
+          "start_frame": 75
+        }
+      ],
+      "rationale": "a complete rinse with its result; different evidence from the scrubbing windows",
+      "risks": [],
+      "role_affinities": [
+        "action",
+        "proof"
+      ],
+      "status": "ANALYZED"
+    },
+    {
+      "action_evidence": null,
+      "candidate_id": "candv1_55372d131f94047f57631c5b20ef0225ae4f68776647e546661c6766ff85b596",
+      "claims": null,
+      "confidence": null,
+      "evidence_type": null,
+      "observations": null,
+      "provenance": null,
+      "rationale": "the sampled frames did not cover this window's tail, so its action and result are not established; recorded as UNKNOWN rather than dropped",
+      "risks": null,
+      "role_affinities": null,
+      "status": "UNKNOWN"
+    },
+    {
+      "action_evidence": [],
+      "candidate_id": "candv1_042727236f6f76df8cbe0e5d221c3d99ca536912dc5c0c1ea0be01a91cca6bfd",
+      "claims": [],
+      "confidence": 0.93,
+      "evidence_type": "PRODUCT_IDENTITY",
+      "observations": {
+        "body_area": "NOT_APPLICABLE",
+        "claim_support_class": "NONE",
+        "product_visibility": "HERO",
+        "usage_context": "PACKAGING",
+        "visible_action": "the product is held still and turned toward the light",
+        "visible_result": null,
+        "visual_usability": "USABLE"
+      },
+      "provenance": [
+        {
+          "end_frame_exclusive": 50,
+          "start_frame": 10
+        }
+      ],
+      "rationale": "high visual quality and a clear product read, but nothing here shows a surface being cleaned: no claim is asserted from this window",
+      "risks": [],
+      "role_affinities": [
+        "identity"
+      ],
+      "status": "ANALYZED"
+    },
+    {
+      "action_evidence": [
+        {
+          "action_completion": 108,
+          "action_onset": 88,
+          "preparation_start": 88,
+          "result_end_exclusive": 118
+        }
+      ],
+      "candidate_id": "candv1_b322cf169dd59fe212b5a77c09606702251ab06065026b6c63a521491edc3a21",
+      "claims": [
+        {
+          "note": "flow is visible for the whole window",
+          "product_fact_ref": "fact_water_flow_visible",
+          "provenance": [
+            {
+              "end_frame_exclusive": 118,
+              "start_frame": 88
+            }
+          ],
+          "support": "DIRECT"
+        },
+        {
+          "note": "the window starts at the onset, so the before state is outside it",
+          "product_fact_ref": "fact_surface_result_state",
+          "provenance": [],
+          "support": "CONTEXTUAL"
+        }
+      ],
+      "confidence": 0.62,
+      "evidence_type": "DIRECT_DEMONSTRATION",
+      "observations": {
+        "body_area": "HANDS",
+        "claim_support_class": "DIRECT_DEMONSTRATION",
+        "product_visibility": "PARTIAL",
+        "usage_context": "IN_USE",
+        "visible_action": "a hand passes a surface under a running stream",
+        "visible_result": "the stream leaves the surface at the end of the window",
+        "visual_usability": "USABLE_WITH_TRIM"
+      },
+      "provenance": [
+        {
+          "end_frame_exclusive": 118,
+          "start_frame": 88
+        }
+      ],
+      "rationale": "the tightest window that still keeps the rinse and its result. Its evidence overlaps the wider rinse window; this stage describes both and does not decide which one a sequence should use",
+      "risks": [
+        {
+          "code": "FRAME_RANGE_TOO_SHORT",
+          "note": "the window begins at the action onset, so the before state is not in it",
+          "severity": "LOW"
+        }
+      ],
+      "role_affinities": [
+        "action"
+      ],
+      "status": "ANALYZED"
+    }
+  ],
+  "model": "fixture_multimodal_v1",
+  "prompt_contract_version": "candidate_evidence_prompt.v1",
+  "provider": "fixture_provider",
+  "request": {
+    "ref": "analysis/candidate_analysis_request.json",
+    "sha256": "00f80cb271d2ce043beb8e1662dde59479fe1400f4b3f027004b379eb172ebc8"
+  },
+  "run_id": "analysisrunv1_phase2fixture",
+  "schema_version": "candidate_analysis_response.v1"
+}

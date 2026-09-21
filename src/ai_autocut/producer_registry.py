@@ -509,15 +509,355 @@ def registry_document() -> dict[str, object]:
     }
 
 
+# ---------------------------------------------------------------------------
+# Mode-scoped artifact ownership
+# ---------------------------------------------------------------------------
+#
+# Two modes exist, and neither may quietly become the other:
+#
+# ``LEGACY``
+#     The eight-stage production fast path above. It owns ``PRODUCERS`` and
+#     ``AUTO_ARTIFACTS`` and it has never heard of Candidate Evidence.
+# ``VNEXT_SHADOW``
+#     Editing Intelligence vNext in shadow. It extracts Candidates from measured
+#     material, requests structured multimodal analysis through the authoring
+#     seam, and produces ``candidate_evidence.v1`` for validation and review.
+#
+# The two registries are deliberately separate values rather than one registry
+# with a mode column. Separating them is what makes the isolation checkable:
+# :func:`producer_for` — the resolver every legacy caller uses — still raises for
+# a vNext artifact, so a legacy stage cannot start depending on one by accident.
+# A run in ``LEGACY`` mode does not produce, require, read, or validate a single
+# vNext artifact.
+
+MODE_LEGACY = "LEGACY"
+MODE_VNEXT_SHADOW = "VNEXT_SHADOW"
+MODES = (MODE_LEGACY, MODE_VNEXT_SHADOW)
+
+#: The stages the shadow mode runs, in order.
+VNEXT_SHADOW_STAGES = ("PROPOSE CANDIDATES", "ANALYZE CANDIDATES")
+
+#: The window proposal an analyzer adapter writes. Declared here so identity,
+#: extraction, and analysis all read one name.
+CANDIDATE_WINDOW_PROPOSAL_ARTIFACT = "analysis/candidate_window_proposal.json"
+#: The deterministic request the pipeline writes for the analyzer.
+CANDIDATE_ANALYSIS_REQUEST_ARTIFACT = "analysis/candidate_analysis_request.json"
+#: The structured multimodal response an analyzer adapter writes.
+CANDIDATE_ANALYSIS_RESPONSE_ARTIFACT = "analysis/candidate_analysis_response.json"
+#: What extraction accepted, rejected, and pooled.
+CANDIDATE_EXTRACTION_ARTIFACT = "analysis/candidate_extraction.json"
+#: The frames an analyzer was actually shown, bound to exact source frame numbers.
+#: Frame images live beside it under ``analysis/frames/``.
+CANDIDATE_FRAME_EVIDENCE_ARTIFACT = "analysis/candidate_frame_evidence.json"
+#: The immutable Candidate Pool for this job.
+CANDIDATE_POOL_ARTIFACT = "analysis/candidate_pool.json"
+#: The Phase 1 companion contract, written by the analysis stage.
+CANDIDATE_EVIDENCE_ARTIFACT = "analysis/candidate_evidence.json"
+
+VNEXT_SHADOW_PRODUCERS: tuple[Producer, ...] = (
+    _p(
+        artifact=CANDIDATE_WINDOW_PROPOSAL_ARTIFACT,
+        stage="PROPOSE CANDIDATES",
+        producer_type="ADAPTER",
+        producer_id="candidate-window-analyzer",
+        required_inputs=("source_inventory.json",),
+        output_contract=(
+            "candidate_window_proposal.v1 (proposals[proposal_id, rule, material_id, "
+            "stream_index, start_frame, end_frame_exclusive, segment_indices, "
+            "parent_segment_indices, action_evidence, rationale]); rule is one of "
+            "SINGLE_SEGMENT, ADJACENT_MERGE, ACTION_SAFE_WINDOW, SHORTER_ACTION_WINDOW"
+        ),
+        validated_by="candidate_extraction.validate_proposal",
+        evidence=(
+            "source frame ranges only; no assumed frame rate",
+            "action evidence for every merge, safe window, and shorter window",
+        ),
+        intervention_kind="SUPERVISOR_DECISIONS",
+        resume_condition=(
+            "every proposal is accepted or rejected by the boundary validator, and the "
+            "rejections are recorded rather than dropped"
+        ),
+        procedure=(
+            "python3 -m src.ai_autocut.candidate_analysis --job-root <PATH> --stage propose "
+            "--measurements <measured.json> --segmentations <segments.json> "
+            "[--proposals <proposals.json>]. A job supplies its own analyzer adapter; this "
+            "repository ships no multimodal client. The analyzer proposes windows, the "
+            "deterministic boundary validator disposes of them, and a rejected proposal is "
+            "an observable outcome rather than a silently widened window."
+        ),
+    ),
+    _p(
+        artifact=CANDIDATE_EXTRACTION_ARTIFACT,
+        stage="PROPOSE CANDIDATES",
+        producer_type="AUTO",
+        producer_id="candidate_extraction.extract_candidates",
+        required_inputs=(CANDIDATE_WINDOW_PROPOSAL_ARTIFACT,),
+        output_contract="candidate_extraction.v1 (proposals, outcomes, counts, pool_id)",
+        validated_by="candidate_extraction.CandidateExtraction",
+        evidence=(
+            "per-proposal decision with a rejection code or a Candidate Identity",
+            "measured window (t_in, real duration, frame count) per accepted Candidate",
+        ),
+        intervention_kind="SUPERVISOR_DECISIONS",
+        resume_condition="the extraction document exists and every proposal has a decision",
+        procedure=(
+            "Written by the PROPOSE CANDIDATES stage from the validated proposals. It "
+            "records the accepted Candidates, the rejected proposals with their codes, and "
+            "the measured window of each Candidate."
+        ),
+    ),
+    _p(
+        artifact=CANDIDATE_POOL_ARTIFACT,
+        stage="PROPOSE CANDIDATES",
+        producer_type="AUTO",
+        producer_id="candidate_pool.CandidatePool.create",
+        required_inputs=(CANDIDATE_EXTRACTION_ARTIFACT,),
+        output_contract="candidate_pool.v1 (schema_version, pool_id, entries)",
+        validated_by="candidate_pool.validate_candidate_pool",
+        evidence=("membership only: pool_id plus sorted candidate_id entries",),
+        intervention_kind="SUPERVISOR_DECISIONS",
+        resume_condition="every accepted Candidate is a member and no other Candidate is",
+        procedure=(
+            "Written by the PROPOSE CANDIDATES stage. The Pool answers membership and "
+            "nothing else: adding a label, score, claim, or confidence to it would change "
+            "what candidate_pool.v1 means."
+        ),
+    ),
+    _p(
+        artifact=CANDIDATE_FRAME_EVIDENCE_ARTIFACT,
+        stage="ANALYZE CANDIDATES",
+        producer_type="ADAPTER",
+        producer_id="live-validation-harness",
+        required_inputs=(CANDIDATE_EXTRACTION_ARTIFACT,),
+        output_contract=(
+            "candidate_frame_evidence.v1 (candidates[].frames[] with source_frame, "
+            "t_seconds, image, sha256, width, height)"
+        ),
+        validated_by="candidate_frame_evidence.parse_frame_evidence",
+        evidence=(
+            "one image per sampled frame, named by its exact decoded source frame",
+            "each frame's measured timestamp and SHA-256",
+        ),
+        intervention_kind="SUPERVISOR_DECISIONS",
+        resume_condition=(
+            "every accepted Candidate has sampled frames inside its own window, and each "
+            "image hashes to what the manifest recorded"
+        ),
+        procedure=(
+            "python3 scripts/phase25_live_validation.py prepare --workspace <DIR>. This is "
+            "an OPT-IN validation artifact, not a stage of the shadow analysis path: the "
+            "ANALYZE CANDIDATES stage neither requires nor parses it, and Candidate Evidence "
+            "can be produced without one. It exists so a human or an auditor can see exactly "
+            "which frames an analyzer was shown, with exact source frame numbers, measured "
+            "timestamps and hashes. The Candidate window is decoded and its frames are sliced "
+            "out by decoded index, so the frame numbers the analyzer cites are established "
+            "coordinates rather than guesses. No raw-source frame-index filter is used: it is "
+            "legitimate for analysis, and it is never a timing coordinate."
+        ),
+    ),
+    _p(
+        artifact=CANDIDATE_ANALYSIS_REQUEST_ARTIFACT,
+        stage="ANALYZE CANDIDATES",
+        producer_type="AUTO",
+        producer_id="candidate_analysis.build_analysis_request",
+        required_inputs=(CANDIDATE_POOL_ARTIFACT,),
+        output_contract=(
+            "candidate_analysis_request.v1 (run_id, candidate_pool_id, claim_envelope, "
+            "candidates with measured windows, prompt_contract_version)"
+        ),
+        validated_by="candidate_analysis.parse_analysis_request",
+        evidence=(
+            "the Claim Envelope the analyzer may answer against, and nothing wider",
+            "per Candidate: exact source range plus its measured timestamps",
+        ),
+        intervention_kind="SUPERVISOR_DECISIONS",
+        resume_condition="the request exists and its claim envelope lists every permitted fact",
+        procedure=(
+            "Written by the ANALYZE CANDIDATES stage before the analyzer is asked anything. "
+            "The request states the one question the analyzer may answer and the exact "
+            "Candidate windows it is answering about."
+        ),
+    ),
+    _p(
+        artifact=CANDIDATE_ANALYSIS_RESPONSE_ARTIFACT,
+        stage="ANALYZE CANDIDATES",
+        producer_type="ADAPTER",
+        producer_id="candidate-analysis-adapter",
+        required_inputs=(CANDIDATE_ANALYSIS_REQUEST_ARTIFACT,),
+        output_contract=(
+            "candidate_analysis_response.v1 (request reference, run_id, candidate_pool_id, "
+            "provider, model, prompt_contract_version, entries[]) where each entry is one "
+            "Candidate Evidence entry payload"
+        ),
+        validated_by="candidate_analysis.parse_analysis_response",
+        evidence=(
+            "one entry per requested Candidate, or an explicit UNKNOWN / ANALYSIS_FAILED",
+            "claim support only for Product Facts the Claim Envelope permits",
+        ),
+        intervention_kind="SUPERVISOR_DECISIONS",
+        resume_condition=(
+            "every Pool member is accounted for, and the pipeline records a failure instead "
+            "of losing a Candidate"
+        ),
+        procedure=(
+            "python3 -m src.ai_autocut.candidate_analysis --job-root <PATH> --stage analyze "
+            "--agent-command '<COMMAND>'. The command receives the authoring request on "
+            "stdin and writes the response artifact. A missing or malformed response is "
+            "recorded as ANALYSIS_FAILED for every Candidate rather than as a silent gap. "
+            "This stage does not require sampled frames: frame evidence is produced by the "
+            "opt-in live-validation harness, and the analysis stage neither reads nor "
+            "enforces it."
+        ),
+    ),
+    _p(
+        artifact=CANDIDATE_EVIDENCE_ARTIFACT,
+        stage="ANALYZE CANDIDATES",
+        producer_type="AUTO",
+        producer_id="candidate_analysis.build_candidate_evidence",
+        required_inputs=(CANDIDATE_ANALYSIS_RESPONSE_ARTIFACT, CANDIDATE_POOL_ARTIFACT),
+        output_contract="candidate_evidence.v1 (Phase 1 companion contract)",
+        validated_by="candidate_evidence.validate_candidate_evidence",
+        evidence=(
+            "exactly one entry per Pool member, with a status and a rationale",
+            "DIRECT claim support bound to frames inside the Candidate's exact range",
+        ),
+        intervention_kind="SUPERVISOR_DECISIONS",
+        resume_condition="validate_candidate_evidence accepts the document for this Pool",
+        procedure=(
+            "Written by the ANALYZE CANDIDATES stage from the validated response. It is the "
+            "end of this stage: Candidate Evidence is produced and validated, and nothing "
+            "downstream consumes it yet."
+        ),
+    ),
+)
+
+VNEXT_SHADOW_PRODUCER_BY_ARTIFACT: Mapping[str, Producer] = {
+    producer.artifact: producer for producer in VNEXT_SHADOW_PRODUCERS
+}
+
+#: vNext artifacts the shadow stage writes itself. Frame evidence is deliberately not
+#: here: it is produced by the opt-in live-validation harness, so no stage writes it
+#: and no consumer may assume it exists.
+VNEXT_SHADOW_AUTO_ARTIFACTS = tuple(
+    producer.artifact
+    for producer in VNEXT_SHADOW_PRODUCERS
+    if producer.producer_type == "AUTO"
+)
+
+#: Every artifact the shadow mode owns.
+VNEXT_SHADOW_ARTIFACTS = tuple(
+    producer.artifact for producer in VNEXT_SHADOW_PRODUCERS
+)
+
+
+class ModeScopeError(ProducerRegistryError):
+    """Raised when an artifact is asked for in a mode that does not own it."""
+
+
+def mode_of(artifact: str) -> str | None:
+    """Which mode owns an artifact, or ``None`` when no mode does."""
+
+    normalized = str(artifact).lstrip("./")
+    if (
+        normalized in PRODUCER_BY_ARTIFACT
+        or normalized in AUTO_ARTIFACTS
+    ):
+        return MODE_LEGACY
+    if normalized in VNEXT_SHADOW_PRODUCER_BY_ARTIFACT:
+        return MODE_VNEXT_SHADOW
+    return None
+
+
+def vnext_producer_for(artifact: str) -> Producer:
+    """The single shadow-mode producer for a vNext artifact.
+
+    Mode-scoped on purpose. The legacy resolver stays ignorant of these artifacts
+    so no legacy stage can acquire a dependency on one by accident, and this
+    resolver refuses a legacy artifact so the shadow mode cannot adopt one and
+    start writing a frozen production contract.
+    """
+
+    normalized = str(artifact).lstrip("./")
+    if normalized in VNEXT_SHADOW_PRODUCER_BY_ARTIFACT:
+        return VNEXT_SHADOW_PRODUCER_BY_ARTIFACT[normalized]
+    owner = mode_of(normalized)
+    if owner == MODE_LEGACY:
+        raise ModeScopeError(
+            f"artifact {artifact!r} belongs to {MODE_LEGACY}, not {MODE_VNEXT_SHADOW}; "
+            "the shadow mode does not write production artifacts"
+        )
+    raise ModeScopeError(
+        f"artifact {artifact!r} has NO PRODUCER in {MODE_VNEXT_SHADOW}. Every required "
+        "artifact must be registered explicitly."
+    )
+
+
+def vnext_gate_for(
+    artifact: str, job_root: Path | str, *, missing_inputs: tuple[str, ...] = ()
+) -> dict[str, object]:
+    """Build the explicit shadow-mode gate for one vNext artifact."""
+
+    producer = vnext_producer_for(artifact)
+    gate = producer.as_dict()
+    gate["gate"] = "PRODUCER_REQUIRED"
+    gate["mode"] = MODE_VNEXT_SHADOW
+    gate["missing_artifact"] = producer.artifact
+    gate["missing_inputs"] = list(missing_inputs)
+    gate["job_root"] = str(Path(job_root))
+    gate["output_path"] = str(Path(job_root) / producer.artifact)
+    gate["action_required"] = (
+        f"{producer.producer_type} producer {producer.producer_id!r} must write "
+        f"{producer.artifact} before this shadow stage can run"
+    )
+    return gate
+
+
+def vnext_registry_document() -> dict[str, object]:
+    """The shadow-mode registry, kept separate from the legacy document."""
+
+    return {
+        "schema_version": "artifact_producer_registry.v1",
+        "mode": MODE_VNEXT_SHADOW,
+        "stages": list(VNEXT_SHADOW_STAGES),
+        "rule": (
+            "every required vNext artifact has exactly one explicit producer in "
+            f"{MODE_VNEXT_SHADOW}; a legacy artifact may not be produced by this mode"
+        ),
+        "artifacts": list(VNEXT_SHADOW_ARTIFACTS),
+        "auto_artifacts": list(VNEXT_SHADOW_AUTO_ARTIFACTS),
+        "producers": [producer.as_dict() for producer in VNEXT_SHADOW_PRODUCERS],
+    }
+
+
 __all__ = [
     "AUTO_ARTIFACTS",
+    "CANDIDATE_ANALYSIS_REQUEST_ARTIFACT",
+    "CANDIDATE_ANALYSIS_RESPONSE_ARTIFACT",
+    "CANDIDATE_EVIDENCE_ARTIFACT",
+    "CANDIDATE_EXTRACTION_ARTIFACT",
+    "CANDIDATE_FRAME_EVIDENCE_ARTIFACT",
+    "CANDIDATE_POOL_ARTIFACT",
+    "CANDIDATE_WINDOW_PROPOSAL_ARTIFACT",
+    "MODE_LEGACY",
+    "MODE_VNEXT_SHADOW",
+    "MODES",
+    "ModeScopeError",
     "PRODUCERS",
     "PRODUCER_BY_ARTIFACT",
     "PRODUCER_TYPES",
     "Producer",
     "ProducerRegistryError",
     "REQUIRED_INPUT_ARTIFACTS",
+    "VNEXT_SHADOW_ARTIFACTS",
+    "VNEXT_SHADOW_AUTO_ARTIFACTS",
+    "VNEXT_SHADOW_PRODUCER_BY_ARTIFACT",
+    "VNEXT_SHADOW_PRODUCERS",
+    "VNEXT_SHADOW_STAGES",
     "gate_for",
+    "mode_of",
     "producer_for",
     "registry_document",
+    "vnext_gate_for",
+    "vnext_producer_for",
+    "vnext_registry_document",
 ]

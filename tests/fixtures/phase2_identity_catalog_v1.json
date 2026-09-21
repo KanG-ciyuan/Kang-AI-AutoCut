@@ -1,0 +1,18 @@
+{
+  "candidates": [],
+  "materials": [
+    {
+      "byte_size": 1048576,
+      "content_sha256": "06894234a7e21e7e9c7faa6b8fd3d6a67d602f06978a576b3ae8d5ae83a8d940",
+      "material_id": "matv1_06894234a7e21e7e9c7faa6b8fd3d6a67d602f06978a576b3ae8d5ae83a8d940",
+      "media_kind": "video"
+    },
+    {
+      "byte_size": 2097152,
+      "content_sha256": "853ca038ef09a514d6e12fcaa289555b0ba39253b20b4ec8198fcfaf3abf1c86",
+      "material_id": "matv1_853ca038ef09a514d6e12fcaa289555b0ba39253b20b4ec8198fcfaf3abf1c86",
+      "media_kind": "video"
+    }
+  ],
+  "schema_version": "material_candidate_identity.v1"
+}

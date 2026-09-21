@@ -57,7 +57,14 @@ CANONICAL_REF = "analysis/candidate_evidence.json"
 
 _CANDIDATE_ID_PATTERN = re.compile(r"candv1_[0-9a-f]{64}\Z")
 _POOL_ID_PATTERN = re.compile(r"poolv1_[0-9a-f]{64}\Z")
-_TOKEN_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-_]{0,127}\Z")
+#: A logical identifier: letters, digits, and the separators ``. _ : -``.
+#:
+#: The hyphen must stay last in the class. Written as ``._:-_`` the trailing
+#: ``:-_`` is parsed as the *range* ``:`` (0x3A) to ``_`` (0x5F), which silently
+#: excludes ``-`` (0x2D) and made ordinary model identifiers such as ``gpt-4o``
+#: fail validation. That was an implementation defect, not a vocabulary decision:
+#: the intended vocabulary always included the hyphen.
+_TOKEN_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\Z")
 _PROMPT_CONTRACT_PATTERN = re.compile(r"[a-z][a-z0-9_]*\.v[0-9]+\Z")
 
 _DOCUMENT_KEYS = (

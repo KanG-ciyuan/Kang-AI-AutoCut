@@ -8,15 +8,25 @@
 
 ## CONTRACT EXISTS, PRODUCTION CAPABILITY DOES NOT
 
-This document defines a data contract. In this phase the contract exists, and
-vNext production wiring does not yet exist: nothing in the production path
-writes, reads, enforces, or depends on a `candidate_evidence.v1` document. The
-only documents that exist are fixtures, and the only semantic field values that
-exist were written by hand inside those fixtures. No provider was called, no
-frame was decoded, and no model produced any observation recorded here.
+This section was written when the contract was created, and it is kept, with what has
+changed since recorded rather than silently rewritten.
 
-A future Agent must not read this file as evidence that semantic analysis is
-available. `CONTRACT EXISTS` is not `CAPABILITY EXISTS`.
+**Production wiring does not yet exist:** nothing in the production path writes,
+reads, enforces, or depends on a `candidate_evidence.v1` document, and nothing
+consumes one to choose a Hook, a shot, or a cut. That is as true now as it was when
+this contract was frozen.
+
+*What has changed since (Phase 2 / 2.5 / 2.6):* the `VNEXT_SHADOW` mode produces
+`candidate_evidence.v1` documents from measured material (`candidate_analysis.py`),
+and the opt-in live-validation harness
+(`scripts/phase25_live_validation.py`) was used during development to have a live
+multimodal analyzer read decoded frames and produce one. Those runs' artifacts are not
+preserved in this repository. A successor,
+[`candidate_evidence.v2`](candidate-evidence-v2.md), adds structured visual
+observations; v1 remains frozen and is still parsed, validated and migrated.
+
+So the honest current statement is **"produced in shadow, with no production reader"**
+— not "never produced", and still not "production capability".
 
 ## Purpose and boundary
 
@@ -166,6 +176,19 @@ Hook Decision contract consumes.
 Every rejection is a raised contract error. Nothing is repaired, defaulted,
 coerced, or partially accepted, and no error message echoes the offending value,
 because a rejected value may be a machine path.
+
+## Run metadata identifiers
+
+`analysis_run.run_id`, `provider` and `model` are logical identifiers: letters,
+digits, and the separators `. _ : -`. Paths, whitespace, and shell metacharacters are
+refused, and no error message echoes a refused value.
+
+**Implementation note.** The character class was written `._:-_`, which Python reads
+as the *range* `:` to `_` and which therefore excluded the hyphen — so ordinary model
+identifiers such as `gpt-4o` or `claude-3-5-sonnet` were rejected. That was a defect
+in the implementation of the intended vocabulary, not a vocabulary decision, and it
+was corrected in place without a version change. Tests assert both directions:
+hyphenated identifiers validate, and unsafe ones still do not.
 
 ## Compatibility rule
 

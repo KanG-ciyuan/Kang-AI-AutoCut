@@ -508,5 +508,190 @@ class ContractDocumentTests(CandidateEvidenceTestCase):
         self.assertIn("Product Fact", text)
 
 
+class RunMetadataTokenTests(CandidateEvidenceTestCase):
+    """The hyphen defect: an ordinary model identifier was rejected.
+
+    ``[A-Za-z0-9._:-_]`` reads ``:-_`` as the character *range* ``:`` to ``_``,
+    which excludes ``-`` (0x2D). The intended vocabulary always included the
+    hyphen, so this was an implementation defect and not a schema decision.
+    """
+
+    VALID = (
+        "gpt-4o",
+        "claude-3-5-sonnet",
+        "deepseek-v4-flash-vision-exp",
+        "seed-audio-1.0",
+        "deepseek_v4_flash",
+        "provider.v1",
+        "run-2026.09:01",
+        "a.b:c_d-e",
+    )
+    INVALID = (
+        "/etc/passwd",
+        "../../secret",
+        "..",
+        "~/.ssh/id_rsa",
+        "a b",
+        "a;rm -rf /",
+        "a$(id)",
+        "a`id`",
+        "a|b",
+        "a&b",
+        "a>b",
+        "-leading",
+        "",
+        "a" * 129,
+    )
+
+    def run_metadata(self, **overrides):
+        payload = self.payload()
+        payload["analysis_run"].update(overrides)
+        return payload
+
+    def test_hyphenated_model_identifiers_are_accepted(self) -> None:
+        for model in self.VALID:
+            with self.subTest(model=model):
+                evidence = parse_candidate_evidence(self.run_metadata(model=model))
+                self.assertEqual(evidence.analysis_run.model, model)
+
+    def test_hyphenated_provider_and_run_identifiers_are_accepted(self) -> None:
+        evidence = parse_candidate_evidence(
+            self.run_metadata(provider="dsh-supervisor-agent", run_id="run-2026.09:01")
+        )
+        self.assertEqual(evidence.analysis_run.provider, "dsh-supervisor-agent")
+        self.assertEqual(evidence.analysis_run.run_id, "run-2026.09:01")
+
+    def test_unsafe_identifiers_are_still_refused(self) -> None:
+        for value in self.INVALID:
+            with self.subTest(value=value[:24]):
+                with self.assertRaises(CandidateEvidenceContractError):
+                    parse_candidate_evidence(self.run_metadata(model=value))
+                with self.assertRaises(CandidateEvidenceContractError):
+                    parse_candidate_evidence(self.run_metadata(provider=value))
+                with self.assertRaises(CandidateEvidenceContractError):
+                    parse_candidate_evidence(self.run_metadata(run_id=value))
+
+    def test_characters_the_accidental_range_admitted_are_now_refused(self) -> None:
+        """The same defect also let shell-adjacent characters through.
+
+        ``[A-Za-z0-9._:-_]`` admitted everything in the codepoint range ``:`` (0x3A)
+        to ``_`` (0x5F): ``;`` ``<`` ``=`` ``>`` ``?`` ``@`` ``[`` ``\`` ``]`` ``^``.
+        Nothing in the intended vocabulary asks for those, so closing the range
+        closes them too.
+        """
+
+        accidental = (";", "<", "=", ">", "?", "@", "[", "\\", "]", "^")
+        for char in accidental:
+            with self.subTest(char=char):
+                with self.assertRaises(CandidateEvidenceContractError):
+                    parse_candidate_evidence(self.run_metadata(model="a" + char + "b"))
+
+    def test_a_refused_identifier_is_not_echoed_in_the_error(self) -> None:
+        with self.assertRaises(CandidateEvidenceContractError) as caught:
+            parse_candidate_evidence(self.run_metadata(model="/etc/passwd"))
+        self.assertNotIn("/etc/passwd", str(caught.exception))
+
+    def test_the_prompt_contract_version_field_is_unaffected(self) -> None:
+        for version in ("candidate_evidence_prompt.v1", "candidate_evidence_prompt.v3"):
+            with self.subTest(version=version):
+                evidence = parse_candidate_evidence(
+                    self.run_metadata(prompt_contract_version=version)
+                )
+                self.assertEqual(
+                    evidence.analysis_run.prompt_contract_version, version
+                )
+        for version in ("Candidate-Evidence-Prompt.v1", "prompt", "/tmp/x.v1"):
+            with self.subTest(version=version):
+                with self.assertRaises(CandidateEvidenceContractError):
+                    parse_candidate_evidence(
+                        self.run_metadata(prompt_contract_version=version)
+                    )
+
+    def test_the_same_vocabulary_holds_for_planner_and_proposal_identifiers(self) -> None:
+        """The defect appeared in three modules; the fix has to hold in all three."""
+
+        from src.ai_autocut.editing_intelligence import (
+            PlanningEvidenceContractError,
+            PlanningEvidence,
+            CoverageSummary,
+            PlanDecision,
+            PlannedCandidateDecision,
+            CoverageReasonCode,
+            CoverageToken,
+        )
+        from src.ai_autocut.candidate_extraction import (
+            CandidateExtractionError,
+            WindowProposal,
+            WindowRule,
+        )
+        from src.ai_autocut.artifact_reference import ArtifactReference
+
+        decision = PlannedCandidateDecision(
+            candidate_id=self.candidate(100).candidate_id,
+            decision=PlanDecision.KEEP,
+            sequence_position=1,
+            adds_coverage=(CoverageToken.PRODUCT_VISIBLE,),
+            duration_cost_frames=30,
+            reason_codes=(CoverageReasonCode.FIRST_DIRECT_PROOF,),
+            why="a hyphen in an identifier must not be a contract error",
+        )
+        summary = CoverageSummary(
+            covered_tokens=(CoverageToken.PRODUCT_VISIBLE,),
+            missing_tokens=(),
+            redundant_keeps=0,
+            keep_count=1,
+            trim_count=0,
+            reject_count=0,
+        )
+        for run_id in ("plannerrun-2026.09:01", "run-a_b-c"):
+            with self.subTest(run_id=run_id):
+                evidence = PlanningEvidence(
+                    plan_id="planv1_" + "a" * 64,
+                    hook_decision=ArtifactReference(
+                        "planning/hook-decision_decision.json", "b" * 64
+                    ),
+                    requirements=(CoverageToken.PRODUCT_VISIBLE,),
+                    decisions=(decision,),
+                    coverage_summary=summary,
+                    total_duration_frames=30,
+                    planner_run_id=run_id,
+                )
+                self.assertEqual(evidence.planner_run_id, run_id)
+        with self.assertRaises(PlanningEvidenceContractError):
+            PlanningEvidence(
+                plan_id="planv1_" + "a" * 64,
+                hook_decision=ArtifactReference(
+                    "planning/hook-decision_decision.json", "b" * 64
+                ),
+                requirements=(CoverageToken.PRODUCT_VISIBLE,),
+                decisions=(decision,),
+                coverage_summary=summary,
+                total_duration_frames=30,
+                planner_run_id="a b",
+            )
+        proposal = WindowProposal(
+            "wprop-live-a-before",
+            WindowRule.SINGLE_SEGMENT,
+            self.catalog.materials[0].material_id,
+            0,
+            0,
+            30,
+            "a hyphenated proposal identifier",
+            (0,),
+        )
+        self.assertEqual(proposal.proposal_id, "wprop-live-a-before")
+        with self.assertRaises(CandidateExtractionError):
+            WindowProposal(
+                "-wprop-bad",
+                WindowRule.SINGLE_SEGMENT,
+                self.catalog.materials[0].material_id,
+                0,
+                0,
+                30,
+                "a leading hyphen is not a logical identifier",
+                (0,),
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

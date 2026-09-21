@@ -118,7 +118,9 @@ PLANNING_EVIDENCE_CANONICAL_REF = "planning/planning_evidence.json"
 
 _PLAN_ID_PATTERN = re.compile(r"planv1_[0-9a-f]{64}\Z")
 _CANDIDATE_ID_PATTERN = re.compile(r"candv1_[0-9a-f]{64}\Z")
-_TOKEN_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-_]{0,127}\Z")
+#: A logical identifier. The hyphen must stay last in the class: ``._:-_`` would
+#: be read as the range ``:`` to ``_`` and would exclude ``-``.
+_TOKEN_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\Z")
 
 _PLANNING_DOCUMENT_KEYS = (
     "schema_version",

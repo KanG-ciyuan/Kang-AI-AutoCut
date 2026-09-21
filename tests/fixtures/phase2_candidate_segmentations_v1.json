@@ -1,0 +1,45 @@
+{
+  "schema_version": "candidate_segmentations.v1",
+  "segmentations": [
+    {
+      "material_id": "matv1_06894234a7e21e7e9c7faa6b8fd3d6a67d602f06978a576b3ae8d5ae83a8d940",
+      "segments": [
+        {
+          "end_frame_exclusive": 30,
+          "start_frame": 0
+        },
+        {
+          "end_frame_exclusive": 45,
+          "start_frame": 30
+        },
+        {
+          "end_frame_exclusive": 75,
+          "start_frame": 45
+        },
+        {
+          "end_frame_exclusive": 120,
+          "start_frame": 75
+        }
+      ],
+      "stream_index": 0
+    },
+    {
+      "material_id": "matv1_853ca038ef09a514d6e12fcaa289555b0ba39253b20b4ec8198fcfaf3abf1c86",
+      "segments": [
+        {
+          "end_frame_exclusive": 10,
+          "start_frame": 0
+        },
+        {
+          "end_frame_exclusive": 50,
+          "start_frame": 10
+        },
+        {
+          "end_frame_exclusive": 60,
+          "start_frame": 50
+        }
+      ],
+      "stream_index": 0
+    }
+  ]
+}

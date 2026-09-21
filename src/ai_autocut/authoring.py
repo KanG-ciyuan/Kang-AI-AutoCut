@@ -173,19 +173,29 @@ def action_for(artifact: str) -> tuple[str, producer_registry.Producer]:
     """
 
     producer = producer_registry.producer_for(artifact)
+    return _action_for_producer(producer), producer
+
+
+def _action_for_producer(producer: producer_registry.Producer) -> str:
     action = _ACTION_FOR_TYPE.get(producer.producer_type)
     if action is None:
         raise AuthoringError(
-            f"{artifact!r} has producer_type {producer.producer_type!r}, which no action "
-            f"covers; expected one of {', '.join(sorted(_ACTION_FOR_TYPE))}"
+            f"{producer.artifact!r} has producer_type {producer.producer_type!r}, which no "
+            f"action covers; expected one of {', '.join(sorted(_ACTION_FOR_TYPE))}"
         )
-    return action, producer
+    return action
 
 
 def request_for(artifact: str, job_root: Path | str) -> AuthoringRequest:
     """Build the authoring request for one artifact from its registry entry."""
 
     _, producer = action_for(artifact)
+    return _request_for_producer(producer, job_root)
+
+
+def _request_for_producer(
+    producer: producer_registry.Producer, job_root: Path | str
+) -> AuthoringRequest:
     return AuthoringRequest(
         artifact=producer.artifact,
         stage=producer.stage,
@@ -195,6 +205,52 @@ def request_for(artifact: str, job_root: Path | str) -> AuthoringRequest:
         required_inputs=tuple(producer.required_inputs),
         job_root=Path(job_root),
     )
+
+
+def action_for_vnext(artifact: str) -> tuple[str, producer_registry.Producer]:
+    """How the shadow stage should treat one vNext artifact, and who owns it.
+
+    Resolved through the mode-scoped registry, so the shadow mode can request its own
+    artifacts without the legacy resolver learning about them.
+    """
+
+    producer = producer_registry.vnext_producer_for(artifact)
+    return _action_for_producer(producer), producer
+
+
+def request_for_vnext(artifact: str, job_root: Path | str) -> AuthoringRequest:
+    """Build the authoring request for one ``VNEXT_SHADOW`` artifact.
+
+    Same seam, same request shape, same agents: only the registry that resolves the
+    producer differs. That is deliberate — a provider adapter is written once and works for
+    either mode, and neither mode can silently start writing the other's artifacts.
+    """
+
+    _, producer = action_for_vnext(artifact)
+    return _request_for_producer(producer, job_root)
+
+
+class PrewrittenAuthoringAgent:
+    """Accepts an artifact that an out-of-band producer has already written.
+
+    The seam's contract says an implementation may be a model, a human, or a test
+    fixture — and a human or an agent answering a request between two runs is a
+    real case, not a workaround. This agent makes that case explicit: it asserts the
+    artifact exists in the job root and reports it as satisfied, without pretending
+    this process produced it.
+
+    It validates nothing about the content. Content validity belongs to the
+    consumer that parses the artifact, which is why a pre-written answer is still
+    checked against the request it claims to answer.
+    """
+
+    def __init__(self, artifact: str | None = None) -> None:
+        self.artifact = artifact
+
+    def author(self, request: AuthoringRequest) -> bool:
+        if self.artifact is not None and request.artifact != self.artifact:
+            return False
+        return (request.job_root / request.artifact).is_file()
 
 
 __all__ = [
@@ -207,7 +263,10 @@ __all__ = [
     "AuthoringRequest",
     "CommandAuthoringAgent",
     "NullAuthoringAgent",
+    "PrewrittenAuthoringAgent",
     "ScriptedAuthoringAgent",
     "action_for",
+    "action_for_vnext",
     "request_for",
+    "request_for_vnext",
 ]

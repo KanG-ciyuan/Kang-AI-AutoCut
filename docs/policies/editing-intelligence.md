@@ -76,13 +76,26 @@ upstream or downstream, not in the decision.
 |---|---|
 | Policy and reviewer dimensions | Documented here |
 | `editing_plan.v1` | **FROZEN** with implementation and tests |
-| vNext companion contracts (`candidate_evidence.v1`, `hook_decision.v1`, `planning_evidence.v1`) | **CONTRACT_ONLY** — validated shapes, no production writer or reader |
+| Candidate Evidence (`candidate_evidence.v1`) | **SUPERSEDED IN SHADOW** — produced from measured material in `VNEXT_SHADOW`, still parsed/migrated; no production reader |
+| Candidate Evidence (`candidate_evidence.v2`) | **IMPLEMENTED IN SHADOW** — adds structured visual observations; produced under `candidate_evidence_prompt.v3` |
+| `hook_decision.v1`, `planning_evidence.v1` | **CONTRACT_ONLY** — validated shapes, no writer and no reader anywhere |
+| Live multimodal analyzer over real Candidate frames | **HARNESS AVAILABLE, RUN NOT PRESERVED** — the opt-in harness can sample frames with exact source-frame labels, hand them to an analyzer, and audit the answer; a run performed during development reported a model reading those frames, but its artifacts were not preserved in the repository and no independent party has verified that run |
+| Hook Planning | **NOT_IMPLEMENTED** — and when it exists it may consume only authoritative structured fields, never `rationale` |
+| Hook generation and selection | **NOT_IMPLEMENTED** |
+| Sequence planning and timeline compilation | **NOT_IMPLEMENTED** |
 | Automated Editing Intelligence from a Shot Pool | **NOT_IMPLEMENTED** |
 
-`CONTRACT_ONLY` means the contract exists and is tested, and nothing in the
-production path uses it. The three companion documents are described in
-`docs/contracts/`. Nothing in this repository generates Candidate Evidence,
-generates or selects a Hook, or plans a sequence yet.
+`CONTRACT_ONLY` means the contract exists and is tested, and nothing writes or reads
+it anywhere. `IMPLEMENTED IN SHADOW` means it runs, is tested, and is deliberately
+outside the production path: a shadow run produces and validates Candidate Evidence,
+and nothing consumes that evidence to choose a shot, a hook, or a cut.
+`HARNESS AVAILABLE, RUN NOT PRESERVED` separates a capability from a result: the code
+can do it, and no replayable evidence of it doing so is kept here.
+
+So, precisely: this repository **does** now produce Candidate Evidence in shadow,
+with and without a live analyzer; it still has **no production reader** of that
+evidence, **no Hook generation or selection**, and **no sequence planning**. The
+contracts are described in `docs/contracts/`.
 
 The frozen contract preserves decisions that were made. Nothing in this
 repository yet makes them automatically from raw material.
