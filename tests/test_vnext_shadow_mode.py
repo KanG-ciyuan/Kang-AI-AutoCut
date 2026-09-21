@@ -190,6 +190,9 @@ class ContractAlignmentTests(unittest.TestCase):
                 "analysis/candidate_extraction.json",
                 "analysis/candidate_pool.json",
                 "analysis/candidate_evidence.json",
+                "planning/hook_planning_request.json",
+                "planning/hook_planning_response.json",
+                "planning/hook_decision.json",
             },
         )
         self.assertEqual(
@@ -199,8 +202,70 @@ class ContractAlignmentTests(unittest.TestCase):
                 "analysis/candidate_extraction.json",
                 "analysis/candidate_pool.json",
                 "analysis/candidate_evidence.json",
+                "planning/hook_planning_request.json",
+                "planning/hook_decision.json",
             },
         )
+
+    def test_the_hook_decision_stage_has_one_gated_model_call(self) -> None:
+        """DECIDE THE HOOK reads the compact request and answers it once.
+
+        Only the creative answer is gated; the request and the decision are
+        deterministic, and the decision stage reads the evidence it vetoes against as
+        well as the answer, never the frames behind it.
+        """
+
+        request = producer_registry.vnext_producer_for(
+            producer_registry.HOOK_PLANNING_REQUEST_ARTIFACT
+        )
+        self.assertEqual(request.stage, "DECIDE THE HOOK")
+        self.assertEqual(request.producer_type, "AUTO")
+        self.assertEqual(
+            request.required_inputs, (producer_registry.CANDIDATE_EVIDENCE_ARTIFACT,)
+        )
+
+        response = producer_registry.vnext_producer_for(
+            producer_registry.HOOK_PLANNING_RESPONSE_ARTIFACT
+        )
+        self.assertEqual(response.stage, "DECIDE THE HOOK")
+        self.assertEqual(
+            response.required_inputs,
+            (producer_registry.HOOK_PLANNING_REQUEST_ARTIFACT,),
+        )
+        self.assertTrue(response.requires_gate)
+        self.assertIn("DECIDE THE HOOK", producer_registry.VNEXT_SHADOW_STAGES)
+
+        decision = producer_registry.vnext_producer_for(
+            producer_registry.HOOK_DECISION_ARTIFACT
+        )
+        self.assertEqual(decision.stage, "DECIDE THE HOOK")
+        self.assertEqual(decision.producer_type, "AUTO")
+        self.assertEqual(
+            set(decision.required_inputs),
+            {
+                producer_registry.HOOK_PLANNING_RESPONSE_ARTIFACT,
+                producer_registry.CANDIDATE_EVIDENCE_ARTIFACT,
+            },
+        )
+
+    def test_the_legacy_resolver_still_refuses_every_planning_artifact(self) -> None:
+        """The legacy path must not be able to produce a Phase 3 artifact.
+
+        It refuses for the same reason it refuses the Phase 2 ones: no producer is
+        registered for these paths outside ``VNEXT_SHADOW``, so the legacy resolver
+        says so rather than inventing one.
+        """
+
+        for artifact in (
+            producer_registry.HOOK_PLANNING_REQUEST_ARTIFACT,
+            producer_registry.HOOK_PLANNING_RESPONSE_ARTIFACT,
+            producer_registry.HOOK_DECISION_ARTIFACT,
+        ):
+            with self.subTest(artifact=artifact):
+                self.assertEqual(producer_registry.mode_of(artifact), "VNEXT_SHADOW")
+                with self.assertRaises(producer_registry.ProducerRegistryError) as caught:
+                    producer_registry.producer_for(artifact)
+                self.assertIn("NO PRODUCER", str(caught.exception))
 
     def test_the_analyzer_requires_the_request_and_not_a_frame_manifest(self) -> None:
         """The registry must not claim a runtime requirement the code does not enforce.

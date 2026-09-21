@@ -535,7 +535,7 @@ MODE_VNEXT_SHADOW = "VNEXT_SHADOW"
 MODES = (MODE_LEGACY, MODE_VNEXT_SHADOW)
 
 #: The stages the shadow mode runs, in order.
-VNEXT_SHADOW_STAGES = ("PROPOSE CANDIDATES", "ANALYZE CANDIDATES")
+VNEXT_SHADOW_STAGES = ("PROPOSE CANDIDATES", "ANALYZE CANDIDATES", "DECIDE THE HOOK")
 
 #: The window proposal an analyzer adapter writes. Declared here so identity,
 #: extraction, and analysis all read one name.
@@ -553,6 +553,12 @@ CANDIDATE_FRAME_EVIDENCE_ARTIFACT = "analysis/candidate_frame_evidence.json"
 CANDIDATE_POOL_ARTIFACT = "analysis/candidate_pool.json"
 #: The Phase 1 companion contract, written by the analysis stage.
 CANDIDATE_EVIDENCE_ARTIFACT = "analysis/candidate_evidence.json"
+#: The compact hook-planning context: brief, permitted facts, structured evidence.
+HOOK_PLANNING_REQUEST_ARTIFACT = "planning/hook_planning_request.json"
+#: The creative answer. This is the one model call of the hook stage.
+HOOK_PLANNING_RESPONSE_ARTIFACT = "planning/hook_planning_response.json"
+#: The Phase 1 companion contract, written by the hook stage.
+HOOK_DECISION_ARTIFACT = "planning/hook_decision.json"
 
 VNEXT_SHADOW_PRODUCERS: tuple[Producer, ...] = (
     _p(
@@ -710,6 +716,100 @@ VNEXT_SHADOW_PRODUCERS: tuple[Producer, ...] = (
         ),
     ),
     _p(
+        artifact=HOOK_PLANNING_REQUEST_ARTIFACT,
+        stage="DECIDE THE HOOK",
+        producer_type="AUTO",
+        producer_id="hook_planning.build_planning_request",
+        required_inputs=(CANDIDATE_EVIDENCE_ARTIFACT,),
+        output_contract=(
+            "hook_planning_request.v1 (run_id, candidate_evidence and brief "
+            "references, permitted Product Facts, compact Creative Brief, compact "
+            "authoritative Candidate evidence, prompt contract)"
+        ),
+        validated_by=(
+            "hook_planning.planning_context + hook_planning.build_planning_request "
+            "(validated where it is constructed: this artifact has no re-read parser)"
+        ),
+        evidence=(
+            "the exact brief and evidence revisions the decision is bound to",
+            "structured Candidate truth only: no prose, no frames, no paths",
+        ),
+        intervention_kind="SUPERVISOR_DECISIONS",
+        resume_condition=(
+            "the request exists and carries every Candidate the model may reason about"
+        ),
+        procedure=(
+            "Written by DECIDE THE HOOK before the creative model is asked anything. "
+            "Phase 2 already looked at the footage; this request carries the compact "
+            "structured result, so the model never sees a frame, a sampled image, a "
+            "Phase 2 prompt or a prose field."
+        ),
+    ),
+    _p(
+        artifact=HOOK_PLANNING_RESPONSE_ARTIFACT,
+        stage="DECIDE THE HOOK",
+        producer_type="ADAPTER",
+        producer_id="hook-creative-model",
+        required_inputs=(HOOK_PLANNING_REQUEST_ARTIFACT,),
+        output_contract=(
+            "hook_planning_response.v1 (provider, model, prompt contract, request "
+            "reference, and 2-5 ordered hypotheses with hook_type, "
+            "commercial_premise, copy_direction, expected_opening_structure, "
+            "required_evidence, available_visual_support, product_fact_refs)"
+        ),
+        validated_by="hook_planning.parse_planning_response",
+        evidence=(
+            "two to five genuinely different hypotheses in the model's creative order",
+            "only candidate_id values from the request and only permitted Product Facts",
+            "the declared Product Fact references the gate checks: nothing more",
+        ),
+        intervention_kind="SUPERVISOR_DECISIONS",
+        resume_condition=(
+            "the answer parses, and every hypothesis can be assessed without a second "
+            "model call"
+        ),
+        procedure=(
+            "Answered through the authoring seam by hook-creative-model: the adapter "
+            "receives the request on stdin and writes the response artifact. Exactly "
+            "ONE creative call. The model proposes and ranks the hypotheses, and the "
+            "deterministic gate then vetoes what the evidence does not support. There "
+            "is no second-model review, no debate and no retry council; a missing or "
+            "malformed answer fails closed. No CLI entry point exists yet: the stage is "
+            "driven through hook_planning.run_hook_planning_stage."
+        ),
+    ),
+    _p(
+        artifact=HOOK_DECISION_ARTIFACT,
+        stage="DECIDE THE HOOK",
+        producer_type="AUTO",
+        producer_id="hook_planning.build_hook_decision",
+        required_inputs=(HOOK_PLANNING_RESPONSE_ARTIFACT, CANDIDATE_EVIDENCE_ARTIFACT),
+        output_contract="hook_decision.v1 (Phase 1 companion contract)",
+        validated_by=(
+            "creative_intent.validate_hook_decision + "
+            "creative_intent.validate_hook_decision_against_evidence"
+        ),
+        evidence=(
+            "the model's hypotheses with the gate's assessments and rejection codes",
+            "one selection when exactly one hypothesis is eligible: SELECTED",
+            "a null selection with an unassigned owner when several are: PENDING",
+            "every hypothesis rejected when none is: INSUFFICIENT",
+        ),
+        intervention_kind="SUPERVISOR_DECISIONS",
+        resume_condition=(
+            "the decision satisfies hook_decision.v1 and every declared support item is "
+            "recorded in the evidence, in the version it was supplied under"
+        ),
+        procedure=(
+            "Written by DECIDE THE HOOK from the validated answer. The deterministic "
+            "gate owns a factual, support and structural veto only: it never re-ranks "
+            "the model's creative order, and it never invents a reason. When more than "
+            "one hypothesis is eligible it records the pending state instead of "
+            "preferring one viable angle over another, and when none is it records "
+            "insufficient evidence. Neither case asks a second model."
+        ),
+    ),
+    _p(
         artifact=CANDIDATE_EVIDENCE_ARTIFACT,
         stage="ANALYZE CANDIDATES",
         producer_type="AUTO",
@@ -837,6 +937,9 @@ __all__ = [
     "CANDIDATE_EXTRACTION_ARTIFACT",
     "CANDIDATE_FRAME_EVIDENCE_ARTIFACT",
     "CANDIDATE_POOL_ARTIFACT",
+    "HOOK_DECISION_ARTIFACT",
+    "HOOK_PLANNING_REQUEST_ARTIFACT",
+    "HOOK_PLANNING_RESPONSE_ARTIFACT",
     "CANDIDATE_WINDOW_PROPOSAL_ARTIFACT",
     "MODE_LEGACY",
     "MODE_VNEXT_SHADOW",

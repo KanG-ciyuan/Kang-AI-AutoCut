@@ -756,16 +756,18 @@ demonstration of a workflow, not a claim that the system is fully autonomous.
 - **Verified on macOS only.** Windows and Linux are untested.
 - **Tracked, unresolved:** run-aware visual segmentation (C-01) and automatic
   selected-range verification ("needs vision").
-- **Editing Intelligence vNext companion contracts are contract-only.** The
-  `candidate_evidence.v1`, `hook_decision.v1`, and `planning_evidence.v1`
-  documents are defined, validated and tested, and no production path writes or
-  reads them yet. See [`docs/contracts/`](docs/contracts/).
-- **Candidate extraction and analysis run in shadow only.** A `VNEXT_SHADOW`
-  stage can now build Candidates from measured material, validate their windows,
-  and produce a validated `candidate_evidence.v1` through the authoring seam —
-  with no production wiring, no hook selection, and no sequence planning.
-  Structured analysis is provider-independent: it is validated offline against
-  deterministic and recorded answers, and an opt-in harness
+- **Editing Intelligence vNext companion contracts.** The `candidate_evidence.v1`
+  and `candidate_evidence.v2` documents are produced in shadow, and
+  `hook_decision.v1` is produced in shadow from them. `planning_evidence.v1` remains
+  contract-only: validated and tested, with nothing writing or reading it. See
+  [`docs/contracts/`](docs/contracts/).
+- **Candidate extraction, analysis and hook decision run in shadow only.** A
+  `VNEXT_SHADOW` stage can now build Candidates from measured material, validate their
+  windows, and produce a validated `candidate_evidence.v1` through the authoring seam,
+  and a third stage (`DECIDE THE HOOK`) turns that evidence, the Creative Brief and the
+  permitted Product Facts into a validated `hook_decision.v1` — with no production
+  wiring and no sequence planning. Structured analysis is provider-independent: it is
+  validated offline against deterministic and recorded answers, and an opt-in harness
   (`scripts/phase25_live_validation.py`, never part of the test suite) can hand real
   sampled frames to a live multimodal analyzer with exact source-frame labels. A run
   during development reported a model reading those frames and producing valid
@@ -776,6 +778,22 @@ demonstration of a workflow, not a claim that the system is fully autonomous.
   machine truth rather than prose; commercial claims remain bound to Product Facts,
   and contract validity is reported separately from the declared pixel checks, which
   measure one statistic each and never semantic or commercial truth.
+- **The hook decision is one model call and a deterministic veto.** The model ranks
+  between two and five genuinely different hypotheses and owns that ranking; the stage
+  never re-ranks it, never scores it, and never invents a reason. Exactly one eligible
+  hypothesis is selected; when several are eligible the decision is left **pending**
+  (`selected_hook_id: null`, owner unassigned), because preferring one viable angle over
+  another is the owner's call, not the gate's; when none is eligible the decision records
+  insufficient evidence. A hypothesis is vetoed when it **declares** a Product Fact the
+  Claim Envelope does not permit, when a declared Candidate is not an analysed Pool
+  member, when a `DIRECT` claim is not recorded in the structured evidence, or when the
+  evidence lacks what the Hook type requires. That last point is the honest limit: the
+  gate validates declared fact references, and cannot prove a premise declared every fact
+  it implicitly rests on. Nothing re-reads the video, no second model reviews or debates
+  the answer, and no shot order, timeline, voice-over, subtitle or final call to action is
+  produced. The model's own ordering is preserved in
+  `planning/hook_planning_response.json`; the decision document is sorted by `hook_id` and
+  is not a ranking.
 
 ---
 

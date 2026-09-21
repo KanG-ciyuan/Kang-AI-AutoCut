@@ -10,6 +10,7 @@ from src.ai_autocut.candidate_evidence import (
     render_candidate_evidence,
 )
 from src.ai_autocut.candidate_pool import parse_candidate_pool
+from src.ai_autocut.editing_intelligence import CoverageToken
 from src.ai_autocut.creative_intent import (
     HOOK_TYPES,
     MAX_HYPOTHESES,
@@ -468,6 +469,74 @@ class HookAgainstEvidenceTests(HookDecisionTestCase):
             )
 
 
+class FrozenResultRuleTests(HookDecisionTestCase):
+    """The v1 result rule stays the v1 rule. Phase 3 tightens its own gate, not this one."""
+
+    def result_candidate(self) -> str:
+        for item in self.raw["hypotheses"]:
+            if item["hook_type"] == "RESULT":
+                return item["available_visual_support"][-1]["candidate_id"]
+        raise AssertionError("the frozen fixture has no RESULT hypothesis")
+
+    def views(self):
+        from src.ai_autocut.candidate_evidence_v2 import (
+            authoritative_evidence_view,
+            read_candidate_evidence,
+        )
+
+        read = read_candidate_evidence(json.loads(EVIDENCE_FIXTURE.read_text()))
+        return {one.candidate_id: one for one in authoritative_evidence_view(read)}
+
+    def test_a_recorded_result_in_prose_still_supports_the_token(self) -> None:
+        from src.ai_autocut.creative_intent import (
+            direct_support_satisfied,
+            structured_support_satisfied,
+            support_recorded,
+        )
+
+        candidate_id = self.result_candidate()
+        entry = self.evidence.entry_for(candidate_id)
+        view = self.views()[candidate_id]
+        self.assertTrue(direct_support_satisfied(entry, CoverageToken.OBSERVABLE_RESULT))
+        # A v1 artifact never recorded a structured observation, so the structured half
+        # is false and the compatibility rule cannot be narrower than the frozen rule.
+        self.assertFalse(
+            structured_support_satisfied(view, CoverageToken.OBSERVABLE_RESULT)
+        )
+        self.assertTrue(
+            support_recorded(entry, view, CoverageToken.OBSERVABLE_RESULT)
+        )
+
+    def test_the_compatibility_predicate_is_never_narrower_than_v1(self) -> None:
+        from src.ai_autocut.creative_intent import (
+            direct_support_satisfied,
+            support_recorded,
+        )
+
+        views = self.views()
+        for token in CoverageToken:
+            for entry in self.evidence.entries:
+                with self.subTest(token=token.value, candidate=entry.candidate_id[:12]):
+                    self.assertEqual(
+                        support_recorded(entry, views[entry.candidate_id], token),
+                        direct_support_satisfied(entry, token),
+                    )
+
+    def test_the_validator_still_accepts_a_direct_result(self) -> None:
+        payload = self.payload()
+        for item in payload["hypotheses"]:
+            if item["hook_type"] != "RESULT":
+                continue
+            for support in item["available_visual_support"]:
+                if support["coverage_token"] == "OBSERVABLE_RESULT":
+                    support["support"] = "DIRECT"
+        decision = parse_hook_decision(payload)
+        validate_hook_decision(decision)
+        validate_hook_decision_against_evidence(
+            decision, self.evidence, self.pool, self.catalog
+        )
+
+
 class HookSerializationTests(HookDecisionTestCase):
     def test_serialization_is_stable_and_order_independent(self) -> None:
         first = render_hook_decision(self.decision)
@@ -542,15 +611,48 @@ class HookSerializationTests(HookDecisionTestCase):
 
 
 class ContractDocumentTests(HookDecisionTestCase):
-    def test_contract_document_states_contract_only_status(self) -> None:
+    def test_contract_document_states_status_and_its_own_limits(self) -> None:
         text = CONTRACT.read_text(encoding="utf-8")
         self.assertIn("`hook_decision.v1`", text)
         self.assertIn("src/ai_autocut/creative_intent.py", text)
         self.assertIn("tests/fixtures/hook_decision_v1_valid.json", text)
-        self.assertIn("CONTRACT EXISTS", text)
-        self.assertIn("does not yet exist", text)
         for hook_type in sorted(HOOK_TYPES):
             self.assertIn(hook_type, text)
+
+    def test_contract_document_names_its_producer_and_its_boundary(self) -> None:
+        """The document must not overclaim, and must not understate either.
+
+        Phase 3 gave the contract a producer, so "no writer exists" would now be false.
+        What must stay checkable is the boundary: the document names the stage that
+        writes it, the three outcomes, where the model's ordering actually lives, the
+        limit of the fact gate, and everything the stage still does not do.
+        """
+
+        text = " ".join(CONTRACT.read_text(encoding="utf-8").split())
+        self.assertIn("src/ai_autocut/hook_planning.py", text)
+        self.assertIn("DECIDE THE HOOK", text)
+        self.assertIn("`PENDING`", text)
+        self.assertIn("UNASSIGNED", text)
+        self.assertIn("does not compare evidence strength", text)
+        self.assertIn("No case calls a second model", text)
+        # Ordering is recorded in the response artifact, not in the decision.
+        self.assertIn("planning/hook_planning_response.json", text)
+        self.assertIn("not a ranking", text)
+        # The fact gate validates declared references, and says so.
+        self.assertIn("declared Product Fact reference validation", text)
+        self.assertIn("cannot prove that a premise declared", text)
+        self.assertIn("shot ordering", text)
+        self.assertIn("Sequence Planning", text)
+        self.assertIn("conversion prediction", text)
+        self.assertIn("Nothing downstream consumes one yet", text)
+
+    def test_contract_document_keeps_the_v1_result_rule_and_says_so(self) -> None:
+        """The document must not claim the frozen v1 result rule stopped applying."""
+
+        text = " ".join(CONTRACT.read_text(encoding="utf-8").split())
+        self.assertIn("Historical semantics are preserved", text)
+        self.assertIn("A v1 artifact that was directly supported", text)
+        self.assertIn("never narrower than it was", text)
 
 
 if __name__ == "__main__":

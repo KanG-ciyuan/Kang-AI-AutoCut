@@ -38,12 +38,21 @@ from .candidate_evidence import (
     BodyArea,
     CandidateEvidence,
     CandidateEvidenceContractError,
+    CandidateEvidenceEntry,
     ClaimSupport,
     EvidenceStatus,
     ProductVisibility,
     UsageContext,
-    render_candidate_evidence,
     validate_candidate_evidence,
+)
+from .candidate_evidence_v2 import (
+    ActionPresence,
+    AuthoritativeObservation,
+    ObservableState,
+    as_v1,
+    authoritative_evidence_view,
+    read_candidate_evidence,
+    supplied_evidence_text,
 )
 from .candidate_pool import CandidatePool
 from .editing_intelligence import CoverageToken
@@ -638,7 +647,9 @@ class HookDecision:
         }
 
 
-def _parse_requirements(value: object, label: str) -> tuple[EvidenceRequirement, ...]:
+def parse_evidence_requirements(
+    value: object, label: str
+) -> tuple[EvidenceRequirement, ...]:
     requirements: list[EvidenceRequirement] = []
     for index, raw in enumerate(_array(value, label)):
         item = _object(raw, f"{label}[{index}]")
@@ -652,7 +663,7 @@ def _parse_requirements(value: object, label: str) -> tuple[EvidenceRequirement,
     return tuple(requirements)
 
 
-def _parse_support(value: object, label: str) -> tuple[VisualSupport, ...]:
+def parse_visual_support(value: object, label: str) -> tuple[VisualSupport, ...]:
     support: list[VisualSupport] = []
     for index, raw in enumerate(_array(value, label)):
         item = _object(raw, f"{label}[{index}]")
@@ -676,10 +687,10 @@ def _parse_hypothesis(value: object, label: str) -> HookHypothesis:
         hook_id=mapping["hook_id"],  # type: ignore[arg-type]
         hook_type=mapping["hook_type"],  # type: ignore[arg-type]
         commercial_premise=mapping["commercial_premise"],  # type: ignore[arg-type]
-        required_evidence=_parse_requirements(
+        required_evidence=parse_evidence_requirements(
             mapping["required_evidence"], f"{label}.required_evidence"
         ),
-        available_visual_support=_parse_support(
+        available_visual_support=parse_visual_support(
             mapping["available_visual_support"], f"{label}.available_visual_support"
         ),
         copy_direction=mapping["copy_direction"],  # type: ignore[arg-type]
@@ -783,12 +794,37 @@ def validate_hook_decision(decision: HookDecision) -> None:
     decision._validate_selection(decision.hypotheses)
 
 
-def _direct_support_satisfied(
-    entry_candidate_id: str, token: CoverageToken, evidence: CandidateEvidence
-) -> bool:
-    """Whether Candidate Evidence actually records direct support for a token."""
+#: Structured observations that constitute a visible result. Used by the structured
+#: predicate below, and by the Phase 3 gate, which admits a result only from these: a
+#: sentence is not evidence, and Phase 2.5 showed that an attractive shot with no
+#: change in it can still be described in confident prose.
+RESULT_OBSERVATIONS = (
+    ObservableState.CLEAN_STATE_VISIBLE,
+    ObservableState.STATE_CHANGE_VISIBLE,
+    ObservableState.BEFORE_AFTER_RELATION_VISIBLE,
+)
 
-    entry = evidence.entry_for(entry_candidate_id)
+#: Product visibility values that count as the product being on screen.
+PRODUCT_ON_SCREEN = ("PARTIAL", "CLEAR", "HERO")
+
+
+def direct_support_satisfied(
+    entry: CandidateEvidenceEntry, token: CoverageToken
+) -> bool:
+    """Whether Candidate Evidence v1 records direct support for one coverage token.
+
+    This is the frozen v1 rule, kept exactly as the contract defined it. Phase 3 does
+    **not** narrow it: an artifact that was directly supported before Phase 3 exists is
+    still directly supported, including a result stated in ``visible_result``. The
+    stricter, structured-only policy Phase 3 applies to its own hooks lives in
+    ``hook_planning`` and is a decision about new hooks, not a retroactive change to
+    what old evidence means.
+    """
+
+    if not isinstance(entry, CandidateEvidenceEntry):
+        raise HookDecisionContractError(
+            "direct support must be checked against a Candidate Evidence entry"
+        )
     if entry.status is not EvidenceStatus.ANALYZED:
         return False
     observations = entry.observations
@@ -820,51 +856,120 @@ def _direct_support_satisfied(
     return False
 
 
+def structured_support_satisfied(
+    view: AuthoritativeObservation, token: CoverageToken
+) -> bool:
+    """The same question answered from structured evidence.
+
+    Deliberately stricter than :func:`direct_support_satisfied` in two places, and
+    identical everywhere else: an action or a result requires ``ACTION_PRESENT``, and a
+    result requires a structured result observation rather than a sentence. Phase 3
+    reads its eligibility through this predicate; ``NO_ACTION`` and ``NOT_RECORDED``
+    can never be mistaken for evidence that something happened.
+    """
+
+    if not isinstance(view, AuthoritativeObservation):
+        raise HookDecisionContractError(
+            "structured support must be checked against an authoritative observation"
+        )
+    action_present = view.action_presence is ActionPresence.ACTION_PRESENT
+    if token is CoverageToken.PRODUCT_VISIBLE:
+        return view.product_visibility in PRODUCT_ON_SCREEN
+    if token is CoverageToken.IDENTITY_SHOT:
+        return view.product_visibility == "HERO"
+    if token is CoverageToken.ACTION_ONSET:
+        return action_present
+    if token is CoverageToken.OBSERVABLE_RESULT:
+        return action_present and any(
+            state in view.observable_states for state in RESULT_OBSERVATIONS
+        )
+    if token is CoverageToken.BEFORE_STATE:
+        return view.usage_context == "PRE_USE"
+    if token is CoverageToken.AFTER_STATE:
+        return view.usage_context == "POST_USE"
+    if token is CoverageToken.USAGE_CONTEXT:
+        return view.usage_context not in (None, "UNKNOWN")
+    if token is CoverageToken.BODY_AREA:
+        return view.body_area not in (None, "UNKNOWN", "NOT_APPLICABLE")
+    if token is CoverageToken.CLAIM_SUPPORT_DIRECT:
+        return any(kind is ClaimSupport.DIRECT for _, kind, _ in view.claims)
+    return False
+
+
+def support_recorded(
+    entry: CandidateEvidenceEntry,
+    view: AuthoritativeObservation,
+    token: CoverageToken,
+) -> bool:
+    """Whether the evidence records a declared support, in either contract version.
+
+    The disjunction is the compatibility rule: it is never narrower than the frozen v1
+    check, because v1 text is still read the v1 way, and it can also be satisfied from
+    structured evidence a v2 document records. It is therefore not a new permission for
+    v1 artifacts - on a v1 document the structured half is always false.
+    """
+
+    return direct_support_satisfied(entry, token) or structured_support_satisfied(
+        view, token
+    )
+
+
 def validate_hook_decision_against_evidence(
     decision: HookDecision,
-    evidence: CandidateEvidence,
+    evidence: object,
     pool: CandidatePool,
     catalog: IdentityCatalog,
 ) -> None:
     """Validate declared visual support against the evidence it names.
 
     This is the anti-fabrication gate of the Hook layer. The declared Candidate
-    Evidence reference must match the supplied bytes, every Candidate offered as
-    support must be an analysed Pool member, and ``DIRECT`` support must describe
-    something the evidence entry actually records.
+    Evidence reference must match the supplied bytes, the evidence and the Pool must
+    validate together, every Candidate offered as support must be an analyzed member,
+    and ``DIRECT`` support must describe something the evidence records.
+
+    The evidence may be a v1 or a v2 document, or an already-parsed one: both are read
+    through the unified reader, the frozen v1 rules are applied to the v1 projection
+    unchanged, and the structured view answers what v1 could not express.
     """
 
     if not isinstance(decision, HookDecision):
         raise HookDecisionContractError("decision must be a HookDecision")
-    if not isinstance(evidence, CandidateEvidence):
-        raise HookDecisionContractError("evidence must be CandidateEvidence")
     try:
-        validate_candidate_evidence(evidence, pool, catalog)
+        read = read_candidate_evidence(evidence)
+    except CandidateEvidenceContractError as exc:
+        raise HookDecisionContractError(
+            f"evidence must be a Candidate Evidence document: {exc}"
+        ) from exc
+    frozen = as_v1(read)
+    try:
+        validate_candidate_evidence(frozen, pool, catalog)
     except CandidateEvidenceContractError as exc:
         raise HookDecisionContractError(str(exc)) from exc
     try:
         validate_reference_binding(
             decision.candidate_evidence,
-            render_candidate_evidence(evidence),
+            supplied_evidence_text(evidence),
             label="candidate_evidence",
         )
     except ArtifactReferenceError as exc:
         raise HookDecisionContractError(str(exc)) from exc
 
+    entries = {entry.candidate_id: entry for entry in frozen.entries}
+    views = {view.candidate_id: view for view in authoritative_evidence_view(read)}
     for hypothesis in decision.hypotheses:
         for item in hypothesis.available_visual_support:
-            try:
-                entry = evidence.entry_for(item.candidate_id)
-            except CandidateEvidenceContractError as exc:
+            entry = entries.get(item.candidate_id)
+            view = views.get(item.candidate_id)
+            if entry is None or view is None:
                 raise HookDecisionContractError(
                     "declared visual support names a Candidate with no evidence entry"
-                ) from exc
+                )
             if entry.status is not EvidenceStatus.ANALYZED:
                 raise HookDecisionContractError(
                     "declared visual support requires an ANALYZED Candidate"
                 )
-            if item.support is ClaimSupport.DIRECT and not _direct_support_satisfied(
-                item.candidate_id, item.coverage_token, evidence
+            if item.support is ClaimSupport.DIRECT and not support_recorded(
+                entry, view, item.coverage_token
             ):
                 raise HookDecisionContractError(
                     "declared DIRECT visual support is not recorded in the "

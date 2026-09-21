@@ -73,6 +73,7 @@ from .candidate_evidence import (
     Observations,
     ProductFacts,
     parse_candidate_evidence,
+    render_candidate_evidence,
     validate_candidate_evidence,
 )
 from .candidate_pool import CandidatePool
@@ -765,6 +766,25 @@ def read_candidate_evidence(document: object) -> CandidateEvidenceV2:
     raise CandidateEvidenceV2Error(
         f"schema_version must be {SCHEMA_VERSION!r} or {V1_SCHEMA_VERSION!r}"
     )
+
+
+def supplied_evidence_text(document: object) -> str:
+    """Canonical bytes of an evidence document, in the version it was supplied under.
+
+    An artifact reference names the bytes a decision was made against, so the text has
+    to be produced in the supplied version. Rendering a v1 document as v2 would bind a
+    decision to an artifact nobody wrote, and would make a frozen v1 reference
+    unverifiable.
+    """
+
+    if isinstance(document, CandidateEvidenceV2):
+        return render_candidate_evidence_v2(document)
+    if isinstance(document, CandidateEvidence):
+        return render_candidate_evidence(document)
+    mapping = _object(document, "candidate evidence")
+    if mapping.get("schema_version") == SCHEMA_VERSION:
+        return render_candidate_evidence_v2(parse_candidate_evidence_v2(mapping))
+    return render_candidate_evidence(parse_candidate_evidence(mapping))
 
 
 # --------------------------------------------------------------------------- Phase 3 boundary

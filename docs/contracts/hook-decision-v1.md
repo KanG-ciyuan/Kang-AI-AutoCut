@@ -4,18 +4,48 @@
 - **Implementation:** `src/ai_autocut/creative_intent.py`
 - **Canonical fixture:** `tests/fixtures/hook_decision_v1_valid.json`
 - **Canonical workspace path:** `planning/hook_decision.json`
-- **Status:** contract implemented and tested. **No generator, no selector, and no production wiring exist yet.**
+- **Status:** contract implemented and tested, and **produced by one stage**:
+  `DECIDE THE HOOK` (`src/ai_autocut/hook_planning.py`).
 
-## CONTRACT EXISTS, PRODUCTION CAPABILITY DOES NOT
+## WHAT PRODUCES A DECISION, AND WHAT STILL DOES NOT
 
-This document defines a data contract. The contract exists, and vNext production
-wiring does not yet exist: nothing generates a hook, scores a hook, selects a
-hook, writes copy, or reads a `hook_decision.v1` document. The only document that
-exists is a fixture, and the selection recorded in that fixture was written by
-hand as test data. No model was called.
+The contract is produced by `run_hook_planning_stage`, which makes **one** creative
+model call per run, through the existing authoring seam, and then applies a
+deterministic veto. The model owns the creative ranking and the stage never
+re-ranks it. There are exactly three outcomes:
 
-`hook_decision.v1` is not a Hook Generator. A future Agent must not read this
-file as evidence that the system can choose an opening.
+| Outcome | Recorded as |
+| --- | --- |
+| `SELECTED` | exactly one hypothesis is eligible: it is selected, and `decision_owner` is assigned |
+| `PENDING` | **several** hypotheses are eligible: `selected_hook_id: null` with `decision_owner: UNASSIGNED`, because the gate may not rank creative options |
+| `INSUFFICIENT` | **no** hypothesis is eligible: every hypothesis carries a rejection code and the owner is assigned |
+
+The gate never invents a rejection reason. It does not compare evidence strength
+between hypotheses, does not score them, and does not reorder them; a viable
+hypothesis that the model ranked below another is not "weaker evidence", it is
+simply not the one the owner has chosen yet. No case calls a second model.
+
+**Where the model's ordering lives.** The order the model returned is preserved in
+`planning/hook_planning_response.json`. It is *not* recorded in the decision:
+`hook_decision.v1` sorts hypotheses by `hook_id`, so the decision document is a set
+with assessments, not a ranking.
+
+**What the fact gate can and cannot prove.** The deterministic gate enforces
+**declared Product Fact reference validation**: every `product_fact_refs` entry a
+hypothesis declares must be inside the Claim Envelope. It cannot prove that a
+premise declared *every* fact it implicitly rests on, because that would mean
+parsing commercial prose. Completeness therefore rests on the bounded prompt, the
+Claim Envelope, and producer review - not on the gate.
+
+What the stage does not do, and this contract still does not describe: shot
+ordering, Timeline, Trim, Sequence Planning, voice-over or subtitle text, final
+call to action, typography, audio, rendering, QA, release, A/B testing, or any
+conversion prediction. `copy_direction` is a direction, never the finished line.
+Hook scoring, Hook weights, and advertising knowledge graphs remain out of scope:
+eligibility is a factual veto, not a score.
+
+`hook_decision.v1` is not a Hook Generator, and a Hook Decision is not an Editing
+Plan. Nothing downstream consumes one yet.
 
 ## Purpose and boundary
 
@@ -114,8 +144,9 @@ choosing.
 - A selected hypothesis must be `FACT_SAFE`, must not be `INSUFFICIENT` on
   evidence coverage, must carry no rejection code, and requires an assigned
   `decision_owner` plus at least one selection reason code.
-- Every hypothesis the decision did not select must carry a rejection code. An
-  unselected option with no recorded reason is an incomplete decision.
+- Every hypothesis the decision did not select must carry a rejection code, *unless*
+  the decision is pending: with no selection at all, an eligible hypothesis carries no
+  code, because "viable but not chosen yet" is exactly what pending means.
 - Any hypothesis sharing the selected Hook type must be rejected specifically as
   `DUPLICATES_SELECTED_PREMISE`.
 - `selected_hook_id: null` with `decision_owner: "UNASSIGNED"` is a valid
@@ -141,22 +172,44 @@ stated requirement.
 
 `validate_hook_decision_against_evidence(decision, evidence, pool, catalog)` is
 the anti-fabrication gate. It requires the declared `candidate_evidence`
-reference to match the supplied bytes, requires every Candidate offered as
-support to be an analysed Pool member, and then checks the claim itself: a
-`DIRECT` support item is accepted only when the named Candidate Evidence entry
-actually records that dimension.
+reference to match the supplied bytes, requires the Pool to validate against the
+identity catalogue, requires every Candidate offered as support to be an analysed
+Pool member, and then checks the claim itself: a `DIRECT` support item is accepted
+only when that Candidate's **structured** evidence actually records the dimension.
+
+The evidence may be a `candidate_evidence.v1` or a `candidate_evidence.v2`
+document, or an already-parsed one of either. Both are read through one reader and
+answered through the authoritative view, so a claim can never be satisfied by a
+prose field at either version.
 
 | Token | Recorded in Candidate Evidence as |
 | --- | --- |
 | `PRODUCT_VISIBLE` | `product_visibility` of `PARTIAL`, `CLEAR`, or `HERO` |
 | `IDENTITY_SHOT` | `product_visibility` of `HERO` |
-| `ACTION_ONSET` | a non-empty `action_evidence` |
-| `OBSERVABLE_RESULT` | action evidence plus a stated `visible_result` |
+| `ACTION_ONSET` | `action_presence` of `ACTION_PRESENT`, or in v1 a non-empty `action_evidence` |
+| `OBSERVABLE_RESULT` | v1: action evidence plus a stated `visible_result`; v2: `ACTION_PRESENT` plus a structured result observation |
 | `BEFORE_STATE` | `usage_context` of `PRE_USE` |
 | `AFTER_STATE` | `usage_context` of `POST_USE` |
 | `USAGE_CONTEXT` | any `usage_context` other than `UNKNOWN` |
 | `BODY_AREA` | a `body_area` other than `UNKNOWN` or `NOT_APPLICABLE` |
 | `CLAIM_SUPPORT_DIRECT` | at least one claim with `DIRECT` support |
+
+### Historical semantics are preserved; Phase 3 is stricter
+
+The `OBSERVABLE_RESULT` row above is deliberately two rules, and the difference is a
+scope decision rather than a contract change:
+
+- **This validator keeps the v1 rule.** A v1 artifact that was directly supported
+  before Phase 3 is still directly supported, `visible_result` prose included. Nothing
+  that was legal became illegal because a new phase appeared.
+- **The Phase 3 Hook gate is stricter, and only for the hooks it produces.** RESULT
+  eligibility there requires a structured result observation, because "the footage
+  shows the change" and "someone described the change" are different claims. That rule
+  lives in `hook_planning`, never in this contract's validator.
+
+So the stricter policy applies to new decisions, not retroactively to old evidence.
+`validate_hook_decision_against_evidence` is never narrower than it was: on a v1
+document its structured half is always false.
 
 ## References
 
@@ -172,9 +225,15 @@ so regenerating one requires regenerating the other.
 The Candidate Evidence reference is verifiable in this phase, because that
 document exists:
 `validate_hook_decision_reference(decision, candidate_evidence_text)` fails
-closed on stale or mismatched bytes. The brief reference is **declarative only**
-in this phase: the document is recorded, but no brief parser or hash check
-exists yet, and that is recorded as an open item rather than implied to work.
+closed on stale or mismatched bytes. The reference binds the bytes of the evidence
+**in the version it was supplied under**: a v1 document binds v1 bytes, so a frozen
+v1 decision stays verifiable instead of being re-bound to a v2 rendering nobody
+wrote.
+
+The brief reference is now checked too. `validate_brief_binding(decision,
+brief_text)` fails closed when the brief has changed since the decision was made,
+which is what makes "this decision was made against that brief" a checkable
+statement rather than a comment.
 
 ## Serialization
 
@@ -188,9 +247,16 @@ byte-identical output regardless of input order.
 Every violation raises a contract error. Nothing is repaired or partially
 accepted, and no error message echoes the offending value.
 
+A hypothesis the gate vetoes is still recorded, with the most serious cause as its
+rejection and every code the contract requires alongside it: an insufficient
+coverage always carries `INSUFFICIENT_EVIDENCE`, an unsafe premise always carries
+`UNSUPPORTED_CLAIM`, and a hypothesis left with no validated support always carries
+`NO_OPENING_VISUAL`. A reviewer therefore never has to read a defect as a crash: a
+fabricated `candidate_id`, for instance, loses that hypothesis rather than the run.
+
 ## Compatibility rule
 
 Version 1 is closed. New Hook types, new reason codes, or any key change require
-a separately reviewed version. This contract introduces no provider call, no
-generated hook, no selection logic, no copy generation, and no change to the Copy
-System.
+a separately reviewed version. The producing stage adds no scoring, no Hook
+taxonomy beyond the five frozen types, no per-SKU rules, no second model, and no
+change to the Copy System or to Candidate Evidence.
