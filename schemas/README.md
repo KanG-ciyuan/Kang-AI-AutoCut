@@ -13,6 +13,14 @@ schemas/
   review/             review.v0          — contract validated
   typography/         typography_policy.v0 — policy validated, placement NOT_IMPLEMENTED
   candidate_shot/     candidate_shot.v0  — draft only, extraction NOT_IMPLEMENTED
+  commercial_strategy/commercial_strategy.v1 — CONTRACT_ONLY, NOT_WIRED: validated shape,
+                        no production writer, no reader, no registered producer
+  commercial_intelligence/commercial_intelligence.v1 — CONTRACT_ONLY, NOT_WIRED: strategy
+                        candidates upstream of commercial_strategy.v1, same validated
+                        status, no writer, no reader, no registered producer
+  commercial_copy/commercial_copy.v1 — CONTRACT_ONLY, NOT_WIRED: semantic intent plus
+                        localised spoken copy, derived semantic back-check and status,
+                        no writer, no reader, no registered producer
 ```
 
 Each directory holds a JSON Schema plus, where one exists, a real record that

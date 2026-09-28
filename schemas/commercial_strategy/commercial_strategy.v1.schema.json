@@ -1,0 +1,269 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-autocut.invalid/schemas/commercial_strategy.v1.schema.json",
+  "title": "commercial_strategy.v1",
+  "description": "What one piece argues, as a production artifact. Carries four separated layers: PRODUCT FACT (product_facts), CONSUMER INSIGHT (consumer_insight), COMMERCIAL CLAIM (claim_boundary) and copy DIRECTION (variants[].copy_direction). There is deliberately NO field for final copy, voice-over lines or CTA wording. The artifact and its validation are implemented; the frozen production chain does not consume it yet, and its producer is registered as a declared artifact rather than a stage input.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "strategy_id",
+    "market",
+    "platform",
+    "objective",
+    "product",
+    "target_consumer",
+    "consumer_insight",
+    "product_facts",
+    "visual_evidence_boundary",
+    "claim_boundary",
+    "variants",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": { "const": "commercial_strategy.v1" },
+    "strategy_id": { "$ref": "#/$defs/token" },
+    "market": {
+      "$ref": "#/$defs/token",
+      "description": "Caller-owned value, e.g. a short market identifier. Deliberately not an enum: the project does not own a closed market vocabulary."
+    },
+    "platform": { "$ref": "#/$defs/token" },
+    "objective": { "$ref": "#/$defs/token" },
+    "product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": { "name": { "type": "string", "minLength": 1 } }
+    },
+    "target_consumer": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Descriptive only. Nothing in this contract researches, infers or enriches the audience."
+    },
+    "consumer_insight": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["insight_id", "statement"],
+        "properties": {
+          "insight_id": { "$ref": "#/$defs/token" },
+          "statement": { "type": "string", "minLength": 1 }
+        }
+      },
+      "description": "What the producer believes about the buyer. An insight is never usable as a claim: no field of this contract accepts an insight id as something the video may assert."
+    },
+    "product_facts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "sha256", "allowed_fact_refs"],
+      "properties": {
+        "ref": { "$ref": "#/$defs/logical_ref" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "allowed_fact_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/token" }
+        }
+      },
+      "description": "The permitted commercial facts plus the artifact that states them. A bound snapshot of the authority, not a second fact system: the authority is the referenced document."
+    },
+    "visual_evidence_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "sha256", "items"],
+      "properties": {
+        "ref": { "$ref": "#/$defs/logical_ref" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["evidence_id", "statement", "presence"],
+            "properties": {
+              "evidence_id": { "$ref": "#/$defs/token" },
+              "statement": { "type": "string", "minLength": 1 },
+              "presence": {
+                "enum": ["PRESENT", "ABSENT"],
+                "description": "Whether the current material can show what this item describes."
+              }
+            }
+          }
+        }
+      },
+      "description": "What the current material can prove and what it cannot. An ALLOWED claim that names an ABSENT item is refused by the validator."
+    },
+    "claim_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed", "conditional", "forbidden"],
+      "properties": {
+        "allowed": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["claim_id", "statement", "product_fact_ref", "evidence_ref"],
+            "properties": {
+              "claim_id": { "$ref": "#/$defs/token" },
+              "statement": { "type": "string", "minLength": 1 },
+              "product_fact_ref": { "$ref": "#/$defs/token" },
+              "evidence_ref": {
+                "oneOf": [{ "$ref": "#/$defs/token" }, { "type": "null" }]
+              }
+            }
+          }
+        },
+        "conditional": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "claim_id",
+              "statement",
+              "product_fact_ref",
+              "requires_evidence_ref",
+              "condition"
+            ],
+            "properties": {
+              "claim_id": { "$ref": "#/$defs/token" },
+              "statement": { "type": "string", "minLength": 1 },
+              "product_fact_ref": { "$ref": "#/$defs/token" },
+              "requires_evidence_ref": {
+                "oneOf": [{ "$ref": "#/$defs/token" }, { "type": "null" }]
+              },
+              "condition": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "forbidden": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["claim_id", "statement", "reason"],
+            "properties": {
+              "claim_id": { "$ref": "#/$defs/token" },
+              "statement": { "type": "string", "minLength": 1 },
+              "reason": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      },
+      "description": "The three claim states. A claim_id appears in exactly one of them; one id in two states is a contradiction and is refused."
+    },
+    "variants": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "variant_id",
+          "persuasion_job",
+          "hook_strategy",
+          "copy_direction",
+          "cta_direction",
+          "claims_used"
+        ],
+        "properties": {
+          "variant_id": { "$ref": "#/$defs/token" },
+          "persuasion_job": {
+            "$ref": "#/$defs/token",
+            "description": "Caller-owned value. Deliberately not an enum: the project does not own a closed persuasion vocabulary, and hardcoding one would make every future SKU inherit it."
+          },
+          "hook_strategy": { "type": "string", "minLength": 1 },
+          "copy_direction": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 },
+            "description": "Direction for the copy, never the copy. The final words remain copy-planner's artifact."
+          },
+          "cta_direction": { "type": "string", "minLength": 1 },
+          "claims_used": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "$ref": "#/$defs/token" },
+            "description": "The claims this variant intends to make. Every id must be ALLOWED by this document; a CONDITIONAL or FORBIDDEN id is refused."
+          }
+        }
+      },
+      "description": "One entry per version of the piece. Market, platform, objective, product facts, evidence boundary and claim boundary are document level, so variants cannot silently drift apart on the boundary a benchmark is supposed to hold fixed."
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authored_by", "based_on"],
+      "properties": {
+        "authored_by": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["actor", "producer_id"],
+          "properties": {
+            "actor": { "enum": ["CODEX_SUPERVISOR", "HUMAN", "AUTOMATED_REPAIR"] },
+            "producer_id": { "$ref": "#/$defs/token" }
+          },
+          "description": "The intervention ledger's own actor vocabulary, so an author is recorded in the same terms as every other intervention."
+        },
+        "based_on": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["ref", "sha256"],
+            "properties": {
+              "ref": { "$ref": "#/$defs/logical_ref" },
+              "sha256": { "$ref": "#/$defs/sha256" }
+            }
+          },
+          "description": "Must name product_facts.ref and visual_evidence_boundary.ref, with matching sha256 values. No timestamp, no prompt, no reasoning."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "token": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "logical_ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-]*)*\\.json$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "x-status": {
+    "implementation": "CONTRACT_ONLY",
+    "wiring_status": "NOT_WIRED",
+    "writer": null,
+    "reader": null,
+    "producer_registered": false,
+    "required_by_a_stage": false,
+    "production_chain_untouched": true,
+    "precedent": "planning_evidence.v1 — a validated shape with no production writer or reader",
+    "validation": [
+      "commercial_strategy.parse_commercial_strategy",
+      "commercial_strategy.validate_against_product_facts"
+    ],
+    "not_in_this_contract": [
+      "final copy",
+      "voice-over lines",
+      "subtitles",
+      "CTA wording",
+      "hook generation",
+      "copy generation",
+      "market research",
+      "consumer research",
+      "provider or model calls"
+    ]
+  }
+}

@@ -1,0 +1,370 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-autocut.invalid/schemas/commercial_copy.v1.schema.json",
+  "title": "commercial_copy.v1",
+  "description": "What this piece actually says, in two layers: a language-independent semantic intent per segment, and the localised spoken line that expresses it. The copy executes a selected Commercial Strategy and may not change it. Carries a formal semantic back-check whose verdict is derived from its findings, a soft speech budget (never frame-accurate timing), designed silence that is explicitly not an empty track, and READY / BLOCKED status derived from blocking conditions and back-check findings. The only numbers this contract may contain are durations named *_seconds. CONTRACT_ONLY: validated shape, no production writer or reader, no registered producer.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "copy_id",
+    "context",
+    "strategy",
+    "boundaries",
+    "segments",
+    "semantic_back_check",
+    "blocking",
+    "status",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": { "const": "commercial_copy.v1" },
+    "copy_id": { "$ref": "#/$defs/token" },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["market", "language", "platform", "platform_source"],
+      "properties": {
+        "market": {
+          "$ref": "#/$defs/token",
+          "description": "Must equal the market of the bound strategy; a copy may not be written for a different market than the strategy chose."
+        },
+        "language": { "$ref": "#/$defs/token" },
+        "platform": { "$ref": "#/$defs/token" },
+        "platform_source": { "enum": ["DECLARED", "DEFAULTED", "UNSPECIFIED"] }
+      }
+    },
+    "strategy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "sha256", "variant_id"],
+      "properties": {
+        "ref": { "$ref": "#/$defs/logical_ref" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "variant_id": {
+          "$ref": "#/$defs/token",
+          "description": "The selected variant this copy executes. It is not the whole strategy: the copy is written for one chosen variant."
+        }
+      },
+      "description": "The copy may not modify the strategy it binds. If the selected variant cannot be executed, the copy is BLOCKED instead."
+    },
+    "boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["product_facts", "visual_evidence_boundary"],
+      "properties": {
+        "product_facts": { "$ref": "#/$defs/reference" },
+        "visual_evidence_boundary": { "$ref": "#/$defs/reference" }
+      },
+      "description": "The two boundary blocks that have authorities of their own, bound by {ref, sha256} and required to equal the bound strategy's own bindings. The claim boundary travels with the strategy: at this baseline it has no standalone artifact, which is recorded as a limitation rather than papered over."
+    },
+    "segments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "segment_id",
+          "copy_job",
+          "delivery",
+          "semantic_intent",
+          "claim_refs",
+          "evidence_refs",
+          "budget",
+          "localized",
+          "designed_silence"
+        ],
+        "properties": {
+          "segment_id": {
+            "$ref": "#/$defs/token",
+            "description": "Caller-owned stable identity, never an array position: a segment may be reordered or removed without changing any other segment's identity."
+          },
+          "copy_job": {
+            "$ref": "#/$defs/token",
+            "description": "Caller-owned: the commercial task this segment performs. Deliberately not an enum."
+          },
+          "delivery": {
+            "enum": ["SPEECH", "DESIGNED_SILENCE"],
+            "description": "DESIGNED_SILENCE means there is no voice-over here. It never means the track is silent."
+          },
+          "semantic_intent": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Layer one: what this segment is allowed to mean, independent of language. Not the final advertising line."
+          },
+          "claim_refs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "$ref": "#/$defs/token" },
+            "description": "Claims this segment may make. Every id must be ALLOWED and must be one the selected variant selected. Empty when the segment asserts no product claim."
+          },
+          "evidence_refs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "$ref": "#/$defs/token" },
+            "description": "Visual evidence this segment leans on. Every id must be PRESENT. Required for DESIGNED_SILENCE, because the visual carries those moments."
+          },
+          "budget": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "target_seconds",
+              "acceptable_min_seconds",
+              "acceptable_max_seconds"
+            ],
+            "properties": {
+              "target_seconds": { "type": "number", "exclusiveMinimum": 0 },
+              "acceptable_min_seconds": { "type": "number", "exclusiveMinimum": 0 },
+              "acceptable_max_seconds": { "type": "number", "exclusiveMinimum": 0 }
+            },
+            "description": "A soft information budget, not timing: no frame counts, no placement, no duration authority. Those belong to the timeline and audio stages."
+          },
+          "localized": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["language", "line"],
+                "properties": {
+                  "language": {
+                    "$ref": "#/$defs/token",
+                    "description": "Must equal the copy's language."
+                  },
+                  "line": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Layer two: the natural wording. It controls how to say it, never what may be said."
+                  }
+                }
+              },
+              { "type": "null" }
+            ],
+            "description": "Required for SPEECH and null for DESIGNED_SILENCE."
+          },
+          "designed_silence": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["reason", "bed_note"],
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Why there is no voice-over here."
+                  },
+                  "bed_note": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "What continues under this segment: the environment and evidence sound. This contract cannot express muting a track, because that is not what designed silence means."
+                  }
+                }
+              },
+              { "type": "null" }
+            ]
+          }
+        }
+      },
+      "description": "May be empty only when the copy is BLOCKED: a blocked attempt has nothing to say yet."
+    },
+    "semantic_back_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["findings"],
+      "properties": {
+        "findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "segment_id",
+              "adds_claim",
+              "expands_claim",
+              "drops_qualifier",
+              "possibility_as_certainty",
+              "unauthorised_product_fact",
+              "detail",
+              "verdict"
+            ],
+            "properties": {
+              "segment_id": { "$ref": "#/$defs/token" },
+              "adds_claim": { "type": "boolean" },
+              "expands_claim": {
+                "type": "boolean",
+                "description": "For example: an intent saying the filter attaches at the tap outlet, rendered as suitable for every tap."
+              },
+              "drops_qualifier": { "type": "boolean" },
+              "possibility_as_certainty": { "type": "boolean" },
+              "unauthorised_product_fact": { "type": "boolean" },
+              "detail": {
+                "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }],
+                "description": "Required when the verdict is FAIL: what exceeded the semantic intent."
+              },
+              "verdict": {
+                "enum": ["PASS", "FAIL"],
+                "description": "Derived from the five flags and verified against the stored value. Any true flag forces FAIL, so a finding cannot admit an exceedance and still read PASS."
+              }
+            }
+          },
+          "description": "Exactly one finding per SPEECH segment, and none for DESIGNED_SILENCE: there is no localised line to check where there is no line."
+        }
+      },
+      "description": "A recorded judgement, not natural language understanding: Python cannot read Indonesian, and this contract does not pretend it can. What it enforces is that the question is asked for every speech segment and that the verdict cannot contradict the findings."
+    },
+    "blocking": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "segment_id",
+          "reason_code",
+          "reason",
+          "claim_ref",
+          "missing",
+          "return_to"
+        ],
+        "properties": {
+          "segment_id": {
+            "oneOf": [{ "$ref": "#/$defs/token" }, { "type": "null" }]
+          },
+          "reason_code": {
+            "enum": [
+              "STRATEGY_NOT_EXECUTABLE",
+              "STRATEGY_REQUIRES_UNSUPPORTED_CLAIM",
+              "CLAIM_FORBIDDEN_BY_BOUNDARY",
+              "CONDITIONAL_CLAIM_UNSATISFIED",
+              "REQUIRED_EVIDENCE_ABSENT",
+              "INPUT_ARTIFACTS_CONTRADICT",
+              "OUT_OF_ALLOWED_SEMANTIC_SCOPE",
+              "BUDGET_IMPOSSIBLE"
+            ]
+          },
+          "reason": { "type": "string", "minLength": 1 },
+          "claim_ref": {
+            "oneOf": [{ "$ref": "#/$defs/token" }, { "type": "null" }],
+            "description": "When named, the boundaries must not permit it, and any derived missing evidence item must be declared in 'missing'. A permitted claim is not a reason to block."
+          },
+          "missing": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "return_to": {
+            "enum": [
+              "COMMERCIAL_INTELLIGENCE",
+              "COMMERCIAL_STRATEGY",
+              "PRODUCT_FACTS",
+              "VISUAL_EVIDENCE",
+              "CLAIM_BOUNDARY"
+            ],
+            "description": "Which upstream area has to move. Never this layer: an author may not resolve a blockage by inventing evidence."
+          }
+        }
+      },
+      "description": "Why a copy could not be produced. Empty means nothing is blocked."
+    },
+    "status": {
+      "enum": ["READY", "BLOCKED"],
+      "description": "Derived: READY only when there are no blocking conditions and no failed back-check finding. The stored value is verified against the derivation, so an artifact cannot assert a status its own contents contradict."
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authoring_mode", "authored_by", "skill", "validation", "based_on"],
+      "properties": {
+        "authoring_mode": {
+          "enum": ["AGENT_AUTHORED", "HUMAN_AUTHORED"],
+          "description": "There is deliberately no SYSTEM_GENERATED value: no system generation capability exists at this baseline, so an artifact may not claim one."
+        },
+        "authored_by": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["actor", "producer_id"],
+          "properties": {
+            "actor": { "enum": ["CODEX_SUPERVISOR", "HUMAN", "AUTOMATED_REPAIR"] },
+            "producer_id": { "$ref": "#/$defs/token" }
+          }
+        },
+        "skill": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "version"],
+          "properties": {
+            "name": { "const": "commercial-copy" },
+            "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" }
+          },
+          "description": "The role this copy was authored under. Its specification is docs/skills/commercial-copy-v1.md."
+        },
+        "validation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["validator"],
+          "properties": {
+            "validator": { "const": "commercial_copy.validate_commercial_copy" }
+          },
+          "description": "The validator this artifact records having been checked against. Naming it is not proof: a consumer must actually run it."
+        },
+        "based_on": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/reference" },
+          "description": "Must name boundaries.product_facts.ref and boundaries.visual_evidence_boundary.ref with matching sha256 values. No timestamp, no prompt, no reasoning."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "token": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "logical_ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-]*)*\\.json$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "sha256"],
+      "properties": {
+        "ref": { "$ref": "#/$defs/logical_ref" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  },
+  "x-status": {
+    "implementation": "CONTRACT_ONLY",
+    "wiring_status": "NOT_WIRED",
+    "writer": null,
+    "reader": null,
+    "producer_registered": false,
+    "required_by_a_stage": false,
+    "production_chain_untouched": true,
+    "precedent": "planning_evidence.v1, commercial_strategy.v1, commercial_intelligence.v1 — validated shapes with no production writer or reader",
+    "upstream_of": "TTS / Audio / Timeline / Editing",
+    "downstream_of": "commercial_strategy.v1 (selected variant)",
+    "authoring": "AGENT_AUTHORED or HUMAN_AUTHORED; no system generator exists",
+    "only_duration_numbers": true,
+    "shared_with_the_family": [
+      "product_facts / visual_evidence_boundary bindings (required to equal the strategy's own)",
+      "claim refs (checked against the strategy's claim boundary and selected variant)",
+      "claim availability derivation (commercial_intelligence.claim_availability)",
+      "provenance author type (commercial_strategy.StrategyAuthor)"
+    ],
+    "not_in_this_contract": [
+      "final advertising campaign structure",
+      "frame-accurate timing or voice placement",
+      "TTS script formatting or speaker identity",
+      "BGM or SFX decisions",
+      "mixing",
+      "release decisions",
+      "A/B/C winner selection"
+    ]
+  }
+}

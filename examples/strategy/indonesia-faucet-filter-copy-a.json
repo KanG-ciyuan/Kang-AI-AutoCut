@@ -1,0 +1,201 @@
+{
+  "schema_version": "commercial_copy.v1",
+  "copy_id": "faucet-filter-indonesia-copy-a-v1",
+  "context": {
+    "market": "INDONESIA",
+    "language": "id-ID",
+    "platform": "TIKTOK",
+    "platform_source": "DECLARED"
+  },
+  "strategy": {
+    "ref": "examples/strategy/indonesia-faucet-filter-abc.json",
+    "sha256": "66d60ff75388871fa75be322af9e5f2bf112d77f178cc944f31bc218576d742d",
+    "variant_id": "A"
+  },
+  "boundaries": {
+    "product_facts": {
+      "ref": "brief/product_facts.json",
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "visual_evidence_boundary": {
+      "ref": "evidence/visual-evidence-boundary.json",
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+    }
+  },
+  "segments": [
+    {
+      "segment_id": "S01",
+      "copy_job": "PRODUCT_IDENTITY",
+      "delivery": "SPEECH",
+      "semantic_intent": "State that this is a tap filter that attaches at the end of a tap, using only the attachment the footage shows.",
+      "claim_refs": ["CLAIM-SIMPLE-TO-INSTALL"],
+      "evidence_refs": ["EV-INSTALLATION"],
+      "budget": {
+        "target_seconds": 2.2,
+        "acceptable_min_seconds": 1.8,
+        "acceptable_max_seconds": 2.6
+      },
+      "localized": {
+        "language": "id-ID",
+        "line": "Ini filter keran yang dipasang di ujung keran."
+      },
+      "designed_silence": null
+    },
+    {
+      "segment_id": "S02",
+      "copy_job": "INSTALLATION",
+      "delivery": "SPEECH",
+      "semantic_intent": "Say that it is fitted by hand, without describing tools, effort or how long it takes.",
+      "claim_refs": ["CLAIM-SIMPLE-TO-INSTALL"],
+      "evidence_refs": ["EV-INSTALLATION"],
+      "budget": {
+        "target_seconds": 2.4,
+        "acceptable_min_seconds": 2.0,
+        "acceptable_max_seconds": 2.8
+      },
+      "localized": {
+        "language": "id-ID",
+        "line": "Cukup dipasang dengan tangan ke keran."
+      },
+      "designed_silence": null
+    },
+    {
+      "segment_id": "S03",
+      "copy_job": "VISIBLE_STRUCTURE",
+      "delivery": "SPEECH",
+      "semantic_intent": "Point at the transparent housing and the part visible inside it, and say nothing about what the part does to the water.",
+      "claim_refs": ["CLAIM-STRUCTURE-IS-VISIBLE"],
+      "evidence_refs": ["EV-STRUCTURE-VISIBLE"],
+      "budget": {
+        "target_seconds": 2.4,
+        "acceptable_min_seconds": 2.0,
+        "acceptable_max_seconds": 2.8
+      },
+      "localized": {
+        "language": "id-ID",
+        "line": "Bagian dalamnya bisa dilihat lewat rumah transparannya."
+      },
+      "designed_silence": null
+    },
+    {
+      "segment_id": "S04",
+      "copy_job": "DAILY_USE",
+      "delivery": "SPEECH",
+      "semantic_intent": "Say the fitted filter is used in ordinary daily kitchen activity, and make no statement about the water itself.",
+      "claim_refs": ["CLAIM-FITS-DAILY-KITCHEN-USE"],
+      "evidence_refs": ["EV-DAILY-USAGE"],
+      "budget": {
+        "target_seconds": 2.5,
+        "acceptable_min_seconds": 2.1,
+        "acceptable_max_seconds": 3.0
+      },
+      "localized": {
+        "language": "id-ID",
+        "line": "Dipakai seperti biasa untuk kebutuhan air di dapur."
+      },
+      "designed_silence": null
+    },
+    {
+      "segment_id": "S05",
+      "copy_job": "CTA",
+      "delivery": "SPEECH",
+      "semantic_intent": "Send the buyer to the product page. Assert nothing about the product and promise no outcome.",
+      "claim_refs": [],
+      "evidence_refs": [],
+      "budget": {
+        "target_seconds": 1.8,
+        "acceptable_min_seconds": 1.5,
+        "acceptable_max_seconds": 2.2
+      },
+      "localized": {
+        "language": "id-ID",
+        "line": "Lihat halaman produknya."
+      },
+      "designed_silence": null
+    }
+  ],
+  "semantic_back_check": {
+    "findings": [
+      {
+        "segment_id": "S01",
+        "adds_claim": false,
+        "expands_claim": false,
+        "drops_qualifier": false,
+        "possibility_as_certainty": false,
+        "unauthorised_product_fact": false,
+        "detail": null,
+        "verdict": "PASS"
+      },
+      {
+        "segment_id": "S02",
+        "adds_claim": false,
+        "expands_claim": false,
+        "drops_qualifier": false,
+        "possibility_as_certainty": false,
+        "unauthorised_product_fact": false,
+        "detail": null,
+        "verdict": "PASS"
+      },
+      {
+        "segment_id": "S03",
+        "adds_claim": false,
+        "expands_claim": false,
+        "drops_qualifier": false,
+        "possibility_as_certainty": false,
+        "unauthorised_product_fact": false,
+        "detail": null,
+        "verdict": "PASS"
+      },
+      {
+        "segment_id": "S04",
+        "adds_claim": false,
+        "expands_claim": false,
+        "drops_qualifier": false,
+        "possibility_as_certainty": false,
+        "unauthorised_product_fact": false,
+        "detail": null,
+        "verdict": "PASS"
+      },
+      {
+        "segment_id": "S05",
+        "adds_claim": false,
+        "expands_claim": false,
+        "drops_qualifier": false,
+        "possibility_as_certainty": false,
+        "unauthorised_product_fact": false,
+        "detail": null,
+        "verdict": "PASS"
+      }
+    ]
+  },
+  "blocking": [],
+  "status": "READY",
+  "provenance": {
+    "authoring_mode": "AGENT_AUTHORED",
+    "authored_by": {
+      "actor": "CODEX_SUPERVISOR",
+      "producer_id": "commercial-copy-author"
+    },
+    "skill": {
+      "name": "commercial-copy",
+      "version": "1.0.0"
+    },
+    "validation": {
+      "validator": "commercial_copy.validate_commercial_copy"
+    },
+    "based_on": [
+      {
+        "ref": "examples/strategy/indonesia-faucet-filter-abc.json",
+        "sha256": "66d60ff75388871fa75be322af9e5f2bf112d77f178cc944f31bc218576d742d"
+      },
+      {
+        "ref": "brief/product_facts.json",
+        "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      {
+        "ref": "evidence/visual-evidence-boundary.json",
+        "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+      }
+    ]
+  }
+}

@@ -1,0 +1,173 @@
+{
+  "schema_version": "commercial_copy.v1",
+  "copy_id": "faucet-filter-indonesia-copy-b-v1",
+  "context": {
+    "market": "INDONESIA",
+    "language": "id-ID",
+    "platform": "TIKTOK",
+    "platform_source": "DECLARED"
+  },
+  "strategy": {
+    "ref": "examples/strategy/indonesia-faucet-filter-abc.json",
+    "sha256": "66d60ff75388871fa75be322af9e5f2bf112d77f178cc944f31bc218576d742d",
+    "variant_id": "B"
+  },
+  "boundaries": {
+    "product_facts": {
+      "ref": "brief/product_facts.json",
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "visual_evidence_boundary": {
+      "ref": "evidence/visual-evidence-boundary.json",
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+    }
+  },
+  "segments": [
+    {
+      "segment_id": "B01",
+      "copy_job": "DAILY_KITCHEN_CONTEXT",
+      "delivery": "SPEECH",
+      "semantic_intent": "Open on the everyday kitchen and tap situation, the way the buyer would describe it themselves. Assert nothing about any product here.",
+      "claim_refs": [],
+      "evidence_refs": ["EV-DAILY-USAGE"],
+      "budget": {
+        "target_seconds": 2.8,
+        "acceptable_min_seconds": 2.3,
+        "acceptable_max_seconds": 3.4
+      },
+      "localized": {
+        "language": "id-ID",
+        "line": "Tiap hari kita pakai keran di dapur."
+      },
+      "designed_silence": null
+    },
+    {
+      "segment_id": "B02",
+      "copy_job": "PRODUCT_ENTRY",
+      "delivery": "SPEECH",
+      "semantic_intent": "Introduce the filter as something already fitted in that situation, stating only that it is attached at the tap.",
+      "claim_refs": ["CLAIM-SIMPLE-TO-INSTALL"],
+      "evidence_refs": ["EV-INSTALLATION"],
+      "budget": {
+        "target_seconds": 2.6,
+        "acceptable_min_seconds": 2.1,
+        "acceptable_max_seconds": 3.1
+      },
+      "localized": {
+        "language": "id-ID",
+        "line": "Filter keran ini tinggal dipasang di ujung keran."
+      },
+      "designed_silence": null
+    },
+    {
+      "segment_id": "B03",
+      "copy_job": "ROUTINE_USE",
+      "delivery": "SPEECH",
+      "semantic_intent": "Say the filter is used in the ordinary kitchen routine, and make no statement about the water itself.",
+      "claim_refs": ["CLAIM-FITS-DAILY-KITCHEN-USE"],
+      "evidence_refs": ["EV-DAILY-USAGE"],
+      "budget": {
+        "target_seconds": 2.7,
+        "acceptable_min_seconds": 2.2,
+        "acceptable_max_seconds": 3.2
+      },
+      "localized": {
+        "language": "id-ID",
+        "line": "Dipakai seperti biasa saat memasak dan mencuci."
+      },
+      "designed_silence": null
+    },
+    {
+      "segment_id": "B04",
+      "copy_job": "CTA",
+      "delivery": "SPEECH",
+      "semantic_intent": "Invite the buyer to look at the product page while the everyday scene is still on screen. Promise no outcome.",
+      "claim_refs": [],
+      "evidence_refs": [],
+      "budget": {
+        "target_seconds": 1.9,
+        "acceptable_min_seconds": 1.5,
+        "acceptable_max_seconds": 2.3
+      },
+      "localized": {
+        "language": "id-ID",
+        "line": "Cek halaman produknya, ya."
+      },
+      "designed_silence": null
+    }
+  ],
+  "semantic_back_check": {
+    "findings": [
+      {
+        "segment_id": "B01",
+        "adds_claim": false,
+        "expands_claim": false,
+        "drops_qualifier": false,
+        "possibility_as_certainty": false,
+        "unauthorised_product_fact": false,
+        "detail": null,
+        "verdict": "PASS"
+      },
+      {
+        "segment_id": "B02",
+        "adds_claim": false,
+        "expands_claim": false,
+        "drops_qualifier": false,
+        "possibility_as_certainty": false,
+        "unauthorised_product_fact": false,
+        "detail": null,
+        "verdict": "PASS"
+      },
+      {
+        "segment_id": "B03",
+        "adds_claim": false,
+        "expands_claim": false,
+        "drops_qualifier": false,
+        "possibility_as_certainty": false,
+        "unauthorised_product_fact": false,
+        "detail": null,
+        "verdict": "PASS"
+      },
+      {
+        "segment_id": "B04",
+        "adds_claim": false,
+        "expands_claim": false,
+        "drops_qualifier": false,
+        "possibility_as_certainty": false,
+        "unauthorised_product_fact": false,
+        "detail": null,
+        "verdict": "PASS"
+      }
+    ]
+  },
+  "blocking": [],
+  "status": "READY",
+  "provenance": {
+    "authoring_mode": "AGENT_AUTHORED",
+    "authored_by": {
+      "actor": "CODEX_SUPERVISOR",
+      "producer_id": "commercial-copy-author"
+    },
+    "skill": {
+      "name": "commercial-copy",
+      "version": "1.0.0"
+    },
+    "validation": {
+      "validator": "commercial_copy.validate_commercial_copy"
+    },
+    "based_on": [
+      {
+        "ref": "examples/strategy/indonesia-faucet-filter-abc.json",
+        "sha256": "66d60ff75388871fa75be322af9e5f2bf112d77f178cc944f31bc218576d742d"
+      },
+      {
+        "ref": "brief/product_facts.json",
+        "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      {
+        "ref": "evidence/visual-evidence-boundary.json",
+        "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+      }
+    ]
+  }
+}

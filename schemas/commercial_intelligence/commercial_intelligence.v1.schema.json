@@ -1,0 +1,383 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-autocut.invalid/schemas/commercial_intelligence.v1.schema.json",
+  "title": "commercial_intelligence.v1",
+  "description": "Auditable Commercial Strategy candidates: consumer hypotheses x product facts x visual evidence x claim boundary, plus the commercially interesting ideas that are blocked by missing evidence. It is the reasoning, not the choice: it contains no ranking, no score and no winner, and it grants nothing. CONTRACT_ONLY: the shape is validated, nothing in production writes or reads it, no producer is registered.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "candidate_set_id",
+    "context",
+    "product_facts",
+    "visual_evidence_boundary",
+    "claim_boundary",
+    "consumer_hypotheses",
+    "candidates",
+    "blocked_opportunities",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": { "const": "commercial_intelligence.v1" },
+    "candidate_set_id": { "$ref": "#/$defs/token" },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "product",
+        "market",
+        "platform",
+        "platform_source",
+        "objective",
+        "objective_source"
+      ],
+      "properties": {
+        "product": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name"],
+          "properties": { "name": { "type": "string", "minLength": 1 } }
+        },
+        "market": { "$ref": "#/$defs/token" },
+        "platform": { "$ref": "#/$defs/token" },
+        "platform_source": {
+          "enum": ["DECLARED", "DEFAULTED", "UNSPECIFIED"],
+          "description": "DECLARED when the job states it, UNSPECIFIED when the artifact records that no platform was stated: a platform is not invented here."
+        },
+        "objective": { "$ref": "#/$defs/token" },
+        "objective_source": {
+          "enum": ["DECLARED", "DEFAULTED"],
+          "description": "DEFAULTED only carries the project's stable default for commerce, so an assumed objective never reads as a decision."
+        }
+      },
+      "description": "Minimum human input: the product and the market are required, the objective defaults and the platform may be left unspecified."
+    },
+    "product_facts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "sha256", "allowed_fact_refs"],
+      "properties": {
+        "ref": { "$ref": "#/$defs/logical_ref" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "allowed_fact_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/token" }
+        }
+      },
+      "description": "The same fact binding commercial_strategy.v1 uses, parsed by the same code, bound to the same authority. There is no second Product Facts system."
+    },
+    "visual_evidence_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "sha256", "items"],
+      "properties": {
+        "ref": { "$ref": "#/$defs/logical_ref" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["evidence_id", "statement", "presence"],
+            "properties": {
+              "evidence_id": { "$ref": "#/$defs/token" },
+              "statement": { "type": "string", "minLength": 1 },
+              "presence": { "enum": ["PRESENT", "ABSENT"] }
+            }
+          }
+        }
+      },
+      "description": "Same shape and same parser as commercial_strategy.v1. A candidate may only cite PRESENT evidence, which is what keeps a product fact the footage never shows out of a viable candidate."
+    },
+    "claim_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed", "conditional", "forbidden"],
+      "properties": {
+        "allowed": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["claim_id", "statement", "product_fact_ref", "evidence_ref"],
+            "properties": {
+              "claim_id": { "$ref": "#/$defs/token" },
+              "statement": { "type": "string", "minLength": 1 },
+              "product_fact_ref": { "$ref": "#/$defs/token" },
+              "evidence_ref": {
+                "oneOf": [{ "$ref": "#/$defs/token" }, { "type": "null" }]
+              }
+            }
+          }
+        },
+        "conditional": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "claim_id",
+              "statement",
+              "product_fact_ref",
+              "requires_evidence_ref",
+              "condition"
+            ],
+            "properties": {
+              "claim_id": { "$ref": "#/$defs/token" },
+              "statement": { "type": "string", "minLength": 1 },
+              "product_fact_ref": { "$ref": "#/$defs/token" },
+              "requires_evidence_ref": {
+                "oneOf": [{ "$ref": "#/$defs/token" }, { "type": "null" }]
+              },
+              "condition": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "forbidden": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["claim_id", "statement", "reason"],
+            "properties": {
+              "claim_id": { "$ref": "#/$defs/token" },
+              "statement": { "type": "string", "minLength": 1 },
+              "reason": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      },
+      "description": "Same three states and same parser as commercial_strategy.v1."
+    },
+    "consumer_hypotheses": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["hypothesis_id", "statement", "support", "basis_ref"],
+        "properties": {
+          "hypothesis_id": { "$ref": "#/$defs/token" },
+          "statement": { "type": "string", "minLength": 1 },
+          "support": {
+            "enum": ["DIRECT", "CONTEXTUAL", "INFERRED"],
+            "description": "Identical to candidate_evidence.ClaimSupport. DIRECT requires a basis_ref; CONTEXTUAL and INFERRED must not name one, so an inference cannot be presented as verified market knowledge."
+          },
+          "basis_ref": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["ref", "sha256"],
+                "properties": {
+                  "ref": { "$ref": "#/$defs/logical_ref" },
+                  "sha256": { "$ref": "#/$defs/sha256" }
+                }
+              },
+              { "type": "null" }
+            ]
+          }
+        }
+      },
+      "description": "Beliefs about the buyer that the candidates reason from. V1 performs no market research, so most of these are expected to be INFERRED."
+    },
+    "candidates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidate_id",
+          "persuasion_job",
+          "hypothesis_refs",
+          "product_fact_refs",
+          "evidence_refs",
+          "claims_used",
+          "hook_strategy",
+          "copy_direction",
+          "cta_direction",
+          "rationale",
+          "limitations"
+        ],
+        "properties": {
+          "candidate_id": { "$ref": "#/$defs/token" },
+          "persuasion_job": {
+            "$ref": "#/$defs/token",
+            "description": "Caller-owned value: the project does not own a closed persuasion vocabulary."
+          },
+          "hypothesis_refs": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "$ref": "#/$defs/token" }
+          },
+          "product_fact_refs": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "$ref": "#/$defs/token" }
+          },
+          "evidence_refs": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "$ref": "#/$defs/token" },
+            "description": "Every cited item must be PRESENT, and must cover the claims used."
+          },
+          "claims_used": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "$ref": "#/$defs/token" },
+            "description": "Every id must be ALLOWED. A CONDITIONAL or FORBIDDEN id is refused."
+          },
+          "hook_strategy": { "type": "string", "minLength": 1 },
+          "copy_direction": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 },
+            "description": "Direction, never final copy: the final words remain a later, separately authorised artifact."
+          },
+          "cta_direction": { "type": "string", "minLength": 1 },
+          "rationale": {
+            "type": "string",
+            "minLength": 1,
+            "description": "One line of auditable decision basis: why this candidate is legitimate. Not a deliberation transcript, not chain-of-thought."
+          },
+          "limitations": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "description": "Known limits or risks of this candidate. May be empty."
+          }
+        }
+      },
+      "description": "Viable candidates only. There is no score, rank, confidence or expected-performance field anywhere: without real performance data such a number would be fake precision. Candidates are ordered by id, which as hook_decision.json records about its own ordering is not a ranking."
+    },
+    "blocked_opportunities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "opportunity_id",
+          "statement",
+          "persuasion_job",
+          "claim_ref",
+          "blocked_by",
+          "missing",
+          "next_action"
+        ],
+        "properties": {
+          "opportunity_id": { "$ref": "#/$defs/token" },
+          "statement": { "type": "string", "minLength": 1 },
+          "persuasion_job": { "$ref": "#/$defs/token" },
+          "claim_ref": {
+            "$ref": "#/$defs/token",
+            "description": "The claim this opportunity would need. It must not be ALLOWED, and blocked_by must equal the derived reason."
+          },
+          "blocked_by": {
+            "enum": [
+              "CLAIM_NOT_DECLARED",
+              "CLAIM_FORBIDDEN",
+              "CONDITIONAL_EVIDENCE_ABSENT",
+              "CONDITIONAL_NOT_MECHANICALLY_RESOLVED"
+            ],
+            "description": "Derived from the boundaries and cross-checked, so an idea cannot be declared blocked to dodge the evidence rules, nor quietly usable when it is not."
+          },
+          "missing": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 },
+            "description": "What is missing. It must contain every mechanically derived missing item; an author may add more but may not leave one out."
+          },
+          "next_action": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What would unlock this opportunity. This describes missing evidence; it grants no permission to use the claim."
+          }
+        }
+      },
+      "description": "Commercially interesting ideas the material cannot currently support. Nothing here is permission to make the claim."
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authored_by", "based_on"],
+      "properties": {
+        "authored_by": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["actor", "producer_id"],
+          "properties": {
+            "actor": { "enum": ["CODEX_SUPERVISOR", "HUMAN", "AUTOMATED_REPAIR"] },
+            "producer_id": { "$ref": "#/$defs/token" }
+          }
+        },
+        "based_on": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["ref", "sha256"],
+            "properties": {
+              "ref": { "$ref": "#/$defs/logical_ref" },
+              "sha256": { "$ref": "#/$defs/sha256" }
+            }
+          },
+          "description": "Must name product_facts.ref and visual_evidence_boundary.ref with matching sha256 values. No timestamp, no prompt, no reasoning."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "token": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "logical_ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-]*)*\\.json$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "x-status": {
+    "implementation": "CONTRACT_ONLY",
+    "wiring_status": "NOT_WIRED",
+    "writer": null,
+    "reader": null,
+    "producer_registered": false,
+    "required_by_a_stage": false,
+    "production_chain_untouched": true,
+    "precedent": "planning_evidence.v1 and commercial_strategy.v1 — validated shapes with no production writer or reader",
+    "upstream_of": "commercial_strategy.v1",
+    "no_numeric_fields": true,
+    "shared_with_commercial_strategy_v1": [
+      "product_facts (same parser)",
+      "visual_evidence_boundary (same parser)",
+      "claim_boundary (same parser)",
+      "provenance (same types)"
+    ],
+    "boundary": {
+      "system_contract_and_validation": [
+        "shape and enum validation",
+        "reference and viability rules",
+        "deterministic claim unavailability",
+        "deterministic unlock analysis"
+      ],
+      "agent_intelligence_and_authoring": [
+        "which consumer beliefs to hypothesise",
+        "which persuasion job a version does",
+        "the hook strategy and copy direction",
+        "the rationale"
+      ]
+    }
+  }
+}

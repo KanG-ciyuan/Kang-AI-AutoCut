@@ -1,0 +1,221 @@
+{
+  "schema_version": "commercial_strategy.v1",
+  "strategy_id": "faucet-filter-indonesia-abc-v1",
+  "market": "INDONESIA",
+  "platform": "TIKTOK",
+  "objective": "DIRECT_CONVERSION",
+  "product": {
+    "name": "Faucet Filter (FILTER KERAN)"
+  },
+  "target_consumer": "Indonesian short-form commerce buyer, 25-45, renting or owning a small kitchen, shopping on a phone, sceptical of hard health claims and drawn to something that is visibly cheap and simple to fit.",
+  "consumer_insight": [
+    {
+      "insight_id": "INSIGHT-INSTALLATION-FRICTION",
+      "statement": "The buyer assumes a water filter needs a plumber, a tool and a permanent change to the tap, so anything that looks like a five-minute hand fit removes the main reason to delay."
+    },
+    {
+      "insight_id": "INSIGHT-SEE-IT-TO-BELIEVE-IT",
+      "statement": "Seeing the part through the housing matters more than reading a specification: the buyer wants to look at the thing before deciding it is not a gimmick."
+    }
+  ],
+  "product_facts": {
+    "ref": "brief/product_facts.json",
+    "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "allowed_fact_refs": [
+      "FACET-DAILY-USAGE",
+      "FACET-DIRECTION-ADJUSTABLE",
+      "FACET-INSTALLATION",
+      "FACET-TRANSPARENT-STRUCTURE"
+    ]
+  },
+  "visual_evidence_boundary": {
+    "ref": "evidence/visual-evidence-boundary.json",
+    "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+    "items": [
+      {
+        "evidence_id": "EV-INSTALLATION",
+        "statement": "Clips show the filter being fitted to a tap by hand.",
+        "presence": "PRESENT"
+      },
+      {
+        "evidence_id": "EV-STRUCTURE-VISIBLE",
+        "statement": "Clips show the transparent housing with the filter body visible inside it.",
+        "presence": "PRESENT"
+      },
+      {
+        "evidence_id": "EV-DAILY-USAGE",
+        "statement": "Clips show the fitted filter in ordinary daily kitchen use.",
+        "presence": "PRESENT"
+      },
+      {
+        "evidence_id": "EV-DIRECTION-CHANGE",
+        "statement": "No clip shows the water direction or spray pattern changing after the lever or ring is turned. A hand operates the part; the resulting water behaviour is never demonstrated.",
+        "presence": "ABSENT"
+      },
+      {
+        "evidence_id": "EV-FILTRATION-RESULT",
+        "statement": "No clip shows dirt, sediment or colour being removed, and no before/after comparison of water clarity exists in the pool.",
+        "presence": "ABSENT"
+      }
+    ]
+  },
+  "claim_boundary": {
+    "allowed": [
+      {
+        "claim_id": "CLAIM-SIMPLE-TO-INSTALL",
+        "statement": "The filter fits to the tap by hand.",
+        "product_fact_ref": "FACET-INSTALLATION",
+        "evidence_ref": "EV-INSTALLATION"
+      },
+      {
+        "claim_id": "CLAIM-STRUCTURE-IS-VISIBLE",
+        "statement": "The transparent housing shows the filter body inside it.",
+        "product_fact_ref": "FACET-TRANSPARENT-STRUCTURE",
+        "evidence_ref": "EV-STRUCTURE-VISIBLE"
+      },
+      {
+        "claim_id": "CLAIM-FITS-DAILY-KITCHEN-USE",
+        "statement": "The filter is used in ordinary daily kitchen activity.",
+        "product_fact_ref": "FACET-DAILY-USAGE",
+        "evidence_ref": "EV-DAILY-USAGE"
+      }
+    ],
+    "conditional": [
+      {
+        "claim_id": "CLAIM-DIRECTION-ADJUSTABLE",
+        "statement": "The outlet can be turned to adjust the direction of the water.",
+        "product_fact_ref": "FACET-DIRECTION-ADJUSTABLE",
+        "requires_evidence_ref": "EV-DIRECTION-CHANGE",
+        "condition": "The product fact is permitted, so the adjustable part may be shown and described as adjustable. It may not be presented as a demonstrated change in water direction, and it may not carry the opening hook, until a clip shows the water behaviour changing after the part is operated."
+      }
+    ],
+    "forbidden": [
+      {
+        "claim_id": "CLAIM-REMOVES-VISIBLE-DIRT",
+        "statement": "The filter removes visible dirt from the water.",
+        "reason": "No clip shows dirt in the water or dirt being removed."
+      },
+      {
+        "claim_id": "CLAIM-REMOVES-SEDIMENT",
+        "statement": "The filter removes sediment.",
+        "reason": "No clip shows sediment in the water or sediment being removed."
+      },
+      {
+        "claim_id": "CLAIM-BEFORE-AFTER-FILTRATION-RESULT",
+        "statement": "A before/after comparison shows the filtration result.",
+        "reason": "No before/after pair exists in the pool, so the comparison cannot be shown or implied."
+      },
+      {
+        "claim_id": "CLAIM-TURBID-TO-CLEAR-WATER",
+        "statement": "Cloudy water (air keruh) becomes clear (jernih).",
+        "reason": "No clip shows turbid water, and no clip shows clarity changing."
+      },
+      {
+        "claim_id": "CLAIM-REMOVES-BACTERIA",
+        "statement": "The filter removes bacteria.",
+        "reason": "Not shown in any clip and not a testable claim from this material."
+      },
+      {
+        "claim_id": "CLAIM-REMOVES-CHLORINE",
+        "statement": "The filter removes chlorine.",
+        "reason": "Not shown in any clip and not a testable claim from this material."
+      },
+      {
+        "claim_id": "CLAIM-REMOVES-HEAVY-METALS",
+        "statement": "The filter removes heavy metals.",
+        "reason": "Not shown in any clip and not a testable claim from this material."
+      },
+      {
+        "claim_id": "CLAIM-FILTRATION-EFFICIENCY",
+        "statement": "The filter removes a stated percentage of contaminants.",
+        "reason": "No efficiency figure exists in the permitted facts and no clip demonstrates a removal rate."
+      },
+      {
+        "claim_id": "CLAIM-PURIFICATION-RATE",
+        "statement": "The filter reaches a stated purification rate.",
+        "reason": "No purification figure exists in the permitted facts and no clip demonstrates one."
+      },
+      {
+        "claim_id": "CLAIM-DRINKING-WATER-SAFE",
+        "statement": "The filtered water is safe to drink.",
+        "reason": "A safety conclusion cannot be supported by the footage and is not a permitted fact."
+      },
+      {
+        "claim_id": "CLAIM-HEALTH-IMPROVEMENT",
+        "statement": "The filter improves health.",
+        "reason": "A health outcome cannot be supported by the footage and is not a permitted fact."
+      },
+      {
+        "claim_id": "CLAIM-UNSUPPORTED-FILTER-MATERIAL",
+        "statement": "The filter uses a named high-performance filter material.",
+        "reason": "No filter-material claim is permitted by the product facts, and none is visible in the footage."
+      }
+    ]
+  },
+  "variants": [
+    {
+      "variant_id": "A",
+      "persuasion_job": "EXPLAIN",
+      "hook_strategy": "Open on the fitting action itself, before any claim: the first thing the buyer sees is a hand attaching the filter to a tap. The opening buys attention with a task the buyer already knows, and the piece then explains what the visible part is.",
+      "copy_direction": [
+        "Explain what the filter is using only the parts the camera can show: the housing, the body inside it, the fitted position.",
+        "Keep the language plain and instructional; do not imply a water-quality outcome.",
+        "Describe fitting as a hand operation, not as a convenience promise about time saved."
+      ],
+      "cta_direction": "Direct the buyer to the product page to see the fitting and the part up close, without promising a filtration result.",
+      "claims_used": [
+        "CLAIM-SIMPLE-TO-INSTALL",
+        "CLAIM-STRUCTURE-IS-VISIBLE",
+        "CLAIM-FITS-DAILY-KITCHEN-USE"
+      ]
+    },
+    {
+      "variant_id": "B",
+      "persuasion_job": "RELATE",
+      "hook_strategy": "Open on the daily kitchen moment rather than the product: the audience should recognise their own tap and counter first. The filter is introduced as the thing already sitting there, which is what makes a rented or small kitchen situation feel addressed.",
+      "copy_direction": [
+        "Lead with the everyday kitchen situation in first person, matching how the audience describes it.",
+        "Introduce the filter as something in that situation, not as a solution to a problem the footage cannot show.",
+        "Keep the tone conversational and local; avoid technical vocabulary entirely."
+      ],
+      "cta_direction": "Invite the buyer to check the product page while the everyday scene is still on screen, tied to the visible product rather than to a promised outcome.",
+      "claims_used": [
+        "CLAIM-SIMPLE-TO-INSTALL",
+        "CLAIM-FITS-DAILY-KITCHEN-USE",
+        "CLAIM-STRUCTURE-IS-VISIBLE"
+      ]
+    },
+    {
+      "variant_id": "C",
+      "persuasion_job": "DEMONSTRATE",
+      "hook_strategy": "Open on the strongest visible action in the pool - the fitting, then the water running through the fitted filter - and let the action carry the opening. The 'result' this variant leans on is the visible fitted system working in place, because that is the strongest outcome the material can actually show. It deliberately does not open on a filtration result, a clarity change or a before/after comparison, none of which exists in the pool.",
+      "copy_direction": [
+        "Show first, name second: let the visible action run before the line that explains it.",
+        "State the adjustable outlet only as a feature of the part, never as a demonstrated change in water direction.",
+        "Do not construct an implied before/after by ordering clips as though a comparison had been filmed."
+      ],
+      "cta_direction": "Direct the buyer to the product page on the strength of the demonstrated fitting and daily use, with no filtration or water-safety implication.",
+      "claims_used": [
+        "CLAIM-SIMPLE-TO-INSTALL",
+        "CLAIM-STRUCTURE-IS-VISIBLE",
+        "CLAIM-FITS-DAILY-KITCHEN-USE"
+      ]
+    }
+  ],
+  "provenance": {
+    "authored_by": {
+      "actor": "CODEX_SUPERVISOR",
+      "producer_id": "commercial-strategy-author"
+    },
+    "based_on": [
+      {
+        "ref": "brief/product_facts.json",
+        "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      {
+        "ref": "evidence/visual-evidence-boundary.json",
+        "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+      }
+    ]
+  }
+}
