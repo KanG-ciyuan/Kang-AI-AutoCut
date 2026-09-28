@@ -20,3 +20,18 @@ Before acting in this repository:
 12. A finished job does not keep its regenerable intermediates forever, and it does not lose its authoritative ones. Archive the Final Master, brief, approved copy, manifest, Production Record and integrity record; prune regenerable intermediates only once the job is `CLOSED`. Classification is by production role, never by file extension. See `src/ai_autocut/artifact_lifecycle.py`.
 
 AI-AutoCut is separate from AdFlow and OpenMontage. Do not import either project's identity or files without an explicitly approved review and task scope.
+
+For Commercial Copy authoring, localization or review, read `docs/skills/commercial-copy-v1.md` before drafting. Its HARD RULES and STYLE RULES are the authoring guidance; passing contract validation alone does not establish persuasive quality. Preserve a user-approved authoritative copy instead of restarting strategy exploration.
+
+For every new real SKU or production takeover, start at **Production bootstrap** in
+`docs/audit/execution-runbook.md` before running commands or drafting copy. Follow its
+required-reading order and human gates. Missing product information triggers the Seller
+Confirmation Loop in `docs/skills/commercial-copy-v1.md`, not automatic deletion of every
+potential selling point. Establish who is speaking to whom before final copy; review
+creator speech and sales relevance separately from factual/contract validity. Historical
+SKU scripts, voices and approvals are not defaults for a new job.
+
+Before commercial strategy/copy, complete the **Seller Confirmation Before Commercial
+Copy** gate in that guidance; unresolved selling-point questions go to the seller, not
+into consumer speech. Read its **Creator Speech Taste Reference** before authoring;
+learn the language mechanisms, not a reusable SKU script.

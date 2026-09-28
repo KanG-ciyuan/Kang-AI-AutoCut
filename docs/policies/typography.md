@@ -2,7 +2,8 @@
 
 ## Purpose
 
-Typography provides **editorial emphasis**. It is not subtitle delivery.
+The commercial-title policy below provides **editorial emphasis**. Spoken captions
+are a separate optional layer described at the end of this document.
 
 | Carrier | Responsibility |
 |---|---|
@@ -10,9 +11,9 @@ Typography provides **editorial emphasis**. It is not subtitle delivery.
 | Editorial text | emphasize what must be remembered |
 | Voice-over | supplement, and carry what pictures cannot |
 
-Text must not restate what the picture already proves. Per-sentence voice-over
-subtitles are not a text role, and burning them is not an accepted use of this
-system.
+Commercial titles must not simply restate what the picture already proves.
+Per-sentence subtitles are not a commercial TextEvent role. Short-form spoken
+captions use their own optional input; they do not add roles to the title schema.
 
 ## Priority
 
@@ -229,3 +230,57 @@ matches A. That distinction is carried in the profile's `status_semantics` block
 and asserted by `StatusSemanticsTests`, so it cannot quietly collapse back into a
 single "LOCKED".
 
+
+## Short-form Spoken Captions v1 — implemented optional layer
+
+`src/ai_autocut/spoken_captions.py` compiles approved words and measured final-VO
+word times into short phrases and deterministic raster states. The existing
+`execute_typography` renders these in the same pass as titles, through both the
+flat and Art Direction paths. No new production stage or registry is required.
+The rendering mechanism reuses Pillow + FFmpeg; it does not require libass.
+
+Three distinct levels remain: **Commercial Title → Spoken Caption → active word**.
+Title roles, approved text and Art Direction A are unchanged. Captions use a stable
+phrase position; only the word currently spoken changes to one warm-yellow color.
+During an intra-phrase pause all words return to white; between phrases nothing
+is shown. End times are exclusive. No bouncing, per-word size changes, badges or
+new outcome claims are generated.
+
+Default grouping uses punctuation and actual pauses (at least 0.28 seconds), then
+balanced units of roughly 2–5 words constrained to two readable lines. This is a
+heuristic, **not semantic understanding**. The producer must review negation,
+qualifiers and benefit phrases. Optional `phrase_ends` supplies complete semantic
+boundaries (exclusive word indices), overrides heuristic breaks, and permits up
+to eight words when they fit. Unfit phrases fail instead of being silently split.
+V1 accepts whitespace-delimited word alignment; non-space writing systems need
+explicit upstream segmentation and are not claimed as automatic support.
+
+Rendering always uses the approved tokens, preserving case and punctuation even
+when the reviewed alignment has different punctuation/case. Added, missing,
+changed or reordered words fail validation. Layout may change whitespace and line
+breaks only. The renderer cannot assess whether the source copy's claims were
+approved honestly; approval remains the existing upstream human gate.
+
+Bold font comes from the job's font stack (no bundled or machine-specific font).
+Font size scales with width and height; stroke and light shadow scale with it.
+Default fractional margins are left/top/right/bottom = 0.08/0.08/0.16/0.16;
+the stable two-line block ends at at most 84% of canvas height, in the lower half.
+The job may narrow the safe area for its platform. Actual glyph widths determine
+wrapping. Content that cannot fit fails rather than becoming unreadably small.
+
+Title image bounds are reserved automatically. Supply product/action/evidence and
+platform obstruction rectangles through `reserved_regions`; captions refuse
+collisions. V1 is conservative: reservations apply across the entire timeline,
+not just a shot. It does not discover product regions or relocate captions around
+shots. Review the resulting composition at phone size; absence of supplied
+regions is not evidence of unobstructed products.
+
+The formal input hashes the approved text and final VO and records timing source.
+This detects changed assets, not whether an alignment provider was accurate.
+Listen/review actual alignment before production. If the VO has a lead-in, provide
+an audio asset with that lead-in and timestamps on the same master timeline.
+ASR / forced alignment remains an external producer input, **NOT_WIRED** as an
+automatic service here. No uniform text-duration estimation is used.
+
+See [Execution Runbook](../audit/execution-runbook.md#short-form-spoken-caption-input)
+for input shape. Existing requests without `spoken_captions` retain their behavior.

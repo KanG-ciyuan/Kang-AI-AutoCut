@@ -4,6 +4,63 @@ How to run the production control path and its four execution boundaries **witho
 prior conversation**. Everything needed is either in this repository or in the job's own
 directory.
 
+## Production bootstrap — a new real SKU starts here
+
+Current job handoff: [Cushion Puff production state](cushion-puff-production-state.md).
+This is a resume pointer for that job, not a default for another SKU.
+
+This is the Agent's production reading and decision procedure, not a new runner or stage.
+Start from this checkout and the current job; do not reconstruct missing instructions from
+another SKU's conversation. The proof command in section 1 is an engineering demonstration,
+not the intake command for a real product.
+
+**Precedence and state.** Follow the current user scope and stop point, repository entry
+rules, current job approvals and exact approved revisions, then the relevant contracts and
+authoring guidance. Examples supply shapes, not SKU facts or approved parameters. Never
+turn a contract PASS into human approval. Preserve uncommitted work and rejected versions;
+record a superseding decision rather than rewriting their history. Conflicting approvals
+or claims need explicit reconciliation before their dependent work proceeds.
+
+Read `AGENTS.md`, `PROJECT_IDENTITY.md`, this bootstrap, the job Manifest/Handoff/latest
+gate, and `docs/architecture/operations.md`. Check branch, HEAD and the working tree.
+Resolve storage through the existing contract before writing frames or other working
+media; initialize a new job through `job_foundation.initialize_production_job`. An existing
+authoring folder is not proof that the production stages have been initialized or passed.
+
+Then load the following in order as the job reaches each boundary:
+
+Commercial intake order: **Product Understanding → Potential Selling Point Discovery →
+Seller Confirmation → Seller-confirmed Product Facts → Commercial Strategy → Commercial
+Copy**. Before strategy/copy, reconcile any existing seller answers and ask only the
+remaining high-value questions. Pending material answers stop dependent authoring; an
+explicit Seller Confirmation Gate stops all copy, including exploratory/raw speech.
+
+| Decision | Required reading / action | Stop or output |
+|---|---|---|
+| Understand the product and material | `docs/policies/shot-intelligence.md`; actual sources and current fact/evidence boundaries | Separate observation, seller-confirmed information and inference; identify SKU conflicts and missing purchase reasons |
+| Establish the commercial objective | Current brief; `docs/contracts/commercial-intelligence-v1.md` and `docs/contracts/commercial-strategy-v1.md` | Use the declared objective; the existing Intelligence default is DIRECT_CONVERSION only when unspecified, with its default provenance. Select attention/desire/trust/purchase-relevant information, not exhaustive description |
+| Resolve unknown selling points | Seller Confirmation Before Commercial Copy in `docs/skills/commercial-copy-v1.md` | Discover SKU-specific opportunities, ask high-value questions and STOP at the seller gate; after answers, record their truth source, reconcile facts/claims and retain actual visual evidence status. Never turn internal unknowns into consumer verification instructions |
+| Choose what to sell | Candidate strategy, available evidence and claim boundary | Human strategy/selling-point gate where requested; do not draft a selected strategy as if the user had approved it |
+| Author creator speech | `docs/skills/commercial-copy-v1.md` in full, including Creator Speech Taste Reference; `docs/contracts/commercial-copy-v1.md` | Establish creator, audience relationship and speaking register; learn BAD/GOOD mechanisms, write with the picture, run the factual check AND the speech/sales review; obey the requested raw-speech or full-copy review scope |
+| Localize | The same Skill's localization and back-check duties | Target-market speech plus faithful Chinese back-translation; explicit wording/use approval before TTS or words enter a video |
+| Direct and generate voice | `docs/providers/audio-provider.md`; `docs/decisions/ADR-0006-continuous-voice-over.md` | Derive direction from this creator, market, product and approved copy; retain approved direction where valid; honor any prompt-review gate. Then one continuous performance and actual listening, never assumed duration |
+| Plan audio and environment | `docs/policies/audio-intelligence.md` | Classify and listen to source windows; original advertising dialogue is not ambience. Creative audio review precedes mastering |
+| Plan titles and spoken captions | `docs/policies/typography.md`; short-form input below | Titles and captions are separate; use exact approved words and measured FINAL-VO alignment, product/action reservations and phone-size review |
+| Execute and assemble | `docs/policies/editing-intelligence.md`, execution boundaries below | Measured source PTS, job-declared geometry/audio/layout, actual artifact verification; do not invent missing producers |
+| Review, repair and release | `docs/policies/reviewer-repair.md`; `docs/decisions/ADR-0008-targeted-repair.md` | Deterministic QA, independent review and human final gate stay distinct; repair the affected range and verify it; release binds the exact master |
+
+Commercial Intelligence / Strategy / Copy remain **CONTRACT_ONLY / NOT_WIRED**. Their
+creative decisions are Agent/human authored. Persona, seller questions and style review
+live in existing job brief/review notes; they are not new schema fields, registered
+producers or automatic services. Follow `docs/audit/production-chain-manifest.md` for
+runtime readiness. If an external collaboration Skill is required for a delegated
+takeover, resolve it under AGENTS rule 9; do not silently substitute another framework.
+
+At any human stop, leave the job's current version, decision owner, unresolved questions,
+approved scope and exact next allowed action in its handoff. A change to copy makes old
+VO/caption bindings stale; approval of a voice *direction* does not authorize a prompt
+that still embeds rejected words.
+
 ## 1. Reproduce the execution proof
 
 ```sh
@@ -38,10 +95,10 @@ python3 -m src.ai_autocut.execution_adapters --job-root <JOB> --boundary audio
 python3 -m src.ai_autocut.execution_adapters --job-root <JOB> --boundary assemble
 ```
 
-Each adapter reads this job's own request file and nothing else. None of them ships a
-default layout, font, geometry, loudness target or true-peak ceiling: a job that does not
-state its own values cannot be executed. That is deliberate — a default here would be one
-job's art direction applied to another.
+Each adapter reads this job's request and referenced job inputs. The original
+commercial-title layout, font, geometry and audio targets remain job-declared.
+The optional spoken-caption layer adds adaptive mobile layout defaults, with a
+job-supplied bold font and safe-area overrides; it does not change title art direction.
 
 ### `picture` — `picture/picture_request.json`
 
@@ -166,3 +223,71 @@ taken from the producer that must act (`CODEX_SUPERVISOR`, `HUMAN`, `AUTOMATED_R
 A still-open gate is recorded once. A resolved gate, a `REJECT`, a paid call and a
 successful human release are recorded when they occur. The operator is not asked to
 remember any of it.
+
+## Short-form spoken-caption input
+
+After approval, prepare the final VO using the existing
+[Voice Direction guidance](../providers/audio-provider.md#reusable-voice-direction--production-guidance).
+Align words **after** all permitted silence/timing repairs. Read
+[environment selection rules](../policies/audio-intelligence.md#environment--evidence-audio--production-rules-after-v2)
+when preparing the Audio Program. Neither guidance introduces a new agent.
+
+Add this optional member to the existing `typography/typography_request.json`:
+
+```json
+{
+  "spoken_captions": {
+    "approved_copy": "copy/spoken.txt",
+    "alignment": "copy/final-vo-words.json",
+    "phrase_ends": [2, 5],
+    "safe_area": [0.08, 0.08, 0.16, 0.16],
+    "reserved_regions": []
+  }
+}
+```
+
+This is a member example, not a complete typography request. Retain existing
+picture, canvas, frame rate/count, output, title events, bold font stack and either
+layout or Art Direction profile. `phrase_ends`, `safe_area`, and `reserved_regions`
+are optional. The indices in this example assume a five-word approved copy.
+Regions are pixel `[left, top, right, bottom]` rectangles; supply product/action
+and platform obstructions from current picture evidence. Titles are reserved by
+the renderer automatically. Flat requests may use an empty title-events array
+when captions alone are needed, but retain the existing layout declaration.
+
+The alignment file contains:
+
+```json
+{
+  "copy_sha256": "<SHA-256 of approved UTF-8 copy file bytes>",
+  "audio_path": "audio/final-vo.wav",
+  "audio_sha256": "<SHA-256 of final VO file bytes>",
+  "timing_source": "forced_alignment",
+  "words": [{"text": "<approved word>", "start": 0.12, "end": 0.39}]
+}
+```
+
+Provide every word, in order, once. The sample is illustrative, not executable.
+Allowed timing sources: `forced_alignment`, `asr_reviewed`, `manual_measured`.
+All times are measured seconds on the final audio/master timeline, not average
+word-duration estimates. Negative, overlapping, reversed or out-of-duration
+intervals are refused, as are stale text/audio hashes. ASR should be reviewed
+against the actual performance before being labelled `asr_reviewed`.
+
+Run the existing **PLAN THE WORDS / typography** boundary after the final VO and
+alignment exist. On a resumed job invalidate PLAN THE WORDS and downstream
+checkpoints using the existing control path; do not regenerate approved copy,
+picture or provider audio. If a job normally plans titles before VO exists, that
+first pass remains title-only; caption execution requires the later final-VO input.
+No stage ordering or Producer Registry was changed to hide this dependency.
+
+`typography_execution.json` includes `spoken_captions` evidence: copy/audio hashes,
+alignment source, exact phrase words/lines, actual time windows, safe rectangle,
+font size, state count and whether grouping was producer-supplied or heuristic.
+The existing title result fields remain unchanged. Rendering produces stable PNG
+states and composites them with titles in one encode. Caption temporary media stays under the resolved job typography directory
+and is removed after rendering; resolve the job on approved production storage. This
+minimal implementation is intended for short clips; it is not a long-form subtitle
+streaming engine. Review source text, synchronization, product clearance and final
+legibility through the existing review gates; deterministic tests do not certify
+subjective commercial quality.

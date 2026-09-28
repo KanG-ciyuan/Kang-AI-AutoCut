@@ -16,8 +16,9 @@ What these are not
 ------------------
 They are **not universal engines**, and this phase does not build one. Every value that
 could be art direction — geometry, fonts, layout, loudness target, true-peak ceiling —
-is read from the job's own request file. There are deliberately no defaults for any of
-them, so one job's art direction cannot become another job's.
+is read from the job's own request file for the original commercial-title path.
+The opt-in spoken-caption layer has adaptive mobile defaults and explicit safe-area
+inputs; it does not replace a job's title art direction or choose its font.
 
 Running them
 ------------
@@ -602,6 +603,72 @@ def _load_font(font_stack: Sequence[str], size: int) -> Any:
     )
 
 
+def _spoken_caption_inputs(root, request, tmpdir, reserved, input_index, current):
+    """Optional caption producer input, shared by both existing typography paths."""
+    declaration = request.get("spoken_captions")
+    if declaration is None:
+        return [], [], current, None
+    from .spoken_captions import compile_captions, render_states, CaptionError
+    _require(declaration, ("approved_copy", "alignment"), "spoken captions")
+    copy_path = root / str(declaration["approved_copy"])
+    alignment = _read(root, str(declaration["alignment"]), "final VO alignment")
+    _require(alignment, ("copy_sha256", "audio_path", "audio_sha256", "timing_source", "words"),
+             "final VO alignment")
+    if alignment["timing_source"] not in ("forced_alignment", "asr_reviewed", "manual_measured"):
+        raise ExecutionAdapterError("caption timings must be measured against final VO")
+    audio_path = root / str(alignment["audio_path"])
+    for path, expected in ((copy_path, alignment["copy_sha256"]),
+                           (audio_path, alignment["audio_sha256"])):
+        if not path.is_file() or media_probe.sha256_of_file(path) != expected:
+            raise ExecutionAdapterError("caption copy/final VO hash mismatch; realign after edits")
+    probe = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a:0",
+                            "-show_entries", "stream=codec_type:format=duration",
+                            "-of", "json", str(audio_path)], capture_output=True, text=True)
+    try:
+        measured = json.loads(probe.stdout)
+        if probe.returncode or not measured.get("streams"):
+            raise ValueError("no audio stream")
+        audio_duration = float(measured["format"]["duration"])
+    except (KeyError, ValueError) as exc:
+        raise ExecutionAdapterError("cannot measure final VO duration") from exc
+    duration = min(audio_duration,
+                   int(request["frame_count"]) / float(request["fps"]))
+    loader = lambda size: _load_font(request["font_stack"], size)
+    try:
+        plan = compile_captions(
+            copy_path.read_text(encoding="utf-8"), alignment["words"], duration=duration,
+            width=int(request["width"]), height=int(request["height"]), font_loader=loader,
+            phrase_ends=declaration.get("phrase_ends", ()),
+            safe_area=declaration.get("safe_area", (.08, .08, .16, .16)),
+            reserved=[*reserved, *declaration.get("reserved_regions", [])])
+    except (CaptionError, KeyError, TypeError, ValueError) as exc:
+        raise ExecutionAdapterError(f"spoken captions refused: {exc}") from exc
+    inputs, filters = [], []
+    states = 0
+    for index, (image, start, end, active) in enumerate(render_states(plan, loader)):
+        png = tmpdir / f"caption-{index:04d}.png"
+        image.crop(plan.rect).save(png)
+        inputs += ["-i", str(png)]
+        label = f"spoken{index}"
+        filters.append(f"[{current}][{input_index + index}:v]overlay={plan.rect[0]}:{plan.rect[1]}:"
+                       f"enable='gte(t,{start:.9f})*lt(t,{end:.9f})'[{label}]")
+        current = label
+        states += 1
+    evidence = {
+        "copy_sha256": alignment["copy_sha256"], "audio_sha256": alignment["audio_sha256"],
+        "timing_source": alignment["timing_source"], "alignment": declaration["alignment"],
+        "word_count": sum(len(p.words) for p in plan.phrases),
+        "phrases": [{"text": " ".join(w.text for w in p.words),
+                     "start": p.words[0].start, "end": p.words[-1].end,
+                     "lines": [" ".join(p.words[i].text for i in line) for line in p.lines]}
+                    for p in plan.phrases],
+        "states": states, "safe_rect": plan.rect, "font_size": plan.size,
+        "layer": "spoken_caption", "highlight": "active_word_only",
+        "semantic_grouping": "producer" if declaration.get("phrase_ends") else "pause_punctuation_heuristic",
+    }
+    return inputs, filters, current, evidence
+
+
 def _execute_typography_with_art_direction(root: Path, request: Mapping[str, Any]) -> dict[str, Any]:
     """Render this job's events through the locked Typography Art Direction A v1.
 
@@ -690,7 +757,8 @@ def _execute_typography_with_art_direction(root: Path, request: Mapping[str, Any
         overlays, start_frame=[w[0] for w in windows],
         end_frame=[w[1] for w in windows], fps=fps)
 
-    with tempfile.TemporaryDirectory() as tmp:
+    with tempfile.TemporaryDirectory(
+            dir=root / "typography" if request.get("spoken_captions") else None) as tmp:
         tmpdir = Path(tmp)
         pngs: list[Path] = []
         for overlay in overlays:
@@ -708,6 +776,13 @@ def _execute_typography_with_art_direction(root: Path, request: Mapping[str, Any
         for png in pngs:
             command += ["-loop", "1", "-framerate", str(fps), "-t", f"{span:.6f}",
                         "-i", str(png)]
+        reserved = [(o.left, o.top, o.left + o.size[0], o.top + o.size[1]) for o in overlays]
+        extra_inputs, extra_filters, current, caption_evidence = _spoken_caption_inputs(
+            root, request, tmpdir, reserved, len(pngs) + 1, current)
+        command += extra_inputs
+        if extra_filters:
+            chain = ";".join([chain, *extra_filters]) if chain else ";".join(extra_filters)
+            command += ["-filter_complex_threads", "1"]
         command += [
             "-filter_complex", chain, "-map", f"[{current}]", "-map", "0:a?",
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
@@ -725,6 +800,7 @@ def _execute_typography_with_art_direction(root: Path, request: Mapping[str, Any
         "height": int(measured_stream["height"]),
         "sha256": media_probe.sha256_of_file(out_path),
         "events_rendered": len(overlays),
+        **({"spoken_captions": caption_evidence} if caption_evidence else {}),
         "art_direction": profile.profile_id,
         "art_direction_profile": str(profile_file),
         "art_direction_rules": art.ART_DIRECTION_RULES,
@@ -741,8 +817,8 @@ def _execute_typography_with_art_direction(root: Path, request: Mapping[str, Any
 def execute_typography(job_root: Path | str) -> dict[str, Any]:
     """Rasterise this job's screen copy and composite it onto the accepted picture.
 
-    The layout and font stack come from the job. There are deliberately no defaults,
-    because a default would be one job's art direction applied to another. Every event
+    Commercial-title layout and font stack come from the job. The optional spoken
+    layer uses adaptive mobile defaults and final-VO alignment. Every event
     is composited in a single deterministic pass, so the picture stream is encoded
     exactly once.
     """
@@ -788,12 +864,14 @@ def execute_typography(job_root: Path | str) -> dict[str, Any]:
     width, height = int(request["width"]), int(request["height"])
     font_paths = tuple(str(entry) for entry in request["font_stack"])
     events = list(request["events"])
-    if not events:
+    if not events and not request.get("spoken_captions"):
         raise ExecutionAdapterError("typography request declares no events to render")
 
-    with tempfile.TemporaryDirectory() as tmp:
+    with tempfile.TemporaryDirectory(
+            dir=root / "typography" if request.get("spoken_captions") else None) as tmp:
         tmpdir = Path(tmp)
         overlays: list[Path] = []
+        reserved = []
         for index, event in enumerate(events):
             lines = [str(line) for line in event["lines"]]
             start = int(event["start_frame"])
@@ -825,6 +903,8 @@ def execute_typography(job_root: Path | str) -> dict[str, Any]:
                 )
                 y += line_height + gap
 
+            if image.getbbox():
+                reserved.append(image.getbbox())
             png = tmpdir / f"event-{index}.png"
             image.save(png)
             overlays.append(png)
@@ -843,6 +923,12 @@ def execute_typography(job_root: Path | str) -> dict[str, Any]:
                 f"enable='between(t,{start:.6f},{end:.6f})'[{label}]"
             )
             current = label
+        extra_inputs, extra_filters, current, caption_evidence = _spoken_caption_inputs(
+            root, request, tmpdir, reserved, len(overlays) + 1, current)
+        command += extra_inputs
+        chain += extra_filters
+        if extra_filters:
+            command += ["-filter_complex_threads", "1"]
         command += [
             "-filter_complex", ";".join(chain),
             "-map", f"[{current}]", "-map", "0:a?",
@@ -861,6 +947,7 @@ def execute_typography(job_root: Path | str) -> dict[str, Any]:
         "height": int(measured_stream["height"]),
         "sha256": media_probe.sha256_of_file(out_path),
         "events_rendered": len(events),
+        **({"spoken_captions": caption_evidence} if caption_evidence else {}),
         "layout_digest": hashlib.sha256(
             json.dumps(layout, sort_keys=True).encode("utf-8")
         ).hexdigest(),

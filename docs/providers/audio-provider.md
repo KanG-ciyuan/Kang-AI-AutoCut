@@ -79,3 +79,93 @@ identifies it. It does not store the asset.
 - Assuming a parameter exists because a style prompt would be convenient.
 - Using provider hard truncation to force a line into a duration.
 - Committing keys, tokens, provider dumps, or generated audio.
+
+## Reusable Voice Direction — production guidance
+
+For the Human-validated Indonesia Beauty profile, use the current
+[Voice v1 production practice](indonesia-beauty-creator-voice-v1.md). It supersedes
+the older generic performance scaffold below for this profile: direct semantic
+actions/attitudes, not filler pitch or planned micro-pauses.
+
+Use this guidance in **BUILD THE AUDIO**, after Spoken Copy approval and before
+calling the existing external Seed Audio client. This is a Production Agent task,
+not a new provider, agent, or deterministic prompt builder. V2 production validated
+the usefulness of natural-language direction; it did not prove that any prompt
+will always produce a natural performance.
+
+Read the current job's **target market/language, platform, commercial objective,
+copy style, product category and locked Spoken Copy**. Derive direction from this
+brief and the actual copy. Do not regenerate Commercial Strategy or rewrite the
+copy. If a required fact is absent, use a neutral performance direction rather
+than inventing buyer demographics, personal experience, or product claims.
+
+Compose one concise natural-language prompt with these decisions:
+
+1. **Persona and relationship.** Choose one speaker throughout. State perceived
+   age/gender only when the job provides or authorizes them. Describe a close,
+   credible relationship (seller explaining, friend recommending, user-style
+   presentation). These are acting directions, not assertions of real identity
+   or personal product use. Do not add “I tried this” to the approved copy.
+2. **Market and tone.** Use the approved target language and the job's local
+   conversational register. For an Indonesia TikTok Commerce friend-recommendation
+   brief, natural, friendly, close conversation is appropriate. This is an example,
+   not a default female Indonesian persona for every market or SKU.
+3. **Emotional arc.** Map only beats that actually exist in the copy: a curious,
+   mildly concerned or relatable Hook; a willing, lightly smiling recommendation;
+   plain, credible explanation; selective emphasis on an existing benefit; a
+   relaxed CTA invitation. Do not apply all emotions to every line or strengthen
+   claims through exaggerated certainty.
+4. **Rhythm.** Ask for conversational variations in pace, unequal short pauses,
+   small natural breaths, and selective stress. Preserve a continuous performance,
+   including transitions. A duration target is guidance, not permission to omit
+   words, hard-truncate speech or accelerate beyond intelligibility.
+5. **Negative directions.** No announcer or TV-commercial delivery, live-selling
+   shouting, flat mechanical TTS, equal force on every sentence, word-by-word
+   reading, theatrical acting or long artificial pauses. No extra words, fillers,
+   effects, translation, claims or spoken stage directions.
+
+Produce a prompt ready for the existing client's **natural-language text_prompt**:
+
+```text
+Perform one continuous voice-over in [approved language] for [market/platform].
+Use one consistent [job-authorized persona] speaking naturally to one person,
+with [relationship and tone from the brief].
+[Brief emotional arc mapped to the actual approved copy.]
+Use conversational pacing, varied short pauses, subtle breaths and selective
+emphasis. Keep the explanation credible and the invitation relaxed.
+Avoid announcer delivery, shouting, mechanical equal emphasis, long artificial
+pauses and overacting. Read only the exact approved words below; do not speak
+these instructions, add words, omit words or change their meaning.
+BEGIN APPROVED SPOKEN COPY
+[insert locked Spoken Copy verbatim]
+END APPROVED SPOKEN COPY
+```
+
+Replace bracketed direction with concrete job choices; omit irrelevant beats.
+Keep the approved text and the direction separate in the job record. Use the
+existing verified client request shape; natural-language speed/prosody direction
+is **not** evidence of supported numeric `speed`, `emotion` or `voice_id` API
+fields. Do not borrow historical MiniMax controls. Credentials stay external.
+
+After synthesis, review a **single continuous take**, retain the raw asset, and
+check words, language, speaker consistency, rhythm and intelligibility. Record
+model, direction, actual exposed settings, source/final hashes and any approved
+pause repair. Subjective naturalness still requires listening. If VO is changed
+or silence is edited, align words to the **final** VO again before captioning;
+never reuse raw-generation timestamps against edited audio.
+
+### Human-validated production practice — Cushion Puff closeout
+
+The accepted example is **Global Persona + Local Semantic Performance**: 导演人物，不导演音素。
+This is production-supported working practice, not proof of a model-internal
+quotation/newline/continuation-word mechanism. One-sample A/B and later changed
+copy/output direction do not establish causal superiority; record this boundary.
+
+Reuse the exact Human-selected reference and official rate for that voice profile.
+For an authorized production round, generate three identical-config continuous
+takes by default and let Human / an actual listening Reviewer choose; bounded
+experiments follow their specified call count. Technical audio checks never replace
+or overrule Human listening on naturalness. A chosen take stops automatic rerolls.
+Do not default to post speed-up, pause compression or splicing to repair performance.
+Keep core VO clean by default; assess optional scene sound separately. Preserve raw
+voice, actual request/prompt, selected take and final artifact hashes.
