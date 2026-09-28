@@ -45,55 +45,27 @@ Kang AI-AutoCut 是由 Agent 统筹、本地优先的商业视频生产系统：
 
 ---
 
-## 它能做什么
+## 项目定位
 
 **把一整个原始素材文件夹和一份 Producer Brief 交给 Kang AI-AutoCut。**
 
-系统可以理解素材、规划在商业上彼此区分的多个版本、完成剪辑、生成本地化文案、排版与音频、
-审阅结果，并把任务推进到可交付的营销视频。
+这条有人监督、本地优先的工作流可以理解素材、规划并完成剪辑、协调任务内编写的
+商业文案与外部服务商提供的音频、渲染排版、审阅实测结果，再把视频交给人批准。
+多版本规划只是其中一项可选能力。
 
-它不是全自动视频工厂。有两个决定按设计留给人：
+它不是全自动视频工厂。工作流有**两道主要人工审批门禁（Human approval gates）**：
 
 - **Creative Copy Approval（创意文案审批）**
 - **Producer 终审**
 
----
-
-## 从原始素材到营销版本
-
-```
-20–50 个原始片段
-      ↓
-素材理解
-      ↓
-剪辑智能
-      ↓
-商业叙事
-      ↓
-画面  +  排版  +  音频
-      ↓
-QA  +  修复
-      ↓
-Variant 01   ·   Variant 02   ·   Variant 03   ·   …
-```
-
-同一个素材池可以产出**在商业上彼此区分的多个版本**。每个版本独立重新考虑整个素材池，
-而不是继承上一个版本的时间线：在商业上成立时可以复用优秀素材，质量相当时优先选择使用
-较少的素材。以往使用情况是**软性多样性信号**，而不是禁止条件。
-
-> **有商业意义的差异，优先于人为的最大化差异。**
-
-这不是"一份时间线换个音乐"。版本是从同一批素材出发的、彼此不同的商业论证。
-
-![Kang AI-AutoCut 早期概念图：从原始素材到多个营销版本的预期生产流程](assets/showcase/kang-ai-autocut-hero.png)
-
-*这是项目早期的概念视觉，展示预期工作流；它不是实际生产成果，也不代表图中每项能力都已接入。*
+这并不表示整条流程只有两处会停下。八阶段 Fast Path 在缺少必要的决策或产出物时，
+还会触发具名的 `HUMAN`、`CODEX` 或 `ADAPTER` Producer Gate。
 
 ---
 
-## 生产示例
+## 真实 SKU 生产证据
 
-**第一个真实 SKU 生产里程碑：气垫粉扑 / Indonesia TikTok Commerce。**
+**气垫粉扑 / Indonesia TikTok Commerce（SKU #2）：Human Final Review PASS。**
 这条 24 秒竖屏视频完成了 Product Truth 与 Seller Confirmation、视觉证据与
 宣称边界审阅、经批准的 Commercial Copy、固定 Creator Reference Voice 与选定
 VO、画面规划和剪辑、标题与口播字幕、最终渲染，并通过 **Human Final Review：PASS**。
@@ -104,63 +76,14 @@ VO、画面规划和剪辑、标题与口播字幕、最终渲染，并通过 **
 这一里程碑证明的是有人参与决策的真实 SKU 生产流程，不代表无人值守运行，
 也不声称正式八阶段 Fast Path 的每一道门禁都已通过。
 
----
-
-## 工作原理
-
-```mermaid
-flowchart TD
-    A[Producer Brief] --> B[素材理解]
-    B --> C[多版本规划]
-    C --> D[创意与剪辑智能]
-    D --> E[画面 / 排版 / 音频]
-    E --> F[审阅与修复]
-    F --> G[Producer 终审]
-    G --> H[交付]
-```
-
-*这是产品层面的流程；逐阶段的详细工作流在下方以文字说明。*
+更早的**水龙头过滤器（SKU #1）**已有[Filter Gold v1](docs/gold/filter-gold-v1.md)
+记录的 Gold 生产结果。气垫粉扑是较新的人工批准成片，并非第一个真实 SKU。
+`pre-third-sku-blind-v1` 是在前两个 SKU 历史之后冻结的第三 SKU 考核基线；
+标签名称不改变前两个产品的编号。
 
 ---
 
-
-## 为什么选择 Kang AI-AutoCut
-
-大多数 AI 视频工具是在聊天窗口里**一次性产出一个视频**。重新运行会得到另一个不同的视频，而且整个过程无从审查。
-
-Kang AI-AutoCut 把视频生产视为一条**工程流水线**：
-
-| 普通 AI 视频产出 | Kang AI-AutoCut |
-|---|---|
-| 一次性结果，难以重复 | 一条可以再次运行的可复用工作流 |
-| 决策散落在聊天记录里 | 每一个决策都是被记录的产出物 |
-| 失败就意味着从头再来 | 任务从中断的那个阶段继续 |
-| 唯一的检查是“看起来做完了” | 产出物被度量：帧数、黑帧、冻结帧、响度、真峰值、母版哈希 |
-| 模型可能悄悄跳过某个步骤 | 一个阶段**若不指明它所运行的能力，就无法通过** |
-| 人的判断无处可见 | 人工输入发生在具名的门禁处，并被记录在案 |
-| 你的素材被上传到服务商 | 处理过程本地优先；服务商只接收任务所需的输入 |
-
----
-
-## 你可以构建什么
-
-**目前已通过生产验证：**
-
-- **商业广告与电商产品视频** —— 第一个端到端跑通的工作流，包含交付母版校验。
-- **社交媒体短视频产品内容** —— 竖屏、短时长的商业剪辑，使用同样的八个阶段。
-
-**架构设计上要扩展进入的方向** —— *尚未通过生产验证*：
-
-- 创作者与自媒体视频
-- 产品演示与讲解类内容
-- 品牌与营销活动内容
-- 其他结构化的视频生产工作流
-
-目前的系统是商业优先的。本文档不声称所有视频品类都已支持，也尚不存在任何内容模式（content-mode）框架。
-
----
-
-## 工作原理
+## 真实生产流程：八阶段 Fast Path
 
 ### 你需要做的事
 
@@ -223,6 +146,111 @@ USER VIEW                          SYSTEM VIEW (8 stages)
 
 ---
 
+## Producer 参与环节
+
+工作流围绕真实的人类决策设计，而不是围绕消除它们。
+
+```
+Producer Brief → 八阶段 Fast Path → 具名 Producer Gate → 人工放行
+```
+
+目前有**两个主要 Human approval gates**，分别承担创意与放行决定：
+
+| 门禁 | Producer 决定什么 |
+|---|---|
+| **Creative Copy Approval（创意文案审批）** | 文案内容，以及视频被允许做出的宣称 |
+| **Producer 终审** | 作品是否发布 |
+
+它们并非仅有的停点。八阶段 Fast Path 还可能因缺少必要的决策或产出物，
+触发 `HUMAN`、`CODEX` 或 `ADAPTER` Producer Gate。素材理解、剪辑规划、
+画面、排版、音频、母版、QA 与修复都在这些明确合约下推进。
+这是 **Producer-in-the-loop**，不是无人值守的自动化。
+## 为什么重要
+
+大多数 AI 视频工具是在聊天窗口里**一次性产出一个视频**。重新运行会得到另一个不同的视频，而且整个过程无从审查。
+
+价值在于可复用、可追溯的生产记录：Agent 负责创作判断，本地工具执行和度量媒体，
+人批准宣称与最终成片。项目不承诺仅凭自动化就能提高转化率或成片质量。
+
+Kang AI-AutoCut 把视频生产视为一条**可审计的工程工作流**：
+
+| 普通 AI 视频产出 | Kang AI-AutoCut |
+|---|---|
+| 一次性结果，难以重复 | 一条可以再次运行的可复用工作流 |
+| 决策散落在聊天记录里 | 每一个决策都是被记录的产出物 |
+| 失败就意味着从头再来 | 任务从中断的那个阶段继续 |
+| 唯一的检查是“看起来做完了” | 产出物被度量：帧数、黑帧、冻结帧、响度、真峰值、母版哈希 |
+| 模型可能悄悄跳过某个步骤 | 一个阶段**若不指明它所运行的能力，就无法通过** |
+| 人的判断无处可见 | 人工输入发生在具名的门禁处，并被记录在案 |
+| 媒体和服务商输入去向可能难以追溯 | 处理过程本地优先；获批准的服务商只接收任务所需的输入 |
+
+---
+
+## 你可以构建什么
+
+**目前已通过生产验证：**
+
+- **商业广告与电商产品视频** —— 第一个端到端跑通的工作流，包含交付母版校验。
+- **社交媒体短视频产品内容** —— 竖屏、短时长的商业剪辑，使用同样的八个阶段。
+
+**架构设计上要扩展进入的方向** —— *尚未通过生产验证*：
+
+- 创作者与自媒体视频
+- 产品演示与讲解类内容
+- 品牌与营销活动内容
+- 其他结构化的视频生产工作流
+
+目前的系统是商业优先的。本文档不声称所有视频品类都已支持，也尚不存在任何内容模式（content-mode）框架。
+
+---
+
+## 当前能力与接线状态
+
+### 当前可用且已验证
+
+| 能力 | 说明 |
+|---|---|
+| 源素材导入与不可变清点 | 逐文件 SHA-256，在使用前重新校验 |
+| VFR 安全的媒体理解 | 把实测时间戳映射到 CFR 分析网格 |
+| 视觉分段 | 在引擎实际解码所用的网格上运行 |
+| 时间线区间校验 | 拒绝错过可观察动作的剪辑 |
+| 源区间抽取 | 每一个区间都由实测时间戳解析得出 |
+| 画面执行 | 产出真实的视频产出物，并在之后重新度量 |
+| 旁白覆盖度 | 在任何付费语音生成之前运行 |
+| 文字排版渲染 | 任务产出的标题及可选、与最终 VO 对齐的口播字幕；两者已用于气垫粉扑成片 |
+| 音频混音与母版制作 | 真实的混音，并度量响度、真峰值与削波 |
+| 打包与最终母版 | `final/master.mp4`，外加经过度量的技术质检 |
+| 审阅契约与放行结论 | 每个维度只判定一次；结论是推导出来的，而不是断言的 |
+| 定向修复规划 | 作用范围锁定在受影响的层 |
+| 人工放行门禁 | 一次独立的决策，并指明它所批准的母版 |
+| 干预台账 | 每当门禁中止运行时自动写入 |
+| 续跑与失效处理 | 从第一个未完成的阶段继续；使某个阶段失效会重新打开其下游的全部内容 |
+| 母版完整性校验 | 重新计算摘要；被删除或被改动的母版无法通过校验 |
+
+### 受门禁约束 / 由任务产出
+
+这些能力会运行，但它们所消费的产出物是按任务提供的 —— 由 Agent、适配器或人提供：
+
+| 能力 | 仍然需要提供的部分 |
+|---|---|
+| 只读画面测量 | 本仓库不附带任何测量工具 |
+| 产品真实性保护 | 同上；其容差校验尚未在真实数据上运行过 |
+| KEEP / REVIEW / CORRECT 决策 | 决策会运行；但本仓库中没有任何组件会依据 `CORRECT` 采取动作 |
+| 音频节目校验（FIT / SYNC / RHYTHM） | 它所消费的语音落点（voice placement） |
+| 语音 / 音乐生成 | 由服务商适配器提供；**非内置** |
+
+Commercial Strategy v1、Commercial Intelligence v1 与 Commercial Copy v1 仍为
+**`CONTRACT_ONLY / NOT_WIRED`**：已有 schema、校验器、样例与测试，但生产路径中
+没有注册的 Producer 自动生成这些内容。真实气垫粉扑生产中，Agent 在任务内编写了商业策略和
+本地化文案，由人工批准最终文案与宣称边界。这一任务级实践已经用于生产，
+并不意味着正式 v1 Commercial 合约已接入自动生成路径。
+
+### 计划中 / 可扩展
+
+尚未实现，也未作任何声称：自动化商业审阅器、通用后端编译器、产出物注册表、任务队列、无人值守的单命令运行器，以及更广泛的内容模式工作流。
+
+---
+
 ## 多版本生产
 
 同一个素材池可以产出**多个商业上彼此区分的版本**。每个版本都独立重新考虑整个素材池，而不是继承上一个版本的时间线：
@@ -236,6 +264,10 @@ USER VIEW                          SYSTEM VIEW (8 stages)
 > **有商业意义的差异，优先于人为的最大化差异。**
 
 版本之间可以在 Hook、叙事角度、镜头选择、镜头顺序、镜头边界、节奏、配音、排版文案、BGM、音效与商业强调点上形成差异。这不是"一份时间线渲染出多个版本"。
+
+![Kang AI-AutoCut 早期概念图：从原始素材到多个营销版本的预期生产流程](assets/showcase/kang-ai-autocut-hero.png)
+
+*这是项目早期的概念视觉，展示预期工作流；它不是实际生产成果，也不代表图中每项能力都已接入。*
 
 ---
 
@@ -285,48 +317,80 @@ USER VIEW                          SYSTEM VIEW (8 stages)
 
 ---
 
-## 当前能力
+## 音频与 AI 服务商架构
 
-### 当前可用且已验证
+当前仓库对任务所提供的音频素材执行**本地混音与母版制作**。它刻意**不**调用任何语音、音乐或音效服务商。音频合成在这里并未实现。
 
-| 能力 | 说明 |
+```
+External Audio Provider   (future Adapter layer — NOT built in)
+        ↓
+  generated VO / BGM / SFX assets
+        ↓
+  job-local audio assets
+        ↓
+  Audio Program  →  local Mix  →  local Master
+                     (measured: loudness, true peak, clipping)
+```
+
+**今天已有的部分：** `BUILD THE AUDIO` 阶段消费任务本地的音频素材，依据任务自身的目标用 FFmpeg 对它们进行混音，并对结果加以度量。它会拒绝任何采样峰值达到满刻度的混音。
+
+**不存在的部分：** 任何内置的服务商集成。这里没有一键语音生成，本仓库也不包含任何服务商客户端。
+
+**当前生产服务商。** 生产音频由 **Doubao / Seed Audio** 生成，已验证模型为 **`seed-audio-1.0`**，用于印尼语配音、BGM 以及生成的音效 / 环境声。该服务商客户端位于本仓库之外；本仓库只对任务本地素材做本地混音与母版制作，不附带合成客户端。
+
+气垫粉扑的生产流程固定了 Creator Reference Voice，按任务获批文案生成多条 VO Take，
+由**人工实际试听并选定最终 Take**。这是已执行的生产实践，并非仓库内置的语音生成或
+试听选择客户端。仓库消费选中的任务本地音频进行混音与母版制作；见
+[Voice Profile](docs/providers/indonesia-beauty-creator-voice-v1.md)。
+
+**历史背景，如实标注。** 在早前经过验证的生产工作中，旁白是通过 **MiniMax `speech-2.8-hd`** 产出的。那是**过去**的评估，记录在 [`docs/providers/audio-provider.md`](docs/providers/audio-provider.md) 中；MiniMax **不是**当前的生产服务商。macOS `say` 同样不是生产服务商。
+
+本仓库中任何位置都不出现密钥、token 或凭据的值。凭据仅通过环境变量名被引用。
+
+---
+
+## 架构
+
+| 文档 | 内容 |
 |---|---|
-| 源素材导入与不可变清点 | 逐文件 SHA-256，在使用前重新校验 |
-| VFR 安全的媒体理解 | 把实测时间戳映射到 CFR 分析网格 |
-| 视觉分段 | 在引擎实际解码所用的网格上运行 |
-| 时间线区间校验 | 拒绝错过可观察动作的剪辑 |
-| 源区间抽取 | 每一个区间都由实测时间戳解析得出 |
-| 画面执行 | 产出真实的视频产出物，并在之后重新度量 |
-| 旁白覆盖度 | 在任何付费语音生成之前运行 |
-| 文字排版渲染 | 任务产出的标题及可选、与最终 VO 对齐的口播字幕；两者已用于气垫粉扑成片 |
-| 音频混音与母版制作 | 真实的混音，并度量响度、真峰值与削波 |
-| 打包与最终母版 | `final/master.mp4`，外加经过度量的技术质检 |
-| 审阅契约与放行结论 | 每个维度只判定一次；结论是推导出来的，而不是断言的 |
-| 定向修复规划 | 作用范围锁定在受影响的层 |
-| 人工放行门禁 | 一次独立的决策，并指明它所批准的母版 |
-| 干预台账 | 每当门禁中止运行时自动写入 |
-| 续跑与失效处理 | 从第一个未完成的阶段继续；使某个阶段失效会重新打开其下游的全部内容 |
-| 母版完整性校验 | 重新计算摘要；被删除或被改动的母版无法通过校验 |
+| [`docs/architecture/system-overview.md`](docs/architecture/system-overview.md) | 交互模型、生产控制路径、成熟度 |
+| [`docs/architecture/supervisor-authority.md`](docs/architecture/supervisor-authority.md) | Codex Supervisor 的边界 |
+| [`docs/architecture/backend-neutral-timeline.md`](docs/architecture/backend-neutral-timeline.md) | 一条时间线，三种后端 |
+| [`docs/architecture/operations.md`](docs/architecture/operations.md) | 路径角色、ASCII 暂存、校验规则 |
+| [`docs/contracts/`](docs/contracts/) | 冻结的契约 |
+| [`docs/policies/`](docs/policies/) | 剪辑、镜头、排版、音频与审阅策略 |
+| [`docs/decisions/`](docs/decisions/) | 架构决策记录 |
+| [`docs/audit/production-chain-manifest.md`](docs/audit/production-chain-manifest.md) | 逐项能力的接线与就绪度 |
+| [`docs/audit/execution-runbook.md`](docs/audit/execution-runbook.md) | 如何运行每一处边界 |
+| [`docs/audit/gate-g0-history.md`](docs/audit/gate-g0-history.md) | 冻结基线是如何达成的 |
 
-### 受门禁约束 / 由任务产出
+### 仓库结构
 
-这些能力会运行，但它们所消费的产出物是按任务提供的 —— 由 Agent、适配器或人提供：
+```
+src/ai_autocut/          production code
+  fast_path.py             the eight-stage control path
+  producer_registry.py     every required artifact and its producer
+  execution_contracts.py   the four execution boundaries
+  execution_adapters.py    job-scoped picture / typography / audio / packaging
+  timebase_adapter.py      the source-timestamp invariant
+  media_probe.py           measured facts about a real media file
+  ...                      contracts, policies, validators
 
-| 能力 | 仍然需要提供的部分 |
-|---|---|
-| 只读画面测量 | 本仓库不附带任何测量工具 |
-| 产品真实性保护 | 同上；其容差校验尚未在真实数据上运行过 |
-| KEEP / REVIEW / CORRECT 决策 | 决策会运行；但本仓库中没有任何组件会依据 `CORRECT` 采取动作 |
-| 音频节目校验（FIT / SYNC / RHYTHM） | 它所消费的语音落点（voice placement） |
-| 语音 / 音乐生成 | 由服务商适配器提供；**非内置** |
+tests/                   offline regression suite
+schemas/                 frozen contracts and the Gold manifest
+docs/                    architecture, contracts, policies, decisions, audits
+scripts/                 the execution proof and the local-env wrapper
+examples/                example job shape
+config/examples/         configuration template
+```
 
-Commercial Strategy v1、Commercial Intelligence v1 与 Commercial Copy v1 仍为
-**`CONTRACT_ONLY / NOT_WIRED`**：已有 schema、校验器、样例与测试，但生产路径中
-没有注册的 Producer 自动生成这些内容。气垫粉扑的策略与文案是在该任务内编写并获得批准的。
+---
 
-### 计划中 / 可扩展
+## 本地优先设计
 
-尚未实现，也未作任何声称：自动化商业审阅器、通用后端编译器、产出物注册表、任务队列、无人值守的单命令运行器，以及更广泛的内容模式工作流。
+本地优先是一项硬性要求，而不是一个临时状态。生产控制路径与全部媒体处理都在本机运行，使用 Python、FFmpeg/FFprobe 与本地文件系统，并以确定性的方式编排。经批准的外部 AI API 可用于选定的智能分析或生成任务；它们永远不是控制路径。云基础设施 —— 对象存储、服务器平台、分布式 worker、仪表盘、用户账号 —— 被刻意排除在外。参见 [ADR-0007](docs/decisions/ADR-0007-local-first.md)。
+
+本仓库中不出现任何与机器绑定的绝对路径。每一个运行时位置都是一个逻辑角色，由环境变量解析得出；参见 [`docs/architecture/operations.md`](docs/architecture/operations.md) 与 [`config/examples/autocut.env.example`](config/examples/autocut.env.example)。
 
 ---
 
@@ -395,12 +459,18 @@ Kang AI-AutoCut 的设计目标是**由 Agent 来操作** —— 这里的 Agent
 | 要求 | 状态 |
 |---|---|
 | **Python 3** | 已在 3.11.15 上验证。仓库未声明最低版本 —— 请把这一点视为缺口。 |
-| **FFmpeg 与 FFprobe** | 必需。已在 ffmpeg/ffprobe 9.0.1 上验证。 |
+| **FFmpeg 与 FFprobe** | 必需。生产路径最低 4.4.2；完整离线测试套件需 5.1.2 或更新版本。端到端已在 5.1.2、6.1.2、9.0.1 上验证。 |
 | **`numpy`** | 媒体理解模块所需 |
 | **`Pillow`** | 文字排版执行适配器所需 |
 | **macOS** | 已在 macOS arm64 上验证。Windows 与 Linux **未**验证。 |
 
 本仓库不存在 `pyproject.toml`、`setup.py` 或 `requirements.txt`，因此这里不声称任何版本锁定。请直接阅读代码的 import，而不要相信一个并不存在的锁定文件。
+
+**两种 FFmpeg 门槛各有实测依据。** 4.4.x 的 `frame=pts_time` 可能全部为空值，
+时间戳读取器会回退到已核对一致的 `best_effort_timestamp_time`；低于 4.4 的版本会被拒绝。
+测试用 VFR 素材所需的 `-fps_mode` 在 4.4.2 和 5.0.1 中不存在、从 5.1.2 起可用，
+因此较旧工具链可运行生产路径，但相关测试会注明原因后跳过。详见
+[`tests/test_tool_version_gate.py`](tests/test_tool_version_gate.py)。
 
 ### 环境配置
 
@@ -424,6 +494,10 @@ python3 scripts/run_pre_exam_proof.py --job-root /tmp/pre-exam-proof
 ```
 
 这段验证程序刻意设计为两个阶段：它会停在人工放行门禁处，写入指明**已验证**母版的放行记录，然后继续执行直到完成。如果母版被删除或被改动，它会失败。
+
+以下命令是仓库支持的任务初始化与八阶段控制路径入口。仓库另有一次启动的编排器，
+但它仍会在 Producer Gate 处暂停，并依赖任务内编写的输入；见
+[执行说明](docs/audit/execution-runbook.md)。
 
 ### 你的第一个任务
 
@@ -462,98 +536,6 @@ python3 -m src.ai_autocut.fast_path --job-root /path/to/job-workspace
 
 ---
 
-## 音频与 AI 服务商架构
-
-当前仓库对任务所提供的音频素材执行**本地混音与母版制作**。它刻意**不**调用任何语音、音乐或音效服务商。音频合成在这里并未实现。
-
-```
-External Audio Provider   (future Adapter layer — NOT built in)
-        ↓
-  generated VO / BGM / SFX assets
-        ↓
-  job-local audio assets
-        ↓
-  Audio Program  →  local Mix  →  local Master
-                     (measured: loudness, true peak, clipping)
-```
-
-**今天已有的部分：** `BUILD THE AUDIO` 阶段消费任务本地的音频素材，依据任务自身的目标用 FFmpeg 对它们进行混音，并对结果加以度量。它会拒绝任何采样峰值达到满刻度的混音。
-
-**不存在的部分：** 任何内置的服务商集成。这里没有一键语音生成，本仓库也不包含任何服务商客户端。
-
-**当前生产服务商。** 生产音频由 **Doubao / Seed Audio** 生成，已验证模型为 **`seed-audio-1.0`**，用于印尼语配音、BGM 以及生成的音效 / 环境声。该服务商客户端位于本仓库之外；本仓库只对任务本地素材做本地混音与母版制作，不附带合成客户端。
-
-**历史背景，如实标注。** 在早前经过验证的生产工作中，旁白是通过 **MiniMax `speech-2.8-hd`** 产出的。那是**过去**的评估，记录在 [`docs/providers/audio-provider.md`](docs/providers/audio-provider.md) 中；MiniMax **不是**当前的生产服务商。macOS `say` 同样不是生产服务商。
-
-本仓库中任何位置都不出现密钥、token 或凭据的值。凭据仅通过环境变量名被引用。
-
----
-
-## 商业与生产价值
-
-价值在于架构本身，而不在于对结果的承诺：
-
-- **可复用的工作流，而不是一次性的产出。** 面对下一个产品时，运行同一套生产流程，而不是新开一段对话。
-- **可重复的生产。** 同样的阶段、契约与门禁适用于每一个任务，因此流程知识会不断积累，而不是转瞬即逝。
-- **可审计的创作决策。** 每一个选择都是有证据的产出物，因此审阅可以追问*为什么*，而不只是*是什么*。
-- **可续跑的任务。** 因门禁或失败而中止的任务，会从中断的那个阶段继续，而不是从头开始。
-- **确定性的执行。** 渲染、抽取与度量都是本地的、可复现的；模型的声称从来不是证据。
-- **源素材可复用。** 优质镜头可以支撑多个版本，而无需重新拍摄。
-- **结构化的审阅与修复。** 修复针对受影响的层进行，而不是整体重新生成 —— 因此已获批准的剪辑不会被悄悄替换掉。
-- **可度量的产出物校验。** 帧数、黑帧、冻结帧、响度、真峰值与母版摘要都是从文件本身度量得出的。
-- **人工干预是可见的。** 系统会记录门禁何时开启、由谁处理、何时解决。
-- **本地媒体所有权。** 源媒体不会被自动上传到云端流水线；控制路径与媒体处理都留在你的机器上，而经批准的外部服务商只接收任务明确需要的输入。
-- **服务商灵活性。** 生成能力位于一道边界之后，因此服务商的选择是可替换的。
-
-本文档**不**声称：质量有保证、转化率或收入结果有保证，也不声称剪辑时间一定会减少。这些都不是本仓库中任何内容所能证实的。
-
----
-
-## 架构
-
-| 文档 | 内容 |
-|---|---|
-| [`docs/architecture/system-overview.md`](docs/architecture/system-overview.md) | 交互模型、生产控制路径、成熟度 |
-| [`docs/architecture/supervisor-authority.md`](docs/architecture/supervisor-authority.md) | Codex Supervisor 的边界 |
-| [`docs/architecture/backend-neutral-timeline.md`](docs/architecture/backend-neutral-timeline.md) | 一条时间线，三种后端 |
-| [`docs/architecture/operations.md`](docs/architecture/operations.md) | 路径角色、ASCII 暂存、校验规则 |
-| [`docs/contracts/`](docs/contracts/) | 冻结的契约 |
-| [`docs/policies/`](docs/policies/) | 剪辑、镜头、排版、音频与审阅策略 |
-| [`docs/decisions/`](docs/decisions/) | 架构决策记录 |
-| [`docs/audit/production-chain-manifest.md`](docs/audit/production-chain-manifest.md) | 逐项能力的接线与就绪度 |
-| [`docs/audit/execution-runbook.md`](docs/audit/execution-runbook.md) | 如何运行每一处边界 |
-| [`docs/audit/gate-g0-history.md`](docs/audit/gate-g0-history.md) | 冻结基线是如何达成的 |
-
-### 仓库结构
-
-```
-src/ai_autocut/          production code
-  fast_path.py             the eight-stage control path
-  producer_registry.py     every required artifact and its producer
-  execution_contracts.py   the four execution boundaries
-  execution_adapters.py    job-scoped picture / typography / audio / packaging
-  timebase_adapter.py      the source-timestamp invariant
-  media_probe.py           measured facts about a real media file
-  ...                      contracts, policies, validators
-
-tests/                   offline regression suite
-schemas/                 frozen contracts and the Gold manifest
-docs/                    architecture, contracts, policies, decisions, audits
-scripts/                 the execution proof and the local-env wrapper
-examples/                example job shape
-config/examples/         configuration template
-```
-
----
-
-## 本地优先设计
-
-本地优先是一项硬性要求，而不是一个临时状态。生产控制路径与全部媒体处理都在本机运行，使用 Python、FFmpeg/FFprobe 与本地文件系统，并以确定性的方式编排。经批准的外部 AI API 可用于选定的智能分析或生成任务；它们永远不是控制路径。云基础设施 —— 对象存储、服务器平台、分布式 worker、仪表盘、用户账号 —— 被刻意排除在外。参见 [ADR-0007](docs/decisions/ADR-0007-local-first.md)。
-
-本仓库中不出现任何与机器绑定的绝对路径。每一个运行时位置都是一个逻辑角色，由环境变量解析得出；参见 [`docs/architecture/operations.md`](docs/architecture/operations.md) 与 [`config/examples/autocut.env.example`](config/examples/autocut.env.example)。
-
----
-
 ## 当前状态
 
 | | |
@@ -566,10 +548,10 @@ config/examples/         configuration template
 
 一条可用的**带门禁的生产控制路径**已经存在，并已产出真实的、经过独立验证的交付母版。它仍然不是无人值守的一键剪辑器，也从未声称自己是 —— Producer 决策按设计仍是流程的一部分。
 
-首个有正式记录的真实 SKU 里程碑，是上文已获人工批准的**气垫粉扑 / Indonesia
-TikTok Commerce** 视频。产品事实、宣称、文案、声音、画面、字幕、标题与最终
-渲染都有明确的人工决策和任务记录。这验证的是该次有人参与的生产结果，不会
-让合约阶段的 Commercial 模块变成已接入的生成器，也不会让系统变成一键自动剪辑器。
+更早的**水龙头过滤器（SKU #1）** Gold 与获人工批准的**气垫粉扑（SKU #2）**
+是两段不同的生产历史。上方标签标记的是第三 SKU 盲测前冻结的工程基线，
+不是第一个生产里程碑。气垫粉扑验证的是该次有人参与的成片，不会让
+合约阶段的 Commercial 模块变成已接入的生成器。
 
 ---
 
@@ -587,16 +569,30 @@ TikTok Commerce** 视频。产品事实、宣称、文案、声音、画面、�
 - **没有声明式的依赖清单。** 不存在 `pyproject.toml` 或锁定文件。
 - **仅在 macOS 上验证过。** Windows 与 Linux 尚未测试。
 - **已跟踪、尚未解决：** 运行感知的视觉分段（C-01）与自动化的选定区间校验（"needs vision"）。
+- **Editing Intelligence vNext 仍在 shadow 路径。** `candidate_evidence.v1/v2` 与
+  `hook_decision.v1` 可以在影子流程中生成；`planning_evidence.v1` 仍只是经过校验和测试的
+  contract-only 文档。它们都没有接入正式生产路径或产出镜头序列，详见
+  [`docs/contracts/`](docs/contracts/)。
+- **候选分析与 Hook 决策的证据边界。** `VNEXT_SHADOW` 能从实测素材构建候选、校验
+  窗口并生成结构化证据。可选的实时多模态分析脚本不属于离线测试；一次开发期间的
+  模型运行未在本仓库保存可独立核验的产出物，不能把它宣传为已验证的生产结果。
+  `candidate_evidence.v2` 记录 `NO_ACTION`、`PROBLEM_STATE_VISIBLE` 等视觉观察，
+  但像素统计不能证明语义或商业宣称，后者仍受 Product Facts 约束。
+- **Hook 选择不等于自动写广告。** 模型单次调用对 2–5 个不同假设排序，确定性门禁
+  只否决不符合声明事实、候选与证据约束的选项，不自行重新排名。若多个角度都合格，
+  `selected_hook_id` 保持待定，由负责人选择；它不生成镜头顺序、时间线、配音、字幕
+  或最终 CTA。
 
 ---
 
 ## 路线图
 
-1. **针对 `pre-third-sku-blind-v1` 运行 Third-SKU 盲测。**
-2. 度量最终质量、Producer Gate 的出现频率，以及人工干预情况。
-3. 用盲测得到的证据来决定：接下来值得自动化的剩余任务产出型能力有哪些。
+1. **补齐仍由任务产出的证据。** 文字位置与画面遮挡的证据目前由任务提供；合约能够承载，但尚无 Producer 自动测量。
+2. **在证据支持的范围内减少人工介入**，同时保留真正需要人决策的 Producer Gate。
+3. **扩展已验证范围**，在商业视频工作流稳定后再考虑其他内容类型。
 
-冻结基线就是要**以冻结状态**接受考察：在盲测之前不安排任何考前自动化工作，因此这次考核度量的是那个已被接受的系统，而不是一个在它脚下仍在变动的系统。
+冻结基线仍然按冻结时的状态接受考察；它记录的是当时经过审计的精确系统，
+不自动代表当前 `main` 上后续工作的完成状态。
 
 ---
 
@@ -627,30 +623,3 @@ target commit   b65a73b53040bd1ff5defe25e624a28f623b6847
 - 媒体根目录：逻辑角色 `AUTOCUT_MEDIA_ROOT`
 
 机器可读的身份记录见 [PROJECT_IDENTITY.md](PROJECT_IDENTITY.md)。Agent 入口规则见 [AGENTS.md](AGENTS.md)。
-
----
-
-## Producer 参与环节
-
-工作流围绕真实的人类决策设计，而不是围绕消除它们。
-
-```
-Producer Brief
-      ↓
-自动生产
-      ↓
-真实的 Producer 决策
-      ↓
-自动生产
-      ↓
-Producer 终审
-```
-
-目前有两道真正拥有决定权的门禁：
-
-| 门禁 | Producer 决定什么 |
-|---|---|
-| **Creative Copy Approval（创意文案审批）** | 文案内容，以及视频被允许做出的宣称 |
-| **Producer 终审** | 作品是否发布 |
-
-两者之间的全部环节 —— 素材理解、剪辑规划、画面生产、文字排版、音频生产、母版制作、QA 与修复 —— 都由生产系统推进。这是 **Producer-in-the-loop**，不是零人工干预。

@@ -28,8 +28,7 @@ are connected through recorded job artifacts.
 **Source-footage context:** This video uses authorized repurposed clips of uneven quality, which limits the final picture and editing options; better-shot source footage would give future edits a stronger starting point.
 
 [![Local-first](https://img.shields.io/badge/local--first-yes-4c1)](docs/decisions/ADR-0007-local-first.md)
-[![Multi-Variant](https://img.shields.io/badge/multi--variant-yes-0a7ea4)](README.md#multi-variant-production)
-[![Producer-in-the-loop](https://img.shields.io/badge/producer--in--the--loop-yes-orange)](README.md#producer-in-the-loop)
+[![Producer-in-the-loop](https://img.shields.io/badge/producer--in--the--loop-yes-orange)](README.md#human-decisions-and-producer-gates)
 [![Python](https://img.shields.io/badge/python-3-3776AB)](README.md#installation)
 [![Tests](https://img.shields.io/badge/tests-1933%20passing-brightgreen)](README.md#installation)
 
@@ -40,64 +39,30 @@ live status.*
 
 ---
 
-## What it does
+## What it is
 
 **Give Kang AI-AutoCut a folder of raw product footage and a Producer Brief.**
 
-The system can understand the material, plan commercially distinct variants, build an
-edit, create localized copy, typography and audio, review the result, and move the job
-toward production-ready marketing videos.
+The supervised, local-first workflow can understand the material, plan and build
+an edit, coordinate job-authored commercial copy and external-provider audio,
+render typography, review measured outputs, and move the job toward a video
+that a person can approve. Multi-variant planning is one optional capability.
 
-It is not a fully autonomous video factory. Two decisions stay with a person, by design:
+It is not a fully autonomous video factory. Two **principal human approval gates**
+anchor the workflow:
 
 - **Creative Copy Approval**
 - **Producer Final Review**
 
----
-
-## From Raw Footage to Marketing Variants
-
-```
-20–50 RAW CLIPS
-      ↓
-Material Understanding
-      ↓
-Editing Intelligence
-      ↓
-Commercial Narrative
-      ↓
-Picture  +  Typography  +  Audio
-      ↓
-QA  +  Repair
-      ↓
-Variant 01   ·   Variant 02   ·   Variant 03   ·   …
-```
-
-One source pool yields **commercially distinct variants**. Each variant independently
-reconsiders the entire pool rather than inheriting the previous variant's timeline:
-
-```
-same source pool
-  → different hooks
-  → different narratives
-  → different shot combinations
-  → different pacing
-  → different VO / BGM / SFX
-  → different commercial emphasis
-```
-
-This is not one timeline duplicated with the music changed. Variants are distinct
-commercial arguments built from the same material.
-
-![Earlier Kang AI-AutoCut concept illustration showing the proposed production flow from source footage to marketing variants](assets/showcase/kang-ai-autocut-hero.png)
-
-*Earlier project concept illustration. It shows the intended workflow, not a production result or evidence that every pictured capability is wired.*
+These are not the only places a run can stop. The eight-stage Fast Path also opens
+named `HUMAN`, `CODEX`, or `ADAPTER` Producer Gates when a required decision or
+artifact is missing.
 
 ---
 
-## Production Examples
+## Real SKU proof
 
-**First real-SKU production milestone: Cushion Puff / Indonesia TikTok Commerce.**
+**Cushion Puff / Indonesia TikTok Commerce (SKU #2): Human Final Review PASS.**
 The 24-second vertical video completed Product Truth and Seller Confirmation,
 visual-evidence and claim-boundary review, approved Commercial Copy, fixed Creator
 Reference Voice and selected VO, picture planning and editing, titles and spoken
@@ -110,83 +75,15 @@ repository does not publish a video preview or master. This milestone demonstrat
 a supervised real-SKU workflow, not an unattended run or a claim that every formal
 eight-stage Fast Path gate passed.
 
----
-
-
-## Why Kang AI-AutoCut
-
-Most tools in this space do one of four things:
-
-| Approach | What it does |
-|---|---|
-| Automatic trimming | cuts silence, keeps the rest |
-| Fixed-template assembly | drops clips into a preset |
-| Random shot concatenation | joins clips and hopes |
-| Reference-video cloning | copies one video's structure |
-
-Kang AI-AutoCut runs a production decision path instead:
-
-```
-Material Understanding  →  Creative Decision  →  Editing Intelligence
-    →  Commercial Narrative  →  Production  →  Review & Repair
-```
-
-> **AI reasons. Deterministic tools execute. The Producer keeps the genuine creative
-> decisions.**
-
-Most AI video tools produce **one video, once**, inside a chat window. Re-running
-them gives you a different video, and nothing about the process is inspectable.
-
-Kang AI-AutoCut treats video production as an **engineering pipeline**:
-
-| Ordinary AI video output | Kang AI-AutoCut |
-|---|---|
-| One-off result, hard to repeat | A reusable workflow you run again |
-| Decisions live in a chat log | Every decision is a recorded artifact |
-| Failure means starting over | Jobs resume from the stage that stopped |
-| "It looks done" is the only check | Output is measured: frames, black frames, freezes, loudness, true peak, master hash |
-| A model can silently skip a step | A stage **cannot pass without naming the capability it ran** |
-| Human judgement is invisible | Human input happens at named gates, and is logged |
-| Your footage is uploaded to a provider | Processing is local-first; providers receive only the inputs a task requires |
+The earlier **Faucet Filter (SKU #1)** has a reconciled Gold production result
+documented in [Filter Gold v1](docs/gold/filter-gold-v1.md). Cushion Puff is the
+newer Human-approved production result, not the first real SKU. The tag
+`pre-third-sku-blind-v1` was frozen after those two SKU histories as a baseline
+for a separate third-SKU exam; the tag name does not renumber either product.
 
 ---
 
-## What You Can Build
-
-**Currently production-validated:**
-
-- **Commercial advertising and e-commerce product video** — the first workflow
-  taken end to end, including delivery-master verification.
-- **Social-media short-form product content** — vertical, short-duration
-  commercial edits, using the same eight stages.
-
-**Direction the architecture is designed to extend into** — *not yet
-production-validated*:
-
-- creator and self-media video
-- product demonstration and explainer content
-- brand and campaign content
-- other structured video-production workflows
-
-The system is commercial-first today. Nothing here claims every video category is
-already supported, and no content-mode framework exists yet.
-
----
-
-## How It Works
-
-```mermaid
-flowchart TD
-    A[Producer Brief] --> B[Material Understanding]
-    B --> C[Multi-Variant Planning]
-    C --> D[Creative and Editing Intelligence]
-    D --> E[Picture / Typography / Audio]
-    E --> F[Review and Repair]
-    F --> G[Producer Final Review]
-    G --> H[Delivery]
-```
-
-*Product-level flow. The detailed stage-by-stage workflow is described in prose below.*
+## Real Production Workflow — Eight-Stage Fast Path
 
 ### What you do
 
@@ -257,6 +154,124 @@ deliberately throughout this README.
 
 ---
 
+## Human decisions and Producer Gates
+
+The workflow is designed around genuine human decisions, not around removing them.
+
+```
+Producer Brief → Eight-stage Fast Path → Named Producer Gates → Human release
+```
+
+Two **principal human approval gates** carry creative and release authority:
+
+| Gate | What the Producer decides |
+|---|---|
+| **Creative Copy Approval** | the copy and the claims the video is allowed to make |
+| **Producer Final Review** | whether the piece is released |
+
+They are not the only stopping points. Between them, the Fast Path may open a
+`HUMAN`, `CODEX`, or `ADAPTER` Producer Gate for any required decision or artifact.
+Material understanding, edit planning, picture, typography, audio, mastering, QA
+and repair are advanced under these explicit contracts. This is
+**Producer-in-the-loop**, not unattended automation.
+
+---
+
+## Why it matters
+
+The value is a reusable production record: an Agent can reason about creative
+choices, local tools execute and measure media, and a person approves the claims
+and the finished result. The project does not promise conversion or quality gains
+from automation alone.
+
+Kang AI-AutoCut treats video production as an **auditable engineering workflow**:
+
+| Ordinary AI video output | Kang AI-AutoCut |
+|---|---|
+| One-off result, hard to repeat | A reusable workflow you run again |
+| Decisions live in a chat log | Every decision is a recorded artifact |
+| Failure means starting over | Jobs resume from the stage that stopped |
+| "It looks done" is the only check | Output is measured: frames, black frames, freezes, loudness, true peak, master hash |
+| A model can silently skip a step | A stage **cannot pass without naming the capability it ran** |
+| Human judgement is invisible | Human input happens at named gates, and is logged |
+| Media and provider inputs can be hard to trace | Processing is local-first; approved providers receive only the task's required inputs |
+
+---
+
+## What You Can Build
+
+**Currently production-validated:**
+
+- **Commercial advertising and e-commerce product video** — the first workflow
+  taken end to end, including delivery-master verification.
+- **Social-media short-form product content** — vertical, short-duration
+  commercial edits, using the same eight stages.
+
+**Direction the architecture is designed to extend into** — *not yet
+production-validated*:
+
+- creator and self-media video
+- product demonstration and explainer content
+- brand and campaign content
+- other structured video-production workflows
+
+The system is commercial-first today. Nothing here claims every video category is
+already supported, and no content-mode framework exists yet.
+
+---
+
+## Current Capabilities & Wiring Status
+
+### Available and verified today
+
+| Capability | Notes |
+|---|---|
+| Source ingestion and immutable inventory | per-file SHA-256, re-verified before use |
+| VFR-safe media understanding | measured timestamps mapped to a CFR analysis grid |
+| Visual segmentation | runs on the grid the engine actually decodes |
+| Timeline range validation | refuses cuts that miss observable action |
+| Source-range extraction | every range resolved from a measured timestamp |
+| Picture execution | produces a real video artifact, re-measured afterwards |
+| Narration coverage | runs before any paid voice generation |
+| Typography rendering | job-authored titles and opt-in, final-VO-aligned spoken captions; both used in the Cushion Puff result |
+| Audio mixing and mastering | real mix, with measured loudness, true peak and clipping |
+| Packaging and final master | `final/master.mp4` plus measured technical QA |
+| Review contract and release verdict | every dimension judged once; verdict derived, not asserted |
+| Targeted repair planning | scope-locked to the affected layer |
+| Human release gate | a distinct decision naming the master it approves |
+| Intervention ledger | written automatically whenever a gate halts a run |
+| Resume and invalidation | resumes at the first incomplete stage; invalidating a stage re-opens everything downstream |
+| Master integrity validation | digest recomputed; a deleted or altered master fails verification |
+
+### Gated / job-authored
+
+These run, but the artifact they consume is supplied per job — by an Agent, an
+adapter, or a person:
+
+| Capability | What is still supplied |
+|---|---|
+| Read-only picture measurement | no measurement tool ships in this repository |
+| Product authenticity protection | same; its tolerance checks have not yet run on real data |
+| KEEP / REVIEW / CORRECT decision | the decision runs; nothing here acts on a `CORRECT` |
+| Audio program verification (FIT / SYNC / RHYTHM) | the voice placement it consumes |
+| Voice / music generation | supplied by a provider adapter; **not built in** |
+
+Commercial Strategy v1, Commercial Intelligence v1 and Commercial Copy v1 are
+**`CONTRACT_ONLY / NOT_WIRED`**: their schemas, validators, examples and tests exist,
+but no registered producer generates them in the production path. In the real
+Cushion Puff production, an Agent authored the commercial strategy and localized
+copy within the job, and a human approved the final copy and claim boundaries.
+That job-level practice is production-validated; it does not make the formal v1
+Commercial contracts wired generators.
+
+### Planned / extensible
+
+Not implemented, and not claimed: an automated commercial reviewer, generic
+backend compilers, an artifact registry, a job queue, an unattended one-command
+runner, and broader content-mode workflows.
+
+---
+
 ## Multi-Variant Production
 
 One source pool can produce **multiple commercially distinct variants**. Each
@@ -276,35 +291,9 @@ Variants may differ along the hook, the narrative angle, shot selection, shot
 order, shot boundaries, pacing, voice-over, typography copy, BGM, SFX and
 commercial emphasis. This is not one timeline rendered several ways.
 
----
+![Earlier Kang AI-AutoCut concept illustration showing the proposed production flow from source footage to marketing variants](assets/showcase/kang-ai-autocut-hero.png)
 
-## Producer in the Loop
-
-The workflow is designed around genuine human decisions, not around removing them.
-
-```
-Producer Brief
-      ↓
-Autonomous Production
-      ↓
-Genuine Producer Decision
-      ↓
-Autonomous Production
-      ↓
-Final Producer Review
-```
-
-Two gates carry real authority today:
-
-| Gate | What the Producer decides |
-|---|---|
-| **Creative Copy Approval** | the copy and the claims the video is allowed to make |
-| **Producer Final Review** | whether the piece is released |
-
-Everything between them — material understanding, edit planning, picture production,
-typography, audio production, mastering, QA and repair — runs through the production
-system. This is **Producer-in-the-loop**, not zero human intervention: the system stops
-where a decision is genuinely the Producer's, and says exactly what it is waiting for.
+*Earlier project concept illustration. It shows the intended workflow, not a production result or evidence that every pictured capability is wired.*
 
 ---
 
@@ -360,52 +349,105 @@ Full policy: [`docs/policies/audio-intelligence.md`](docs/policies/audio-intelli
 
 ---
 
-## Current Capabilities
+## Audio & AI Provider Architecture
 
-### Available and verified today
+This repository performs **local mixing and mastering** on audio assets the job
+supplies. It ships **no provider client**: synthesis is not implemented here.
 
-| Capability | Notes |
+**Production audio is generated through an external provider.** The current
+production audio provider is **Doubao / Seed Audio**, validated model
+**`seed-audio-1.0`**, used for Indonesian voice-over, BGM and generated
+SFX / ambience. The client lives outside this repository; the findings below shaped
+the audio policy.
+
+For Cushion Puff, the production workflow fixed a Creator Reference Voice,
+generated multiple VO takes with the job's approved copy, and used **human
+listening to select the final take**. That is production practice, not an
+in-repository voice-generation or listening-selection client. The repository
+consumes the selected job-local audio asset for mixing and mastering; see the
+[voice profile](docs/providers/indonesia-beauty-creator-voice-v1.md).
+
+```
+External Audio Provider   (future Adapter layer — NOT built in)
+        ↓
+  generated VO / BGM / SFX assets
+        ↓
+  job-local audio assets
+        ↓
+  Audio Program  →  local Mix  →  local Master
+                     (measured: loudness, true peak, clipping)
+```
+
+**What exists today:** the `BUILD THE AUDIO` stage consumes job-local audio
+assets, mixes them with FFmpeg against the job's own targets, and measures the
+result. It refuses a mix whose sample peak reaches full scale.
+
+**What does not exist:** any built-in provider integration. There is no
+one-click voice generation, and this repository contains no provider client.
+
+**Historical context, labelled accurately.** Voice-over was produced through
+**MiniMax `speech-2.8-hd`** during earlier validated production work. That is a
+**past** evaluation, recorded in
+[`docs/providers/audio-provider.md`](docs/providers/audio-provider.md); MiniMax is
+**not** the current production provider. macOS `say` is likewise not a production
+provider.
+
+No key, token or credential value appears anywhere in this repository. Credentials
+are referenced by environment variable name only.
+
+---
+
+## Architecture
+
+| Document | Contents |
 |---|---|
-| Source ingestion and immutable inventory | per-file SHA-256, re-verified before use |
-| VFR-safe media understanding | measured timestamps mapped to a CFR analysis grid |
-| Visual segmentation | runs on the grid the engine actually decodes |
-| Timeline range validation | refuses cuts that miss observable action |
-| Source-range extraction | every range resolved from a measured timestamp |
-| Picture execution | produces a real video artifact, re-measured afterwards |
-| Narration coverage | runs before any paid voice generation |
-| Typography rendering | job-authored titles and opt-in, final-VO-aligned spoken captions; both used in the Cushion Puff result |
-| Audio mixing and mastering | real mix, with measured loudness, true peak and clipping |
-| Packaging and final master | `final/master.mp4` plus measured technical QA |
-| Review contract and release verdict | every dimension judged once; verdict derived, not asserted |
-| Targeted repair planning | scope-locked to the affected layer |
-| Human release gate | a distinct decision naming the master it approves |
-| Intervention ledger | written automatically whenever a gate halts a run |
-| Resume and invalidation | resumes at the first incomplete stage; invalidating a stage re-opens everything downstream |
-| Master integrity validation | digest recomputed; a deleted or altered master fails verification |
+| [`docs/architecture/system-overview.md`](docs/architecture/system-overview.md) | interaction model, production control path, maturity |
+| [`docs/architecture/supervisor-authority.md`](docs/architecture/supervisor-authority.md) | the Codex Supervisor boundary |
+| [`docs/architecture/backend-neutral-timeline.md`](docs/architecture/backend-neutral-timeline.md) | one timeline, three backends |
+| [`docs/architecture/operations.md`](docs/architecture/operations.md) | path roles, ASCII staging, verification rule |
+| [`docs/contracts/`](docs/contracts/) | frozen contracts |
+| [`docs/policies/`](docs/policies/) | editing, shot, typography, audio and review policy |
+| [`docs/decisions/`](docs/decisions/) | architecture decision records |
+| [`docs/audit/production-chain-manifest.md`](docs/audit/production-chain-manifest.md) | per-capability wiring and readiness |
+| [`docs/audit/execution-runbook.md`](docs/audit/execution-runbook.md) | how to run every boundary |
+| [`docs/audit/gate-g0-history.md`](docs/audit/gate-g0-history.md) | how the frozen baseline was reached |
 
-### Gated / job-authored
+### Repository layout
 
-These run, but the artifact they consume is supplied per job — by an Agent, an
-adapter, or a person:
+```
+src/ai_autocut/          production code
+  fast_path.py             the eight-stage control path
+  producer_registry.py     every required artifact and its producer
+  execution_contracts.py   the four execution boundaries
+  execution_adapters.py    job-scoped picture / typography / audio / packaging
+  timebase_adapter.py      the source-timestamp invariant
+  media_probe.py           measured facts about a real media file
+  ...                      contracts, policies, validators
 
-| Capability | What is still supplied |
-|---|---|
-| Read-only picture measurement | no measurement tool ships in this repository |
-| Product authenticity protection | same; its tolerance checks have not yet run on real data |
-| KEEP / REVIEW / CORRECT decision | the decision runs; nothing here acts on a `CORRECT` |
-| Audio program verification (FIT / SYNC / RHYTHM) | the voice placement it consumes |
-| Voice / music generation | supplied by a provider adapter; **not built in** |
+tests/                   offline regression suite
+schemas/                 frozen contracts and the Gold manifest
+docs/                    architecture, contracts, policies, decisions, audits
+scripts/                 the execution proof and the local-env wrapper
+examples/                example job shape
+config/examples/         configuration template
+```
 
-Commercial Strategy v1, Commercial Intelligence v1 and Commercial Copy v1 are
-**`CONTRACT_ONLY / NOT_WIRED`**: their schemas, validators, examples and tests exist,
-but no registered producer generates them in the production path. The Cushion Puff
-strategy and copy were authored and approved within that job.
+---
 
-### Planned / extensible
+## Local-First Design
 
-Not implemented, and not claimed: an automated commercial reviewer, generic
-backend compilers, an artifact registry, a job queue, an unattended one-command
-runner, and broader content-mode workflows.
+Local-first is a requirement, not a temporary state. The production control path
+and all media processing run on the local machine, using Python, FFmpeg/FFprobe
+and the local filesystem, with deterministic orchestration. Approved external AI
+APIs may be used for selected intelligence or generation tasks; they are never the
+control path. Cloud infrastructure — object storage, server platforms, distributed
+workers, dashboards, user accounts — is deliberately absent. See
+[ADR-0007](docs/decisions/ADR-0007-local-first.md).
+
+No machine-bound absolute path appears in this repository. Every runtime location
+is a logical role resolved from an environment variable; see
+[`docs/architecture/operations.md`](docs/architecture/operations.md) and
+[`config/examples/autocut.env.example`](config/examples/autocut.env.example).
 
 ---
 
@@ -545,17 +587,10 @@ The proof is deliberately two-phase: it stops at the human release gate, writes
 the release naming the **verified** master, then resumes to completion. It fails
 if the master is deleted or altered.
 
-### Current repository usage vs the target production experience
-
-These are deliberately different things, and the gap between them is the roadmap:
-
-| | |
-|---|---|
-| **Current repository usage** | Initialise a job, run the production control path, and satisfy the Producer gates as they arrive. Some capability is job-authored, as listed under [Known Limitations](#known-limitations). |
-| **Target production experience** | Source folder + Producer Brief Lite + one launch, running until a genuine Producer decision is required, then to final review. |
-
-The commands below are the **current repository usage**. They are the real, supported
-commands in this repository; nothing here is a hypothetical one-command mode.
+The commands below are supported repository entry points for job initialization
+and the eight-stage control path. A separate one-launch orchestrator exists,
+but it still pauses at Producer Gates and depends on job-authored inputs; see
+the [execution runbook](docs/audit/execution-runbook.md).
 
 ### Your first job
 
@@ -599,135 +634,6 @@ this system, however capable it is at reasoning.
 
 ---
 
-## Audio & AI Provider Architecture
-
-This repository performs **local mixing and mastering** on audio assets the job
-supplies. It ships **no provider client**: synthesis is not implemented here.
-
-**Production audio is generated through an external provider.** The current
-production audio provider is **Doubao / Seed Audio**, validated model
-**`seed-audio-1.0`**, used for Indonesian voice-over, BGM and generated
-SFX / ambience. The client lives outside this repository; the findings below shaped
-the audio policy.
-
-```
-External Audio Provider   (future Adapter layer — NOT built in)
-        ↓
-  generated VO / BGM / SFX assets
-        ↓
-  job-local audio assets
-        ↓
-  Audio Program  →  local Mix  →  local Master
-                     (measured: loudness, true peak, clipping)
-```
-
-**What exists today:** the `BUILD THE AUDIO` stage consumes job-local audio
-assets, mixes them with FFmpeg against the job's own targets, and measures the
-result. It refuses a mix whose sample peak reaches full scale.
-
-**What does not exist:** any built-in provider integration. There is no
-one-click voice generation, and this repository contains no provider client.
-
-**Historical context, labelled accurately.** Voice-over was produced through
-**MiniMax `speech-2.8-hd`** during earlier validated production work. That is a
-**past** evaluation, recorded in
-[`docs/providers/audio-provider.md`](docs/providers/audio-provider.md); MiniMax is
-**not** the current production provider. macOS `say` is likewise not a production
-provider.
-
-No key, token or credential value appears anywhere in this repository. Credentials
-are referenced by environment variable name only.
-
----
-
-## Commercial & Production Value
-
-The value is in the architecture, not in a promise about outcomes:
-
-- **A reusable workflow, not a one-off output.** Run the same production process
-  on the next product instead of starting a new conversation.
-- **Repeatable production.** The same stages, contracts and gates apply to every
-  job, so process knowledge accumulates instead of evaporating.
-- **Auditable creative decisions.** Every choice is an artifact with evidence, so
-  a review can ask *why*, not just *what*.
-- **Resumable jobs.** A job stopped by a gate or a failure continues from the
-  stage that stopped, rather than from the beginning.
-- **Deterministic execution.** Rendering, extraction and measurement are local
-  and reproducible; a model's claim is never the evidence.
-- **Source material is reusable.** Strong footage can serve multiple variants
-  without re-shooting.
-- **Structured review and repair.** Repair is targeted to the affected layer, not
-  a full regeneration — so an approved edit is not silently replaced.
-- **Measurable output validation.** Frame counts, black frames, frozen frames,
-  loudness, true peak and the master digest are measured from the file.
-- **Human intervention is visible.** The system logs when a gate opened, who
-  acted, and when it resolved.
-- **Local media ownership.** Source media is not automatically uploaded to a cloud
-  pipeline; the control path and media processing stay on your machine, and an
-  approved external provider receives only the inputs a task explicitly requires.
-- **Provider flexibility.** Generation sits behind a boundary, so a provider
-  choice is replaceable.
-
-What this does **not** claim: guaranteed quality, guaranteed conversion or
-revenue outcomes, or a guaranteed reduction in editing time. Those are not
-established by anything in this repository.
-
----
-
-## Architecture
-
-| Document | Contents |
-|---|---|
-| [`docs/architecture/system-overview.md`](docs/architecture/system-overview.md) | interaction model, production control path, maturity |
-| [`docs/architecture/supervisor-authority.md`](docs/architecture/supervisor-authority.md) | the Codex Supervisor boundary |
-| [`docs/architecture/backend-neutral-timeline.md`](docs/architecture/backend-neutral-timeline.md) | one timeline, three backends |
-| [`docs/architecture/operations.md`](docs/architecture/operations.md) | path roles, ASCII staging, verification rule |
-| [`docs/contracts/`](docs/contracts/) | frozen contracts |
-| [`docs/policies/`](docs/policies/) | editing, shot, typography, audio and review policy |
-| [`docs/decisions/`](docs/decisions/) | architecture decision records |
-| [`docs/audit/production-chain-manifest.md`](docs/audit/production-chain-manifest.md) | per-capability wiring and readiness |
-| [`docs/audit/execution-runbook.md`](docs/audit/execution-runbook.md) | how to run every boundary |
-| [`docs/audit/gate-g0-history.md`](docs/audit/gate-g0-history.md) | how the frozen baseline was reached |
-
-### Repository layout
-
-```
-src/ai_autocut/          production code
-  fast_path.py             the eight-stage control path
-  producer_registry.py     every required artifact and its producer
-  execution_contracts.py   the four execution boundaries
-  execution_adapters.py    job-scoped picture / typography / audio / packaging
-  timebase_adapter.py      the source-timestamp invariant
-  media_probe.py           measured facts about a real media file
-  ...                      contracts, policies, validators
-
-tests/                   offline regression suite
-schemas/                 frozen contracts and the Gold manifest
-docs/                    architecture, contracts, policies, decisions, audits
-scripts/                 the execution proof and the local-env wrapper
-examples/                example job shape
-config/examples/         configuration template
-```
-
----
-
-## Local-First Design
-
-Local-first is a requirement, not a temporary state. The production control path
-and all media processing run on the local machine, using Python, FFmpeg/FFprobe
-and the local filesystem, with deterministic orchestration. Approved external AI
-APIs may be used for selected intelligence or generation tasks; they are never the
-control path. Cloud infrastructure — object storage, server platforms, distributed
-workers, dashboards, user accounts — is deliberately absent. See
-[ADR-0007](docs/decisions/ADR-0007-local-first.md).
-
-No machine-bound absolute path appears in this repository. Every runtime location
-is a logical role resolved from an environment variable; see
-[`docs/architecture/operations.md`](docs/architecture/operations.md) and
-[`config/examples/autocut.env.example`](config/examples/autocut.env.example).
-
----
-
 ## Current Status
 
 | | |
@@ -743,12 +649,11 @@ independently verified delivery masters. It is still not an unattended one-click
 editor, and it does not claim to be — Producer decisions remain part of the
 workflow by design.
 
-The first documented real-SKU milestone is the Human-approved **Cushion Puff /
-Indonesia TikTok Commerce** video described above. Its product facts, claims,
-copy, voice, picture, captions, titles and final render were handled with named
-human decisions and job records. This validates that supervised production
-result; it does not make the contract-only Commercial modules live generators or
-turn the system into an autonomous one-click editor.
+The earlier **Faucet Filter (SKU #1)** Gold and the Human-approved **Cushion Puff
+(SKU #2)** result are distinct production histories. The tag above marks the
+engineering baseline frozen before a third-SKU blind exam, not the first production
+milestone. Cushion Puff validates its supervised result and does not make the
+contract-only Commercial modules live generators.
 
 ---
 
