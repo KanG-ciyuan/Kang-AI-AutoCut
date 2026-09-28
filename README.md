@@ -1,14 +1,31 @@
-![Kang AI-AutoCut — Local-first Agentic AI Video Production System](assets/showcase/kang-ai-autocut-hero.png)
+![Concept visualization of Kang AI-AutoCut: raw footage, editing timeline, and reviewed video](assets/showcase/kang-ai-autocut-production-hero-v2.png)
 
 # Kang AI-AutoCut
 
-**Local-first Agentic AI Video Production System**
+**RAW FOOTAGE → TRACEABLE PRODUCTION → HUMAN-APPROVED VIDEO**
 
-> **Commercial-first, extensible by design.**
-> Commercial advertising is the first production-validated workflow. The architecture
-> is built to expand into broader creator and media workflows.
+An agent-led, local-first system for commercial video production: product truth,
+creative decisions, picture, voice, captions, technical checks, and human release
+are connected through recorded job artifacts.
 
-### 20–50 raw clips → AI production pipeline → multiple marketing variants
+<table>
+  <tr>
+    <td width="72%" valign="top">
+      <strong>REAL SKU PRODUCTION · HUMAN FINAL REVIEW: PASS</strong><br><br>
+      <strong>Cushion Puff / Indonesia TikTok Commerce</strong><br>
+      24-second vertical video · 1080 × 1920 · 30 fps · 12 edited segments<br><br>
+      Seller-confirmed facts → approved commercial copy → fixed Creator Reference Voice and selected VO → picture edit → titles and spoken captions → final render.<br><br>
+      <a href="docs/audit/cushion-puff-production-state.md">Read the production record and evidence boundaries</a>
+    </td>
+    <td align="center">
+      <img src="assets/showcase/cushion-puff-human-pass-frame.jpg" width="185" alt="Actual frame from the Human-approved Cushion Puff video, showing the product and Indonesian title and captions">
+    </td>
+  </tr>
+</table>
+
+*The banner is a concept visualization; the frame above comes from the approved video.*
+
+**Source-footage context:** This video uses authorized repurposed clips of uneven quality, which limits the final picture and editing options; better-shot source footage would give future edits a stronger starting point.
 
 [![Local-first](https://img.shields.io/badge/local--first-yes-4c1)](docs/decisions/ADR-0007-local-first.md)
 [![Multi-Variant](https://img.shields.io/badge/multi--variant-yes-0a7ea4)](README.md#multi-variant-production)
@@ -71,6 +88,10 @@ same source pool
 
 This is not one timeline duplicated with the music changed. Variants are distinct
 commercial arguments built from the same material.
+
+![Earlier Kang AI-AutoCut concept illustration showing the proposed production flow from source footage to marketing variants](assets/showcase/kang-ai-autocut-hero.png)
+
+*Earlier project concept illustration. It shows the intended workflow, not a production result or evidence that every pictured capability is wired.*
 
 ---
 

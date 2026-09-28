@@ -1,10 +1,30 @@
-![Kang AI-AutoCut — Local-first Agentic AI Video Production System](assets/showcase/kang-ai-autocut-hero.png)
+![Kang AI-AutoCut 概念视觉：原始素材、剪辑时间线与审片成片](assets/showcase/kang-ai-autocut-production-hero-v2.png)
 
 # Kang AI-AutoCut
 
-**Local-first Agentic AI Video Production System**
+**真实素材 → 可追溯的生产过程 → 人工验收的成片**
 
-本地优先的 Agentic AI 视频生产系统
+Kang AI-AutoCut 是由 Agent 统筹、本地优先的商业视频生产系统：产品事实、创作决策、
+画面、声音、字幕、技术检查与人工放行，都有可追溯的任务记录。
+
+<table>
+  <tr>
+    <td width="72%" valign="top">
+      <strong>真实 SKU 生产 · HUMAN FINAL REVIEW：PASS</strong><br><br>
+      <strong>气垫粉扑 / Indonesia TikTok Commerce</strong><br>
+      24 秒竖屏视频 · 1080 × 1920 · 30 fps · 12 个剪辑片段<br><br>
+      卖家确认的产品事实 → 获批商业文案 → 固定 Creator Reference Voice 与选定 VO → 画面剪辑 → 标题和口播字幕 → 最终渲染。<br><br>
+      <a href="docs/audit/cushion-puff-production-state.md">查看生产记录与证据边界</a>
+    </td>
+    <td align="center">
+      <img src="assets/showcase/cushion-puff-human-pass-frame.jpg" width="185" alt="Human PASS 气垫粉扑成片的真实画面，展示产品和印尼语标题、字幕">
+    </td>
+  </tr>
+</table>
+
+*横幅是系统概念视觉；上方产品画面取自获批的真实成片。*
+
+**原素材说明：** 这条视频使用已获授权复用、画面质量参差的现成素材，因此成片画面与剪辑选择受到原素材制约；拍摄质量更好的素材能为后续剪辑提供更好的基础。
 
 **Languages:** [English](README.md) | 简体中文 | [日本語](README.ja.md) | [한국어](README.ko.md) | [Bahasa Indonesia](README.id.md) | [Deutsch](README.de.md) | [Español](README.es.md)
 
@@ -19,25 +39,9 @@
 
 *徽章为静态徽章，描述的是冻结基线。本仓库不运行任何 CI 工作流，徽章上的数字并非实时状态。*
 
-Kang AI-AutoCut 是一套面向 Agent 的视频生产系统，而不是一个 FFmpeg 拼接脚本。它接收已获授权的原始素材与明确表述的创作目标，并推动工作贯穿**八个生产阶段** —— 素材理解、剪辑智能、叙事规划、时间线构建、画面完成、文字排版、音频、母版制作、审阅与修复 —— 其中**人工批准是一道显式的门禁**。
-
-它运行在你自己的机器上。生产控制路径与媒体处理都是本地优先的；经批准的外部 AI 服务商只能接收已获批准的智能分析或生成任务所明确需要的输入。每一个创作决策都会被记录，系统拒绝汇报它无法度量的成功。
-
-> **商业优先，按设计可扩展。** 商业广告是第一个经过生产验证的工作流。该架构的构建目标就是扩展到更广泛的创作者与媒体工作流。
-
-```
-Raw Footage
-    ↓
-Understand  →  Plan  →  Edit
-    ↓
-Picture  ·  Typography  ·  Audio
-    ↓
-Assemble & Master
-    ↓
-Review  →  Repair  →  Human Approval
-    ↓
-Final Video
-```
+商业广告是第一个经过生产验证的工作流。系统接收已获授权的素材和创作目标，
+按任务推进素材理解、剪辑、排版、音频、母版制作与审阅；人工批准仍是明确的门禁。
+本地控制路径与媒体处理不会把未完成的步骤报告为成功。
 
 ---
 
@@ -80,6 +84,10 @@ Variant 01   ·   Variant 02   ·   Variant 03   ·   …
 > **有商业意义的差异，优先于人为的最大化差异。**
 
 这不是"一份时间线换个音乐"。版本是从同一批素材出发的、彼此不同的商业论证。
+
+![Kang AI-AutoCut 早期概念图：从原始素材到多个营销版本的预期生产流程](assets/showcase/kang-ai-autocut-hero.png)
+
+*这是项目早期的概念视觉，展示预期工作流；它不是实际生产成果，也不代表图中每项能力都已接入。*
 
 ---
 
