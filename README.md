@@ -14,7 +14,7 @@
 [![Multi-Variant](https://img.shields.io/badge/multi--variant-yes-0a7ea4)](README.md#multi-variant-production)
 [![Producer-in-the-loop](https://img.shields.io/badge/producer--in--the--loop-yes-orange)](README.md#producer-in-the-loop)
 [![Python](https://img.shields.io/badge/python-3-3776AB)](README.md#installation)
-[![Tests](https://img.shields.io/badge/tests-1221%20passing-brightgreen)](README.md#installation)
+[![Tests](https://img.shields.io/badge/tests-1933%20passing-brightgreen)](README.md#installation)
 
 *Badges are static. This repository runs no CI workflow, and the badge numbers are not
 live status.*
@@ -76,20 +76,18 @@ commercial arguments built from the same material.
 
 ## Production Examples
 
-*Production showcase being prepared.*
+**First real-SKU production milestone: Cushion Puff / Indonesia TikTok Commerce.**
+The 24-second vertical video completed Product Truth and Seller Confirmation,
+visual-evidence and claim-boundary review, approved Commercial Copy, fixed Creator
+Reference Voice and selected VO, picture planning and editing, titles and spoken
+captions, final rendering, and **Human Final Review: PASS**. The approval names an
+exact final artifact, not a general quality guarantee. See the
+[production state and evidence boundaries](docs/audit/cushion-puff-production-state.md).
 
-This repository publishes no production master yet, and nothing is fabricated to fill
-this section. It is the slot for the real thing:
-
-```
-assets/showcase/
-  kang-ai-autocut-hero.png   hero banner
-  variant-preview.gif        variant preview      (future)
-  contact-sheet.png          shot contact sheet   (future)
-```
-
-Production figures are added here only when a production record lands in this
-repository. Until then this section stays visibly empty rather than illustrative.
+The master and source media remain in the production workspace outside Git; this
+repository does not publish a video preview or master. This milestone demonstrates
+a supervised real-SKU workflow, not an unattended run or a claim that every formal
+eight-stage Fast Path gate passed.
 
 ---
 
@@ -354,7 +352,7 @@ Full policy: [`docs/policies/audio-intelligence.md`](docs/policies/audio-intelli
 | Source-range extraction | every range resolved from a measured timestamp |
 | Picture execution | produces a real video artifact, re-measured afterwards |
 | Narration coverage | runs before any paid voice generation |
-| Typography rendering | real output from the job's own layout and fonts |
+| Typography rendering | job-authored titles and opt-in, final-VO-aligned spoken captions; both used in the Cushion Puff result |
 | Audio mixing and mastering | real mix, with measured loudness, true peak and clipping |
 | Packaging and final master | `final/master.mp4` plus measured technical QA |
 | Review contract and release verdict | every dimension judged once; verdict derived, not asserted |
@@ -376,6 +374,11 @@ adapter, or a person:
 | KEEP / REVIEW / CORRECT decision | the decision runs; nothing here acts on a `CORRECT` |
 | Audio program verification (FIT / SYNC / RHYTHM) | the voice placement it consumes |
 | Voice / music generation | supplied by a provider adapter; **not built in** |
+
+Commercial Strategy v1, Commercial Intelligence v1 and Commercial Copy v1 are
+**`CONTRACT_ONLY / NOT_WIRED`**: their schemas, validators, examples and tests exist,
+but no registered producer generates them in the production path. The Cushion Puff
+strategy and copy were authored and approved within that job.
 
 ### Planned / extensible
 
@@ -712,19 +715,19 @@ is a logical role resolved from an environment variable; see
 | Freeze status | `CLOSED_AND_FROZEN` |
 | Exam validity | `PASS_WITH_EXPLICIT_PRODUCER_GATES` |
 | Production-validated scope | Commercial advertising / e-commerce video |
-| Regression suite | 1221 passing, offline, no network required |
+| Regression suite | 1,933 passing on 2026-09-28, offline, no network required |
 
 A working **gated production control path** exists and has produced real,
 independently verified delivery masters. It is still not an unattended one-click
 editor, and it does not claim to be — Producer decisions remain part of the
 workflow by design.
 
-**Several commercial video variants have now been produced through the end-to-end
-workflow.** Recent runs demonstrated a shape where human intervention is
-concentrated at creative-copy approval and final producer review, while material
-understanding, edit planning, picture production, typography, audio production,
-mastering, QA and repair proceeded through the production system. That is a
-demonstration of a workflow, not a claim that the system is fully autonomous.
+The first documented real-SKU milestone is the Human-approved **Cushion Puff /
+Indonesia TikTok Commerce** video described above. Its product facts, claims,
+copy, voice, picture, captions, titles and final render were handled with named
+human decisions and job records. This validates that supervised production
+result; it does not make the contract-only Commercial modules live generators or
+turn the system into an autonomous one-click editor.
 
 ---
 

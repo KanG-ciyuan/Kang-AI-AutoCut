@@ -13,7 +13,7 @@
 [![FFmpeg](https://img.shields.io/badge/ffmpeg-required-007808)](README.md#installation)
 [![Local-first](https://img.shields.io/badge/local--first-yes-4c1)](docs/decisions/ADR-0007-local-first.md)
 [![Agent-oriented](https://img.shields.io/badge/agent--oriented-yes-8957e5)](README.md#use-with-an-ai-agent)
-[![Tests](https://img.shields.io/badge/tests-1221%20passing-brightgreen)](README.md#installation)
+[![Tests](https://img.shields.io/badge/tests-1933%20passing-brightgreen)](README.md#installation)
 [![macOS](https://img.shields.io/badge/macOS-tested-000000)](README.md#installation)
 [![Baseline](https://img.shields.io/badge/baseline-pre--third--SKU-orange)](README.md#frozen-baseline)
 
@@ -85,19 +85,16 @@ Variant 01   ·   Variant 02   ·   Variant 03   ·   …
 
 ## 生产示例
 
-*生产展示正在准备中。*
+**第一个真实 SKU 生产里程碑：气垫粉扑 / Indonesia TikTok Commerce。**
+这条 24 秒竖屏视频完成了 Product Truth 与 Seller Confirmation、视觉证据与
+宣称边界审阅、经批准的 Commercial Copy、固定 Creator Reference Voice 与选定
+VO、画面规划和剪辑、标题与口播字幕、最终渲染，并通过 **Human Final Review：PASS**。
+人工批准绑定的是精确的最终成片，不代表普遍的质量保证。详见
+[生产状态与证据边界](docs/audit/cushion-puff-production-state.md)。
 
-本仓库目前不发布任何生产母版，也不会为了填满这一节而虚构内容。这里是留给真实产物的位置：
-
-```
-assets/showcase/
-  kang-ai-autocut-hero.png   主视觉横幅
-  variant-preview.gif        版本预览（未来）
-  contact-sheet.png          镜头联系表（未来）
-```
-
-只有在生产记录进入本仓库之后，才会在这里补充生产数据。在此之前，这一节会保持可见的空缺，
-而不是用示意性内容填充。
+母版与原始素材仍保存在 Git 之外的生产工作区；本仓库不发布视频预览或母版。
+这一里程碑证明的是有人参与决策的真实 SKU 生产流程，不代表无人值守运行，
+也不声称正式八阶段 Fast Path 的每一道门禁都已通过。
 
 ---
 
@@ -293,7 +290,7 @@ USER VIEW                          SYSTEM VIEW (8 stages)
 | 源区间抽取 | 每一个区间都由实测时间戳解析得出 |
 | 画面执行 | 产出真实的视频产出物，并在之后重新度量 |
 | 旁白覆盖度 | 在任何付费语音生成之前运行 |
-| 文字排版渲染 | 用任务自身的版式与字体产出真实结果 |
+| 文字排版渲染 | 任务产出的标题及可选、与最终 VO 对齐的口播字幕；两者已用于气垫粉扑成片 |
 | 音频混音与母版制作 | 真实的混音，并度量响度、真峰值与削波 |
 | 打包与最终母版 | `final/master.mp4`，外加经过度量的技术质检 |
 | 审阅契约与放行结论 | 每个维度只判定一次；结论是推导出来的，而不是断言的 |
@@ -314,6 +311,10 @@ USER VIEW                          SYSTEM VIEW (8 stages)
 | KEEP / REVIEW / CORRECT 决策 | 决策会运行；但本仓库中没有任何组件会依据 `CORRECT` 采取动作 |
 | 音频节目校验（FIT / SYNC / RHYTHM） | 它所消费的语音落点（voice placement） |
 | 语音 / 音乐生成 | 由服务商适配器提供；**非内置** |
+
+Commercial Strategy v1、Commercial Intelligence v1 与 Commercial Copy v1 仍为
+**`CONTRACT_ONLY / NOT_WIRED`**：已有 schema、校验器、样例与测试，但生产路径中
+没有注册的 Producer 自动生成这些内容。气垫粉扑的策略与文案是在该任务内编写并获得批准的。
 
 ### 计划中 / 可扩展
 
@@ -553,11 +554,14 @@ config/examples/         configuration template
 | 冻结状态 | `CLOSED_AND_FROZEN` |
 | 考核有效性 | `PASS_WITH_EXPLICIT_PRODUCER_GATES` |
 | 已通过生产验证的范围 | 商业广告 / 电商视频 |
-| 回归测试套件 | 1221 项通过，离线运行，无需网络 |
+| 回归测试套件 | 2026-09-28 共 1,933 项通过，离线运行，无需网络 |
 
 一条可用的**带门禁的生产控制路径**已经存在，并已产出真实的、经过独立验证的交付母版。它仍然不是无人值守的一键剪辑器，也从未声称自己是 —— Producer 决策按设计仍是流程的一部分。
 
-**目前已有多个商业视频版本通过端到端流程完成生产。** 近期运行展现出这样一种形态：人工介入主要集中在创意文案审批与 Producer 终审，而素材理解、剪辑规划、画面生产、文字排版、音频生产、母版制作、QA 与修复都可以由生产系统推进。这是对一种工作流的验证，而不是"系统已经全自动"的声明。
+首个有正式记录的真实 SKU 里程碑，是上文已获人工批准的**气垫粉扑 / Indonesia
+TikTok Commerce** 视频。产品事实、宣称、文案、声音、画面、字幕、标题与最终
+渲染都有明确的人工决策和任务记录。这验证的是该次有人参与的生产结果，不会
+让合约阶段的 Commercial 模块变成已接入的生成器，也不会让系统变成一键自动剪辑器。
 
 ---
 
